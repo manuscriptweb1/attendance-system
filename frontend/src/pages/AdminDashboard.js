@@ -6,7 +6,8 @@ import { getDashboardStats, getAllAttendance, getTrustedDeviceStats, getAdminAct
 import { formatTime, formatWorkingHours, formatDate } from '../utils/formatTime';
 import {
   FiUsers, FiCheckCircle, FiClock, FiHome, FiXCircle, FiActivity, FiSmartphone,
-  FiAlertTriangle, FiPlus, FiSettings, FiCalendar, FiDatabase, FiServer, FiWifi, FiMail
+  FiAlertTriangle, FiPlus, FiSettings, FiCalendar, FiDatabase, FiServer, FiWifi, FiMail,
+  FiDollarSign, FiUserCheck
 } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 
@@ -104,7 +105,7 @@ const LineChart = ({ data }) => {
 
 /* ─── MAIN COMPONENT ─── */
 const AdminDashboard = () => {
-  const [stats, setStats] = useState({ totalEmployees:0, presentToday:0, lateEmployees:0, wfhEmployees:0, absentEmployees:0, currentlyWorking:0 });
+  const [stats, setStats] = useState({ totalEmployees:0, activeEmployees:0, currentlyWorking:0, monthlyPayroll:0 });
   const [deviceStats, setDeviceStats] = useState({ pendingDevices:0, approvedDevices:0, rejectedDevices:0, blockedDevices:0, totalDevices:0 });
   const [activityStats, setActivityStats] = useState({ today:0, thisWeek:0, total:0 });
   const [recentActivities, setRecentActivities] = useState([]);
@@ -262,12 +263,13 @@ const AdminDashboard = () => {
           {/* 2. EMPLOYEE OVERVIEW (Today) */}
           <div className="mb-6 animate-fadeInUp stagger-2">
             <h2 className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-3 px-1">Employee Overview (Today)</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {[
                 { title: 'Total Employees', value: stats.totalEmployees, icon: FiUsers,       baseBg: 'bg-indigo-500/5', hoverBg: 'group-hover:bg-indigo-500/20', color: 'text-indigo-400', border: 'border-indigo-500/20', iconBg: 'bg-indigo-500/10' },
-                { title: 'Present Today',   value: stats.presentToday,   icon: FiCheckCircle, baseBg: 'bg-emerald-500/5', hoverBg: 'group-hover:bg-emerald-500/20', color: 'text-emerald-400', border: 'border-emerald-500/20', iconBg: 'bg-emerald-500/10' },
-                { title: 'Absent Today',    value: stats.absentEmployees,icon: FiXCircle,     baseBg: 'bg-red-500/5', hoverBg: 'group-hover:bg-red-500/20', color: 'text-red-400', border: 'border-red-500/20', iconBg: 'bg-red-500/10' },
-                { title: 'Late Today',      value: stats.lateEmployees,  icon: FiClock,       baseBg: 'bg-amber-500/5', hoverBg: 'group-hover:bg-amber-500/20', color: 'text-amber-400', border: 'border-amber-500/20', iconBg: 'bg-amber-500/10' }
+                { title: 'Active Employees',value: stats.activeEmployees,icon: FiUserCheck,   baseBg: 'bg-emerald-500/5', hoverBg: 'group-hover:bg-emerald-500/20', color: 'text-emerald-400', border: 'border-emerald-500/20', iconBg: 'bg-emerald-500/10' },
+                { title: 'Currently Working',value: stats.currentlyWorking,icon: FiClock,     baseBg: 'bg-blue-500/5', hoverBg: 'group-hover:bg-blue-500/20', color: 'text-blue-400', border: 'border-blue-500/20', iconBg: 'bg-blue-500/10' },
+                { title: 'Absent Today',     value: absentCount,            icon: FiXCircle,   baseBg: 'bg-red-500/5',   hoverBg: 'group-hover:bg-red-500/20', color: 'text-red-400', border: 'border-red-500/20', iconBg: 'bg-red-500/10' },
+                { title: 'Est. Monthly Payroll', value: `₹${stats.monthlyPayroll?.toLocaleString() || 0}`, icon: FiDollarSign, baseBg: 'bg-purple-500/5', hoverBg: 'group-hover:bg-purple-500/20', color: 'text-purple-400', border: 'border-purple-500/20', iconBg: 'bg-purple-500/10' }
               ].map(card => (
                 <div key={card.title} className="bg-[#161D2E] border border-white/[0.06] rounded-2xl p-5 shadow-clay-admin hover:-translate-y-1 transition-transform duration-300 relative overflow-hidden group">
                   <div className={`absolute top-0 right-0 w-24 h-24 rounded-bl-full ${card.baseBg} ${card.hoverBg} transition-all duration-300 group-hover:scale-110`} />
@@ -293,9 +295,9 @@ const AdminDashboard = () => {
               <h2 className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-3 px-1">Today's Attendance Summary</h2>
               <div className="grid grid-cols-2 gap-4 h-[calc(100%-28px)]">
                 {[
-                  { title: 'Working From Home', value: stats.wfhEmployees, color: 'border-blue-500/50' },
+                  { title: 'Working From Home', value: wfhCount, color: 'border-blue-500/50' },
                   { title: 'Half Day Today',    value: halfDayCount,       color: 'border-yellow-500/50' },
-                  { title: 'Currently Working', value: stats.currentlyWorking, color: 'border-purple-500/50' },
+                  { title: 'Late Today',        value: lateCount,          color: 'border-amber-500/50' },
                   { title: 'Checked Out Today', value: checkedOutCount,    color: 'border-slate-500/50' }
                 ].map(item => (
                   <div key={item.title} className={`bg-[#161D2E] border-l-2 ${item.color} border-y border-y-white/[0.06] border-r border-r-white/[0.06] rounded-r-2xl p-4 shadow-clay-admin flex flex-col justify-center`}>

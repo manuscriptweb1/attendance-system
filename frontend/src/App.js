@@ -34,6 +34,9 @@ import AdminOTPSettings from './pages/AdminOTPSettings';
 import AdminSecurityLogs from './pages/AdminSecurityLogs';
 import AdminTrustedDevices from './pages/AdminTrustedDevices';
 import AdminActivityLogs from './pages/AdminActivityLogs';
+import AdminPayroll from './pages/AdminPayroll';
+import AdminExpenses from './pages/AdminExpenses';
+import AdminReports from './pages/AdminReports';
 
 // Employee Pages
 import EmployeeDashboard from './pages/EmployeeDashboard';
@@ -305,6 +308,30 @@ function App() {
             element={
               <ProtectedRoute requiredRole="admin">
                 <AdminActivityLogs />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/payroll"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminPayroll />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/expenses"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminExpenses />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/reports"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminReports />
               </ProtectedRoute>
             }
           />

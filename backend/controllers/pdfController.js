@@ -1,6 +1,7 @@
 const pool = require('../config/database');
 const { generateMonthlyAttendancePDF, generateAdminLoginLogsPDF } = require('../utils/pdfGenerator');
 const { generateMonthlyAttendanceMatrixPDF, generateMonthlyAttendanceMatrixExcel } = require('../utils/attendanceMatrixGenerator');
+const { buildMonthlyAttendanceMatrixAndSummary } = require('../services/attendanceReportService');
 const fs = require('fs');
 const path = require('path');
 
@@ -16,34 +17,9 @@ const generateMonthlyMatrixPDF = async (req, res) => {
       });
     }
 
-    // Fetch ALL active employees and their attendance for the month
-    const result = await pool.query(
-      `SELECT 
-        e.id as employee_db_id,
-        e.employee_id, 
-        e.name, 
-        e.mobile, 
-        e.job_role,
-        d.name as department,
-        a.id as attendance_id,
-        a.attendance_date,
-        a.login_time,
-        a.logout_time,
-        a.attendance_status,
-        a.total_working_hours,
-        a.absent_reason,
-        a.validation_method
-       FROM employees e
-       LEFT JOIN departments d ON e.department_id = d.id
-       LEFT JOIN attendance a ON e.employee_id = a.employee_id 
-         AND EXTRACT(MONTH FROM a.attendance_date) = $1 
-         AND EXTRACT(YEAR FROM a.attendance_date) = $2
-       WHERE e.status = 'Active'
-       ORDER BY e.name, a.attendance_date`,
-      [month, year]
-    );
+    const { matrixRows, holidaysResult, maxDay, attendanceData } = await buildMonthlyAttendanceMatrixAndSummary(month, year);
 
-    if (result.rows.length === 0) {
+    if (matrixRows.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'No active employees found'
@@ -52,9 +28,12 @@ const generateMonthlyMatrixPDF = async (req, res) => {
 
     // Generate PDF Matrix
     const { filePath, fileName } = await generateMonthlyAttendanceMatrixPDF(
-      result.rows,
+      matrixRows,
       month,
-      year
+      year,
+      maxDay,
+      holidaysResult.rows,
+      attendanceData
     );
 
     // Send file
@@ -96,34 +75,9 @@ const generateMonthlyMatrixExcel = async (req, res) => {
       });
     }
 
-    // Fetch ALL active employees and their attendance for the month
-    const result = await pool.query(
-      `SELECT 
-        e.id as employee_db_id,
-        e.employee_id, 
-        e.name, 
-        e.mobile, 
-        e.job_role,
-        d.name as department,
-        a.id as attendance_id,
-        a.attendance_date,
-        a.login_time,
-        a.logout_time,
-        a.attendance_status,
-        a.total_working_hours,
-        a.absent_reason,
-        a.validation_method
-       FROM employees e
-       LEFT JOIN departments d ON e.department_id = d.id
-       LEFT JOIN attendance a ON e.employee_id = a.employee_id 
-         AND EXTRACT(MONTH FROM a.attendance_date) = $1 
-         AND EXTRACT(YEAR FROM a.attendance_date) = $2
-       WHERE e.status = 'Active'
-       ORDER BY e.name, a.attendance_date`,
-      [month, year]
-    );
+    const { matrixRows, holidaysResult, maxDay, attendanceData } = await buildMonthlyAttendanceMatrixAndSummary(month, year);
 
-    if (result.rows.length === 0) {
+    if (matrixRows.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'No active employees found'
@@ -132,9 +86,12 @@ const generateMonthlyMatrixExcel = async (req, res) => {
 
     // Generate Excel Matrix
     const { filePath, fileName } = await generateMonthlyAttendanceMatrixExcel(
-      result.rows,
+      matrixRows,
       month,
-      year
+      year,
+      maxDay,
+      holidaysResult.rows,
+      attendanceData
     );
 
     // Send file

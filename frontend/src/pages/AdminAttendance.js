@@ -211,7 +211,7 @@ const AdminAttendance = () => {
               <div className="overflow-x-auto dark-scroll">
                 <table className="min-w-full divide-y divide-white/[0.04]">
                   <thead className="bg-[#0E1320]/80">
-                    <tr>{['Date','Emp ID','Name','Dept','Check In','Check Out','Hours','Status','Absent Reason','Type','Actions'].map(h => (
+                    <tr>{['Date','Emp ID','Name','Dept','Check In','Check Out','Hours','Late/Early','Status','Absent Reason','Type','Actions'].map(h => (
                       <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-[#64748B] uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}</tr>
                   </thead>
@@ -228,6 +228,27 @@ const AdminAttendance = () => {
                           {r.is_auto_checkout && r.logout_time && <span className="block text-[10px] text-amber-500/80 font-bold mt-0.5">(Auto)</span>}
                         </td>
                         <td className="px-5 py-4 text-xs text-[#CBD5E1] font-mono whitespace-nowrap">{r.logout_time ? formatWorkingHours(parseFloat(r.total_working_hours)) : '—'}</td>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          {(() => {
+                            const isLate = r.late_minutes > 0;
+                            const isEarly = r.early_minutes > 0;
+                            const isLateStatus = r.checkin_status === 'late' || String(r.attendance_status || '').toLowerCase() === 'late';
+                            
+                            if (isLate && isEarly) {
+                              return (
+                                <>
+                                  <span className="block text-[10px] text-amber-500 font-bold">Late: {r.late_minutes}m</span>
+                                  <span className="block text-[10px] text-purple-400 font-bold">Early: {r.early_minutes}m</span>
+                                </>
+                              );
+                            }
+                            if (isLate) return <span className="block text-[10px] text-amber-500 font-bold">Late: {r.late_minutes}m</span>;
+                            if (isEarly) return <span className="block text-[10px] text-purple-400 font-bold">Early: {r.early_minutes}m</span>;
+                            if (isLateStatus) return <span className="block text-[10px] text-amber-500 font-bold">Late</span>;
+                            if (r.login_time) return <span className="text-[10px] text-emerald-400 font-bold">On Time</span>;
+                            return <span className="text-[10px] text-[#64748B]">—</span>;
+                          })()}
+                        </td>
                         <td className="px-5 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <StatusBadge status={r.attendance_status || 'Absent'} dark />

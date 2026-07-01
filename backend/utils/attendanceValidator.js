@@ -1,6 +1,7 @@
 const { getSettingsFromDB } = require('./settingsHelper');
 const { validateLocation, validateGPSAccuracy } = require('./locationValidator');
 const { validateNetwork } = require('../services/networkValidationService');
+const { parseTime } = require('./timeUtils');
 
 /**
  * Validate attendance based on configured mode
@@ -221,7 +222,9 @@ const calculateAttendanceStatus = async (isWFH) => {
   const currentHour = localTime.getUTCHours();
   const currentMinute = localTime.getUTCMinutes();
 
-  const [lateHour, lateMinute] = settings.workingHours.lateAfterTime.split(':').map(Number);
+  const lateMinutesFromMidnight = parseTime(settings.workingHours.lateAfterTime);
+  const lateHour = Math.floor(lateMinutesFromMidnight / 60);
+  const lateMinute = lateMinutesFromMidnight % 60;
   
   let attendanceStatus = 'Present';
   

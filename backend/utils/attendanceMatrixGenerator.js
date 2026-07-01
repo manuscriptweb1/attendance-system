@@ -6,22 +6,11 @@ const path = require('path');
  * Generate Monthly Attendance Matrix - PDF Format
  * Creates a date-wise attendance matrix with color coding
  */
-const generateMonthlyAttendanceMatrixPDF = async (attendanceData, month, year, holidays = []) => {
+const generateMonthlyAttendanceMatrixPDF = async (matrixRows, month, year, maxDay, holidaysRows = [], attendanceData = []) => {
   return new Promise(async (resolve, reject) => {
     try {
-      const pool = require('../config/database');
-      
-      // Fetch holidays for the month
-      const holidaysResult = await pool.query(
-        `SELECT * FROM holidays 
-         WHERE EXTRACT(MONTH FROM holiday_date) = $1 
-         AND EXTRACT(YEAR FROM holiday_date) = $2 
-         AND is_enabled = true`,
-        [month, year]
-      );
-      
       const holidayMap = {};
-      holidaysResult.rows.forEach(h => {
+      holidaysRows.forEach(h => {
         const day = new Date(h.holiday_date).getDate();
         holidayMap[day] = h;
       });
@@ -44,46 +33,10 @@ const generateMonthlyAttendanceMatrixPDF = async (attendanceData, month, year, h
       const stream = fs.createWriteStream(filePath);
       doc.pipe(stream);
 
-      // Get days in month and current date
+      // Get days in month
       const daysInMonth = new Date(year, month, 0).getDate();
-      const today = new Date();
-      const currentYear = today.getFullYear();
-      const currentMonth = today.getMonth() + 1;
-      const currentDay = today.getDate();
       
-      // Determine max day to show (only up to current date if it's current month)
-      let maxDay = daysInMonth;
-      if (parseInt(year) === currentYear && parseInt(month) === currentMonth) {
-        maxDay = currentDay;
-      }
-      
-      // Organize data by employee
-      const employeeMap = {};
-      attendanceData.forEach(record => {
-        const empId = record.employee_id;
-        if (!employeeMap[empId]) {
-          employeeMap[empId] = {
-            id: empId,
-            name: record.name,
-            department: record.department,
-            attendance: {}
-          };
-        }
-        
-        // Only add attendance if there's actual attendance data
-        if (record.attendance_date) {
-          const day = new Date(record.attendance_date).getDate();
-          // Only include if within valid range
-          if (day <= maxDay) {
-            employeeMap[empId].attendance[day] = {
-              code: getAttendanceCodeFromDB(record),
-              record: record
-            };
-          }
-        }
-      });
-
-      const employees = Object.values(employeeMap);
+      const employees = matrixRows;
 
       // Header
       doc.fontSize(18)
@@ -158,13 +111,13 @@ const generateMonthlyAttendanceMatrixPDF = async (attendanceData, month, year, h
         doc.fontSize(7)
            .font('Helvetica')
            .fillColor('#000000')
-           .text(employee.name, startX + 5, currentY + 6, { width: nameColWidth - 10 });
+           .text(employee.employeeName, startX + 5, currentY + 6, { width: nameColWidth - 10 });
 
         // Draw attendance cells
         for (let day = 1; day <= maxDay; day++) {
           const x = startX + nameColWidth + ((day - 1) * dateColWidth);
-          const attendanceCode = employee.attendance[day]?.code || null;
-          const attendanceRecord = employee.attendance[day]?.record || null;
+          const attendanceCode = employee.days[day]?.code || null;
+          const attendanceRecord = employee.days[day]?.record || null;
           
           // Get cell info (Sunday > Holiday > Attendance)
           const cellInfo = getDateCellInfo(day, parseInt(year), parseInt(month), holidayMap, attendanceCode);
@@ -211,9 +164,9 @@ const generateMonthlyAttendanceMatrixPDF = async (attendanceData, month, year, h
       });
 
       // Add Holidays Table at the bottom
-      if (holidaysResult.rows.length > 0) {
+      if (holidaysRows.length > 0) {
         // Check if we need a new page for the holidays table
-        const holidaysTableHeight = 80 + (holidaysResult.rows.length * 20);
+        const holidaysTableHeight = 80 + (holidaysRows.length * 20);
         if (currentY + holidaysTableHeight > 550) {
           doc.addPage({ size: 'A3', layout: 'landscape', margin: 20 });
           currentY = 50;
@@ -249,13 +202,13 @@ const generateMonthlyAttendanceMatrixPDF = async (attendanceData, month, year, h
 
         currentY += 20;
 
-        // Holidays Table Rows
-        holidaysResult.rows.forEach((holiday, index) => {
+        // Holiday rows
+        holidaysRows.forEach((holiday, i) => {
           const holidayDate = new Date(holiday.holiday_date);
           const formattedDate = `${holidayDate.getDate()} ${getMonthName(holidayDate.getMonth() + 1).substring(0, 3)} ${holidayDate.getFullYear()}`;
 
           // Alternate row background
-          if (index % 2 === 0) {
+          if (i % 2 === 0) {
             doc.rect(startX, currentY, holidayTableWidth, 20)
                .fill('#F9FAFB');
           }
@@ -369,68 +322,22 @@ const generateMonthlyAttendanceMatrixPDF = async (attendanceData, month, year, h
 /**
  * Generate Monthly Attendance Matrix - Excel Format
  */
-const generateMonthlyAttendanceMatrixExcel = async (attendanceData, month, year) => {
+const generateMonthlyAttendanceMatrixExcel = async (matrixRows, month, year, maxDay, holidaysRows = [], attendanceData = []) => {
   try {
-    const pool = require('../config/database');
     const ExcelJS = require('exceljs');
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Attendance Report');
 
-    // Fetch holidays for the month
-    const holidaysResult = await pool.query(
-      `SELECT * FROM holidays 
-       WHERE EXTRACT(MONTH FROM holiday_date) = $1 
-       AND EXTRACT(YEAR FROM holiday_date) = $2 
-       AND is_enabled = true`,
-      [month, year]
-    );
-    
     const holidayMap = {};
-    holidaysResult.rows.forEach(h => {
+    holidaysRows.forEach(h => {
       const day = new Date(h.holiday_date).getDate();
       holidayMap[day] = h;
     });
 
-    // Get days in month and current date
+    // Get days in month
     const daysInMonth = new Date(year, month, 0).getDate();
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth() + 1;
-    const currentDay = today.getDate();
     
-    // Determine max day to show
-    let maxDay = daysInMonth;
-    if (parseInt(year) === currentYear && parseInt(month) === currentMonth) {
-      maxDay = currentDay;
-    }
-
-    // Organize data by employee
-    const employeeMap = {};
-    attendanceData.forEach(record => {
-      const empId = record.employee_id;
-      if (!employeeMap[empId]) {
-        employeeMap[empId] = {
-          id: empId,
-          name: record.name,
-          department: record.department,
-          attendance: {}
-        };
-      }
-      
-      // Only add attendance if there's actual attendance data
-      if (record.attendance_date) {
-        const day = new Date(record.attendance_date).getDate();
-        // Only include if within valid range
-        if (day <= maxDay) {
-          employeeMap[empId].attendance[day] = {
-            code: getAttendanceCodeFromDB(record),
-            record: record
-          };
-        }
-      }
-    });
-
-    const employees = Object.values(employeeMap);
+    const employees = matrixRows;
 
     // Configure worksheet properties for cleaner look
     worksheet.properties.defaultRowHeight = 18;
@@ -498,7 +405,7 @@ const generateMonthlyAttendanceMatrixExcel = async (attendanceData, month, year)
       
       // Employee name
       const nameCell = row.getCell(1);
-      nameCell.value = employee.name;
+      nameCell.value = employee.employeeName;
       nameCell.alignment = { horizontal: 'left', vertical: 'middle' };
       nameCell.border = {
         top: { style: 'thin' },
@@ -510,8 +417,8 @@ const generateMonthlyAttendanceMatrixExcel = async (attendanceData, month, year)
       // Attendance cells (1 to maxDay only)
       for (let day = 1; day <= maxDay; day++) {
         const cell = row.getCell(day + 1);
-        const attendanceCode = employee.attendance[day]?.code || null;
-        const attendanceRecord = employee.attendance[day]?.record || null;
+        const attendanceCode = employee.days[day]?.code || null;
+        const attendanceRecord = employee.days[day]?.record || null;
         
         // Get cell info (Sunday > Holiday > Attendance)
         const cellInfo = getDateCellInfo(day, parseInt(year), parseInt(month), holidayMap, attendanceCode);
@@ -559,27 +466,6 @@ const generateMonthlyAttendanceMatrixExcel = async (attendanceData, month, year)
                 inset: [0.25, 0.25, 0.35, 0.35]
               }
             };
-          } else if (cellInfo.type === 'attendance' && attendanceRecord) {
-            let noteTexts = [];
-            
-            if (attendanceRecord.validation_method === 'Manual') {
-              noteTexts.push({ font: { bold: true, size: 10, name: 'Calibri', color: { argb: 'FF8B5CF6' } }, text: '[Manual Entry]\n' });
-            }
-            if (attendanceRecord.absent_reason) {
-              noteTexts.push({ font: { bold: true, size: 10, name: 'Calibri' }, text: 'Absent Reason:\n' });
-              noteTexts.push({ font: { size: 9, name: 'Calibri' }, text: attendanceRecord.absent_reason + '\n' });
-            }
-            if (attendanceRecord.remarks) {
-              noteTexts.push({ font: { bold: true, size: 10, name: 'Calibri' }, text: 'Remarks:\n' });
-              noteTexts.push({ font: { size: 9, name: 'Calibri' }, text: attendanceRecord.remarks });
-            }
-
-            if (noteTexts.length > 0) {
-              cell.note = { texts: noteTexts, margins: { insetmode: 'custom', inset: [0.25, 0.25, 0.35, 0.35] } };
-              // Add visual indicator to cell
-              displayText += (attendanceRecord.validation_method === 'Manual' ? ' (M)' : '');
-              cell.value = displayText;
-            }
           }
         } else {
           // Leave blank with just border
@@ -598,7 +484,7 @@ const generateMonthlyAttendanceMatrixExcel = async (attendanceData, month, year)
     });
 
     // Add Holidays Table below the attendance matrix
-    if (holidaysResult.rows.length > 0) {
+    if (holidaysRows.length > 0) {
       const holidaysStartRow = 6 + employees.length + 3; // 3 rows gap after attendance matrix
 
       // Holidays Table Title - span across 4 columns (A to D)
@@ -647,7 +533,7 @@ const generateMonthlyAttendanceMatrixExcel = async (attendanceData, month, year)
       headerRow.height = 20;
 
       // Holidays Table Data Rows
-      holidaysResult.rows.forEach((holiday, index) => {
+      holidaysRows.forEach((holiday, index) => {
         const dataRow = worksheet.getRow(holidaysStartRow + 2 + index);
         const holidayDate = new Date(holiday.holiday_date);
         
@@ -708,7 +594,7 @@ const generateMonthlyAttendanceMatrixExcel = async (attendanceData, month, year)
     });
     
     // Set column widths based on whether holidays table exists
-    if (holidaysResult.rows.length > 0) {
+    if (holidaysRows.length > 0) {
       // Holidays table exists - set widths for attendance matrix first
       worksheet.getColumn(1).width = maxNameLength; // Employee Name
       
@@ -736,7 +622,7 @@ const generateMonthlyAttendanceMatrixExcel = async (attendanceData, month, year)
     }
 
     // Set print area - attendance matrix uses full width, holidays table below uses columns A-D
-    const lastRow = 6 + employees.length - 1 + (holidaysResult.rows.length > 0 ? (3 + holidaysResult.rows.length + 1) : 0);
+    const lastRow = 6 + employees.length - 1 + (holidaysRows.length > 0 ? (3 + holidaysRows.length + 1) : 0);
     const lastColLetter = String.fromCharCode(65 + maxDay); // Attendance matrix width
     worksheet.pageSetup.printArea = `A1:${lastColLetter}${lastRow}`;
 
@@ -771,7 +657,7 @@ const generateMonthlyAttendanceMatrixExcel = async (attendanceData, month, year)
     if (absentReasonsList.length > 0) {
       // Calculate start row: after matrix + gap + holidays
       const matrixEndRow = 5 + employees.length; // rows 1-5 header, then employee rows
-      const holidayBlockRows = holidaysResult.rows.length > 0 ? (2 + holidaysResult.rows.length + 2) : 0;
+      const holidayBlockRows = holidaysRows.length > 0 ? (2 + holidaysRows.length + 2) : 0;
       const absentStartRow = matrixEndRow + holidayBlockRows + 3;
 
       // Title

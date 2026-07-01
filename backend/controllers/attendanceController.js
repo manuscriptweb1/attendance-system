@@ -2,6 +2,7 @@ const pool = require('../config/database');
 const crypto = require('crypto');
 const { validateAttendance, calculateAttendanceStatus } = require('../utils/attendanceValidator');
 const { getSettingsFromDB } = require('../utils/settingsHelper');
+const { parseTime, getOfficeTimes, getLocalMinutesFromUTC } = require('../utils/timeUtils');
 const { logDeviceFingerprint, registerTrustedDevice, isTrustedDeviceApproved, generateFingerprint, validateTrustedDevice, parseDeviceInfo } = require('../services/deviceFingerprintService');
 const { getClientIP, validateNetwork } = require('../services/networkValidationService');
 const { logAudit, AUDIT_ACTIONS, AUDIT_STATUS } = require('../services/auditService');
@@ -194,11 +195,10 @@ const checkIn = async (req, res) => {
     const currentMinute = localTime.getUTCMinutes();
     const currentTimeInMinutes = currentHour * 60 + currentMinute;
 
-    const [startHour, startMinute] = settings.workingHours.officeStartTime.split(':').map(Number);
-    const startTimeInMinutes = startHour * 60 + startMinute;
-
-    const [endHour, endMinute] = settings.workingHours.officeEndTime.split(':').map(Number);
-    const endTimeInMinutes = endHour * 60 + endMinute;
+    const officeTimes = getOfficeTimes(settings);
+    const startTimeInMinutes = officeTimes.startTime;
+    const endTimeInMinutes = officeTimes.endTime;
+    const lateTimeInMinutes = officeTimes.lateTime;
 
     // Check if before office start time
     if (currentTimeInMinutes < startTimeInMinutes) {
@@ -492,6 +492,16 @@ const checkIn = async (req, res) => {
 
     const sessionId = crypto.randomUUID();
 
+    // Calculate Late
+    
+    let checkin_status = 'on_time';
+    let late_minutes = 0;
+    
+    if (currentTimeInMinutes > lateTimeInMinutes) {
+        checkin_status = 'late';
+        late_minutes = currentTimeInMinutes - lateTimeInMinutes;
+    }
+
     // Insert or update attendance
     let result;
     if (existingAttendance.rows.length > 0) {
@@ -513,13 +523,16 @@ const checkIn = async (req, res) => {
              trusted_device_id = $13,
              device_source = $14,
              desktop_public_key_hash = $15,
+             checkin_status = $16,
+             late_minutes = $17,
              updated_at = CURRENT_TIMESTAMP
-         WHERE employee_id = $16 AND attendance_date = $17
+         WHERE employee_id = $18 AND attendance_date = $19
          RETURNING *`,
         [latitude, longitude, address, attendanceStatus, isWFH, 
          device_info, browser_info, clientIP, accuracy, 
          deviceData ? deviceData.fingerprint : null, validationResult.method, sessionId,
          trustedDeviceId, deviceSource, desktopPublicKeyHash,
+         checkin_status, late_minutes,
          employeeCode, today]
       );
     } else {
@@ -528,13 +541,13 @@ const checkIn = async (req, res) => {
          (employee_id, attendance_date, login_time, latitude_login, longitude_login, 
           address_login, attendance_status, is_wfh, device_info, browser_info, 
           ip_address, gps_accuracy, device_fingerprint, validation_method, session_id,
-          trusted_device_id, device_source, desktop_public_key_hash)
-         VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          trusted_device_id, device_source, desktop_public_key_hash, checkin_status, late_minutes)
+         VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
          RETURNING *`,
         [employeeCode, today, latitude, longitude, address, attendanceStatus, 
          isWFH, device_info, browser_info, clientIP, accuracy,
          deviceData ? deviceData.fingerprint : null, validationResult.method, sessionId,
-         trustedDeviceId, deviceSource, desktopPublicKeyHash]
+         trustedDeviceId, deviceSource, desktopPublicKeyHash, checkin_status, late_minutes]
       );
     }
 
@@ -863,27 +876,28 @@ const checkOut = async (req, res) => {
     const hasEarlyCheckoutPermission = earlyCheckoutResult.rows.length > 0 && 
                                         earlyCheckoutResult.rows[0].is_enabled;
 
+    // Get current time in IST (UTC+5:30)
+    const currentTime = new Date();
+    const istOffset = 5.5 * 60; // IST is UTC+5:30 in minutes
+    const localTime = new Date(currentTime.getTime() + (istOffset * 60 * 1000));
+    const currentHour = localTime.getUTCHours();
+    const currentMinute = localTime.getUTCMinutes();
+    const currentTimeInMinutes = currentHour * 60 + currentMinute;
+
+    const officeTimes = getOfficeTimes(settings);
+    const endTimeInMinutes = officeTimes.endTime;
+
+    console.log('=== CHECK-OUT TIME VALIDATION ===');
+    console.log('System Time:', currentTime.toISOString());
+    console.log('IST Time:', localTime.toISOString());
+    console.log('Current Hour:', currentHour, 'Minute:', currentMinute);
+    console.log('Current Time (minutes):', currentTimeInMinutes);
+    console.log('Office End Time:', settings.workingHours.officeEndTime);
+    console.log('Office End Time (minutes):', endTimeInMinutes);
+    console.log('Has Early Checkout Permission:', hasEarlyCheckoutPermission);
+
     // Check if current time is before office end time
     if (!hasEarlyCheckoutPermission) {
-      // Get current time in IST (UTC+5:30)
-      const currentTime = new Date();
-      const istOffset = 5.5 * 60; // IST is UTC+5:30 in minutes
-      const localTime = new Date(currentTime.getTime() + (istOffset * 60 * 1000));
-      const currentHour = localTime.getUTCHours();
-      const currentMinute = localTime.getUTCMinutes();
-      const currentTimeInMinutes = currentHour * 60 + currentMinute;
-
-      const [endHour, endMinute] = settings.workingHours.officeEndTime.split(':').map(Number);
-      const endTimeInMinutes = endHour * 60 + endMinute;
-
-      console.log('=== CHECK-OUT TIME VALIDATION ===');
-      console.log('System Time:', currentTime.toISOString());
-      console.log('IST Time:', localTime.toISOString());
-      console.log('Current Hour:', currentHour, 'Minute:', currentMinute);
-      console.log('Current Time (minutes):', currentTimeInMinutes);
-      console.log('Office End Time:', settings.workingHours.officeEndTime);
-      console.log('Office End Time (minutes):', endTimeInMinutes);
-      console.log('Has Early Checkout Permission:', hasEarlyCheckoutPermission);
 
       if (currentTimeInMinutes < endTimeInMinutes) {
         console.log('❌ Check-out BLOCKED - Before office end time');
@@ -918,6 +932,8 @@ const checkOut = async (req, res) => {
     // Calculate working hours
     const loginTime = new Date(attendance.login_time);
     const logoutTime = new Date();
+    const totalMinutes = Math.floor((logoutTime - loginTime) / (1000 * 60));
+    const totalHours = parseFloat((totalMinutes / 60).toFixed(2));
     const workingHours = ((logoutTime - loginTime) / (1000 * 60 * 60)).toFixed(2);
 
     // Update attendance status based on working hours (from database)
@@ -925,6 +941,14 @@ const checkOut = async (req, res) => {
     let finalStatus = attendance.attendance_status;
     if (parseFloat(workingHours) < halfDayThreshold) {
       finalStatus = 'Half Day';
+    }
+
+    // Calculate Early Status
+    let checkout_status = 'normal';
+    let early_minutes = 0;
+    if (currentTimeInMinutes < endTimeInMinutes) {
+      checkout_status = 'early';
+      early_minutes = endTimeInMinutes - currentTimeInMinutes;
     }
 
     // Update attendance (include device fingerprint and validation method from checkout)
@@ -936,14 +960,18 @@ const checkOut = async (req, res) => {
            address_logout = $3,
            total_working_hours = $4,
            attendance_status = $5,
+           total_hours = $12,
+           total_minutes = $13,
            device_fingerprint = COALESCE($8, device_fingerprint),
            validation_method = COALESCE($9, validation_method),
+           checkout_status = $10,
+           early_minutes = $11,
            updated_at = CURRENT_TIMESTAMP
        WHERE employee_id = $6 AND attendance_date = $7
        RETURNING *`,
       [latitude, longitude, address, workingHours, finalStatus, employeeCode, today,
        deviceValidation.fingerprint || null,
-       validationMethod]
+       validationMethod, checkout_status, early_minutes, totalHours, totalMinutes]
     );
 
     // Log successful check-out
@@ -1257,9 +1285,38 @@ const getAllAttendance = async (req, res) => {
 
     const result = await pool.query(query, values);
 
+    const settings = await getSettingsFromDB();
+    const officeTimes = getOfficeTimes(settings);
+    const lateTimeInMinutes = officeTimes.lateTime;
+    const endTimeInMinutes = officeTimes.endTime;
+
+    const formattedAttendance = result.rows.map(row => {
+      let r = { ...row };
+      
+      // Fix missing late_minutes if status is Late
+      if (r.attendance_status === 'Late' && (!r.late_minutes || r.late_minutes === 0) && r.login_time) {
+        const loginTimeInMinutes = getLocalMinutesFromUTC(r.login_time);
+        if (loginTimeInMinutes > lateTimeInMinutes) {
+          r.late_minutes = loginTimeInMinutes - lateTimeInMinutes;
+          r.checkin_status = 'late';
+        }
+      }
+
+      // Fix missing early_minutes if they checked out early
+      if (r.logout_time && (!r.early_minutes || r.early_minutes === 0)) {
+        const logoutTimeInMinutes = getLocalMinutesFromUTC(r.logout_time);
+        if (logoutTimeInMinutes > 0 && logoutTimeInMinutes < endTimeInMinutes) {
+          r.early_minutes = endTimeInMinutes - logoutTimeInMinutes;
+          r.checkout_status = 'early';
+        }
+      }
+
+      return r;
+    });
+
     res.json({
       success: true,
-      attendance: result.rows
+      attendance: formattedAttendance
     });
 
   } catch (error) {

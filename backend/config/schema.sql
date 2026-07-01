@@ -1,3 +1,4 @@
+
 -- ============================================
 -- ATTENDANCE MANAGEMENT SYSTEM - COMPLETE DATABASE SCHEMA
 -- All migrations consolidated into one file
@@ -354,6 +355,135 @@ INSERT INTO departments (name) VALUES
     ('Marketing'),
     ('Operations')
 ON CONFLICT (name) DO NOTHING;
+
+-- ============================================
+-- SCHEMA SETUP COMPLETE
+-- ============================================
+
+
+-- ============================================
+-- HR, PAYROLL & EXPENSES MODULES
+-- ============================================
+-- Part 2: Employee Table additions
+ALTER TABLE employees
+ADD COLUMN IF NOT EXISTS monthly_salary NUMERIC(12,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS basic_salary NUMERIC(12,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS hra NUMERIC(12,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS special_allowance NUMERIC(12,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS staff_advance NUMERIC(12,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS professional_tax NUMERIC(12,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS tds NUMERIC(12,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active';
+
+-- Part 3: Attendance Late/Early additions
+ALTER TABLE attendance
+ADD COLUMN IF NOT EXISTS checkin_status VARCHAR(20),
+ADD COLUMN IF NOT EXISTS checkout_status VARCHAR(20),
+ADD COLUMN IF NOT EXISTS late_minutes INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS early_minutes INTEGER DEFAULT 0;
+
+-- Part 4: Payroll Records Table
+CREATE TABLE IF NOT EXISTS payroll_records (
+  id SERIAL PRIMARY KEY,
+  employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
+  employee_code VARCHAR(50),
+  payroll_month INTEGER NOT NULL,
+  payroll_year INTEGER NOT NULL,
+
+  total_days INTEGER DEFAULT 0,
+  working_days INTEGER DEFAULT 0,
+  paid_days NUMERIC(6,2) DEFAULT 0,
+  half_days NUMERIC(6,2) DEFAULT 0,
+
+  monthly_earning NUMERIC(12,2) DEFAULT 0,
+  per_day_salary NUMERIC(12,2) DEFAULT 0,
+
+  lop_days NUMERIC(6,2) DEFAULT 0,
+  lop_amount NUMERIC(12,2) DEFAULT 0,
+
+  net_earning NUMERIC(12,2) DEFAULT 0,
+
+  basic_salary NUMERIC(12,2) DEFAULT 0,
+  hra NUMERIC(12,2) DEFAULT 0,
+  special_allowance NUMERIC(12,2) DEFAULT 0,
+  staff_advance NUMERIC(12,2) DEFAULT 0,
+  professional_tax NUMERIC(12,2) DEFAULT 0,
+  tds NUMERIC(12,2) DEFAULT 0,
+
+  net_payable NUMERIC(12,2) DEFAULT 0,
+
+  status VARCHAR(20) DEFAULT 'pending',
+  paid_at TIMESTAMP NULL,
+  paid_by INTEGER NULL,
+
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE(employee_id, payroll_month, payroll_year)
+);
+
+-- Part 5: Expenses Tables
+CREATE TABLE IF NOT EXISTS expense_types (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL UNIQUE,
+  description TEXT,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS monthly_expenses (
+  id SERIAL PRIMARY KEY,
+  expense_type_id INTEGER REFERENCES expense_types(id),
+  title VARCHAR(150) NOT NULL,
+  description TEXT,
+  amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+  expense_date DATE NOT NULL,
+  expense_month INTEGER NOT NULL,
+  expense_year INTEGER NOT NULL,
+  payment_mode VARCHAR(30) DEFAULT 'cash',
+  status VARCHAR(20) DEFAULT 'paid',
+  paid_to VARCHAR(150),
+  created_by INTEGER,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- ============================================
+-- FINAL ATTENDANCE HOURS & PAYROLL EXPANSION
+-- ============================================
+-- 1. ATTENDANCE REPORT & TOTAL HOURS MIGRATION
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS total_hours NUMERIC(8,2) DEFAULT 0;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS total_minutes INTEGER DEFAULT 0;
+
+UPDATE attendance
+SET 
+  total_minutes = EXTRACT(EPOCH FROM (logout_time - login_time)) / 60,
+  total_hours = ROUND((EXTRACT(EPOCH FROM (logout_time - login_time)) / 3600)::numeric, 2)
+WHERE login_time IS NOT NULL
+  AND logout_time IS NOT NULL
+  AND (total_hours IS NULL OR total_hours = 0);
+
+-- 2. PAYROLL SCHEMA EXPANSION
+ALTER TABLE payroll_records
+ADD COLUMN IF NOT EXISTS present_days NUMERIC(6,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS late_days NUMERIC(6,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS absent_days NUMERIC(6,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS blank_unmarked_days NUMERIC(6,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS holiday_days NUMERIC(6,2) DEFAULT 0;
+
+-- 3. EMPLOYEES SALARY BACKFILL (If needed)
+UPDATE employees
+SET
+  basic_salary = ROUND((monthly_salary * 0.50)::numeric, 2),
+  hra = ROUND((monthly_salary * 0.20)::numeric, 2),
+  special_allowance = ROUND((monthly_salary - (monthly_salary * 0.50) - (monthly_salary * 0.20))::numeric, 2)
+WHERE monthly_salary IS NOT NULL
+  AND monthly_salary > 0
+  AND (basic_salary IS NULL OR basic_salary = 0)
+  AND (hra IS NULL OR hra = 0)
+  AND (special_allowance IS NULL OR special_allowance = 0);
+
 
 -- ============================================
 -- SCHEMA SETUP COMPLETE

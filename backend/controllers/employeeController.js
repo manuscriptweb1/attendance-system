@@ -3,6 +3,19 @@ const pool = require('../config/database');
 const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
 const { getClientIP } = require('../services/networkValidationService');
 
+function parseMoney(value, fieldName) {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return 0;
+  }
+  const num = Number(value);
+  if (!Number.isFinite(num) || num < 0) {
+    const error = new Error(`${fieldName} must be a positive number or 0`);
+    error.statusCode = 400;
+    throw error;
+  }
+  return Number(num.toFixed(2));
+}
+
 // Get all employees
 const getAllEmployees = async (req, res) => {
   try {
@@ -80,8 +93,42 @@ const addEmployee = async (req, res) => {
       mobile, 
       email, 
       password,
-      date_of_birth
+      date_of_birth,
+      status = 'active'
     } = req.body;
+
+    let monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds;
+    try {
+      monthly_salary = parseMoney(req.body.monthly_salary ?? req.body.base_salary, 'Monthly salary');
+      basic_salary = parseMoney(req.body.basic_salary ?? req.body.base_salary, 'Basic salary');
+      hra = parseMoney(req.body.hra, 'HRA');
+      special_allowance = parseMoney(req.body.special_allowance, 'Special allowance');
+      staff_advance = parseMoney(req.body.staff_advance, 'Staff advance');
+      professional_tax = parseMoney(req.body.professional_tax, 'Professional tax');
+      tds = parseMoney(req.body.tds, 'TDS');
+    } catch (err) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+
+    const salaryPartsProvided = basic_salary > 0 || hra > 0 || special_allowance > 0;
+
+    if (monthly_salary > 0 && !salaryPartsProvided) {
+      basic_salary = Number((monthly_salary * 0.5).toFixed(2));
+      hra = Number((monthly_salary * 0.2).toFixed(2));
+      special_allowance = Number((monthly_salary - basic_salary - hra).toFixed(2));
+    }
+
+    if (salaryPartsProvided) {
+      const partsTotal = Number((basic_salary + hra + special_allowance).toFixed(2));
+      if (monthly_salary === 0) {
+        monthly_salary = partsTotal;
+      } else if (Math.abs(partsTotal - monthly_salary) > 0.01) {
+        return res.status(400).json({
+          success: false,
+          message: 'Monthly salary must equal Basic Salary + HRA + Special Allowance'
+        });
+      }
+    }
 
     // Validation
     if (!employee_id || !name || !department_id || !job_role || !mobile || !email || !password || !date_of_birth) {
@@ -131,10 +178,12 @@ const addEmployee = async (req, res) => {
     // Insert employee
     const result = await pool.query(
       `INSERT INTO employees 
-       (employee_id, name, department_id, job_role, mobile, email, password, status, date_of_birth) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'Active', $8) 
+       (employee_id, name, department_id, job_role, mobile, email, password, status, date_of_birth, 
+       monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) 
        RETURNING *`,
-      [employee_id, name, department_id, job_role, mobile, email, hashedPassword, date_of_birth]
+      [employee_id, name, department_id, job_role, mobile, email, hashedPassword, status, date_of_birth, 
+       monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds]
     );
 
     // Log activity
@@ -179,6 +228,39 @@ const updateEmployee = async (req, res) => {
       password,
       date_of_birth
     } = req.body;
+
+    let monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds;
+    try {
+      monthly_salary = parseMoney(req.body.monthly_salary ?? req.body.base_salary, 'Monthly salary');
+      basic_salary = parseMoney(req.body.basic_salary ?? req.body.base_salary, 'Basic salary');
+      hra = parseMoney(req.body.hra, 'HRA');
+      special_allowance = parseMoney(req.body.special_allowance, 'Special allowance');
+      staff_advance = parseMoney(req.body.staff_advance, 'Staff advance');
+      professional_tax = parseMoney(req.body.professional_tax, 'Professional tax');
+      tds = parseMoney(req.body.tds, 'TDS');
+    } catch (err) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+
+    const salaryPartsProvided = basic_salary > 0 || hra > 0 || special_allowance > 0;
+
+    if (monthly_salary > 0 && !salaryPartsProvided) {
+      basic_salary = Number((monthly_salary * 0.5).toFixed(2));
+      hra = Number((monthly_salary * 0.2).toFixed(2));
+      special_allowance = Number((monthly_salary - basic_salary - hra).toFixed(2));
+    }
+
+    if (salaryPartsProvided) {
+      const partsTotal = Number((basic_salary + hra + special_allowance).toFixed(2));
+      if (monthly_salary === 0) {
+        monthly_salary = partsTotal;
+      } else if (Math.abs(partsTotal - monthly_salary) > 0.01) {
+        return res.status(400).json({
+          success: false,
+          message: 'Monthly salary must equal Basic Salary + HRA + Special Allowance'
+        });
+      }
+    }
 
     if (!date_of_birth) {
       return res.status(400).json({
@@ -240,18 +322,22 @@ const updateEmployee = async (req, res) => {
       query = `UPDATE employees 
                SET name = $1, department_id = $2, job_role = $3, 
                    mobile = $4, email = $5, status = $6, password = $7, 
-                   date_of_birth = $8, updated_at = CURRENT_TIMESTAMP 
-               WHERE id = $9 
+                   date_of_birth = $8, monthly_salary = $9, basic_salary = $10, hra = $11, 
+                   special_allowance = $12, staff_advance = $13, professional_tax = $14, tds = $15, updated_at = CURRENT_TIMESTAMP 
+               WHERE id = $16 
                RETURNING *`;
-      values = [name, department_id, job_role, mobile, email, status, hashedPassword, date_of_birth, id];
+      values = [name, department_id, job_role, mobile, email, status, hashedPassword, date_of_birth, 
+                monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds, id];
     } else {
       query = `UPDATE employees 
                SET name = $1, department_id = $2, job_role = $3, 
                    mobile = $4, email = $5, status = $6, 
-                   date_of_birth = $7, updated_at = CURRENT_TIMESTAMP 
-               WHERE id = $8 
+                   date_of_birth = $7, monthly_salary = $8, basic_salary = $9, hra = $10, 
+                   special_allowance = $11, staff_advance = $12, professional_tax = $13, tds = $14, updated_at = CURRENT_TIMESTAMP 
+               WHERE id = $15 
                RETURNING *`;
-      values = [name, department_id, job_role, mobile, email, status, date_of_birth, id];
+      values = [name, department_id, job_role, mobile, email, status, date_of_birth, 
+                monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds, id];
     }
 
     const result = await pool.query(query, values);

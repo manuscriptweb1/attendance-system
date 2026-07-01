@@ -100,7 +100,7 @@ export const getAllAttendance = (params) =>
   api.get('/attendance/all', { params });
 
 export const getDashboardStats = () => 
-  api.get('/attendance/stats');
+  api.get('/dashboard/stats');
 
 // WFH APIs
 export const enableWFH = (employee_id) => 
@@ -255,6 +255,35 @@ export const downloadMonthlyExcel = (month, year) => {
     responseType: 'blob'
   });
 };
+
+export const getMonthlyAttendanceReport = (month, year) => 
+  api.get('/reports/monthly-attendance', { params: { month, year } });
+
+export const exportMonthlyAttendanceReport = (month, year) => 
+  api.get('/reports/monthly-attendance/export', { params: { month, year }, responseType: 'blob' });
+
+// --- Payroll ---
+export const getPayrollRecords = (month, year) => 
+  api.get('/payroll', { params: { month, year } });
+export const calculatePayroll = (month, year) => 
+  api.post('/payroll/calculate', { month, year });
+export const updatePayrollStatus = (id, status) => 
+  api.patch(`/payroll/${id}/status`, { status });
+export const exportPayroll = (month, year) => 
+  api.get('/payroll/export', { params: { month, year }, responseType: 'blob' });
+
+// --- Expenses ---
+export const getExpenseTypes = () => api.get('/expenses/expense-types');
+export const addExpenseType = (data) => api.post('/expenses/expense-types', data);
+export const updateExpenseType = (id, data) => api.put(`/expenses/expense-types/${id}`, data);
+export const deleteExpenseType = (id) => api.delete(`/expenses/expense-types/${id}`);
+
+export const getExpenses = (month, year) => api.get('/expenses', { params: { month, year } });
+export const getExpenseSummary = (month, year) => api.get('/expenses/summary', { params: { month, year } });
+export const addExpense = (data) => api.post('/expenses', data);
+export const updateExpense = (id, data) => api.put(`/expenses/${id}`, data);
+export const deleteExpense = (id) => api.delete(`/expenses/${id}`);
+export const exportExpenses = (month, year) => api.get('/expenses/export', { params: { month, year }, responseType: 'blob' });
 
 // --- Manual Attendance ---
 export const getEmployeesForManualAttendance = (params) => api.get('/manual-attendance/employees', { params });

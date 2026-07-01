@@ -222,14 +222,21 @@ const updateManualAttendance = async (req, res) => {
 
     // Calculate working hours
     let workingHours = null;
-    if (login_time && logout_time) {
-      workingHours = (new Date(logout_time) - new Date(login_time)) / (1000 * 60 * 60);
-    } else if (attendance.login_time && logout_time) {
-      workingHours = (new Date(logout_time) - new Date(attendance.login_time)) / (1000 * 60 * 60);
-    } else if (login_time && attendance.logout_time) {
-      workingHours = (new Date(attendance.logout_time) - new Date(login_time)) / (1000 * 60 * 60);
+    let totalMinutes = null;
+    let totalHours = null;
+    
+    let finalLoginTime = login_time || attendance.login_time;
+    let finalLogoutTime = logout_time || attendance.logout_time;
+
+    if (finalLoginTime && finalLogoutTime) {
+      const ms = new Date(finalLogoutTime) - new Date(finalLoginTime);
+      workingHours = ms / (1000 * 60 * 60);
+      totalMinutes = Math.floor(ms / (1000 * 60));
+      totalHours = parseFloat((totalMinutes / 60).toFixed(2));
     } else {
       workingHours = attendance.total_working_hours;
+      totalMinutes = attendance.total_minutes || 0;
+      totalHours = attendance.total_hours || 0;
     }
 
     // Update attendance
@@ -240,9 +247,11 @@ const updateManualAttendance = async (req, res) => {
            attendance_status = COALESCE($3, attendance_status),
            is_wfh = COALESCE($4, is_wfh),
            total_working_hours = $5,
+           total_hours = $7,
+           total_minutes = $8,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $6 RETURNING *`,
-      [login_time || null, logout_time || null, attendance_status, is_wfh, workingHours, id]
+      [login_time || null, logout_time || null, attendance_status, is_wfh, workingHours, id, totalHours, totalMinutes]
     );
 
     // Log manual action

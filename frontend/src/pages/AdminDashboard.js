@@ -168,6 +168,7 @@ const AdminDashboard = () => {
   // Calculate mutually exclusive attendance categories to prevent double counting
   let presentCount = 0;
   let absentCount = 0;
+  let notMentionCount = 0;
   let lateCount = 0;
   let halfDayCount = 0;
   let wfhCount = 0;
@@ -176,6 +177,7 @@ const AdminDashboard = () => {
     switch (a.attendance_status) {
       case 'Present': presentCount++; break;
       case 'Absent': absentCount++; break;
+      case 'Not Mention': notMentionCount++; break;
       case 'Late': lateCount++; break;
       case 'Half Day': halfDayCount++; break;
       case 'Work From Home': wfhCount++; break;
@@ -626,3 +628,4 @@ const AdminDashboard = () => {
   );
 };
 export default AdminDashboard;
+

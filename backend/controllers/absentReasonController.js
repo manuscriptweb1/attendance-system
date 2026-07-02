@@ -1,6 +1,8 @@
 const pool = require('../config/database');
+const { normalizeAttendanceStatus } = require('../utils/statusHelper');
 const { logAdminActivity } = require('../services/adminActivityService');
 const { getClientIP } = require('../services/networkValidationService');
+const { validateDateInput, AppError } = require('../utils/dateValidation');
 
 // Get absent employees for a specific date
 const getAbsentEmployees = async (req, res) => {
@@ -18,13 +20,13 @@ const getAbsentEmployees = async (req, res) => {
         d.name as department_name,
         a.id as attendance_id,
         a.attendance_date,
-        COALESCE(a.attendance_status, 'Absent') as attendance_status,
+        COALESCE(a.attendance_status, 'Not Mention') as attendance_status,
         a.absent_reason,
         a.updated_at
       FROM employees e
       LEFT JOIN departments d ON e.department_id = d.id
       LEFT JOIN attendance a ON e.employee_id = a.employee_id AND a.attendance_date = $1
-      WHERE e.status = 'Active' AND (a.attendance_status = 'Absent' OR a.id IS NULL)
+      WHERE e.status = 'Active' AND (a.attendance_status = 'Not Mention' OR a.id IS NULL)
     `;
     
     const params = [date];
@@ -52,7 +54,12 @@ const getAbsentEmployees = async (req, res) => {
     });
   } catch (error) {
     console.error('Get absent employees error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({ 
+      success: false, 
+      message: error.message || 'Server error',
+      code: error.code || 'UNKNOWN_ERROR'
+    });
   }
 };
 
@@ -61,6 +68,23 @@ const updateAbsentReason = async (req, res) => {
   try {
     const { attendance_id } = req.params;
     const { reason, employee_id, date } = req.body;
+    
+    if (date) {
+      validateDateInput(date, { allowFuture: false, isAbsentReason: true });
+      
+      const recordDate = new Date(date);
+      if (recordDate.getDay() === 0) {
+        throw new AppError('Absent reason is not allowed on holidays or Sundays.', 400, 'HOLIDAY_BLOCKED');
+      }
+      
+      const holidayCheck = await pool.query(
+        'SELECT * FROM holidays WHERE holiday_date = $1 AND is_enabled = true',
+        [date]
+      );
+      if (holidayCheck.rows.length > 0) {
+        throw new AppError('Absent reason is not allowed on holidays or Sundays.', 400, 'HOLIDAY_BLOCKED');
+      }
+    }
     
     if (!reason || reason.trim() === '') {
       return res.status(400).json({ success: false, message: 'Absent reason is required' });
@@ -76,23 +100,33 @@ const updateAbsentReason = async (req, res) => {
 
       // Check if attendance already exists just in case
       const existing = await pool.query(
-        'SELECT id FROM attendance WHERE employee_id = $1 AND attendance_date = $2',
+        'SELECT id, attendance_status FROM attendance WHERE employee_id = $1 AND attendance_date = $2',
         [employee_id, date]
       );
 
       if (existing.rows.length > 0) {
-        return res.status(400).json({ success: false, message: 'Attendance record already exists for this date.' });
+        if (existing.rows[0].attendance_status !== 'Not Mention') {
+          return res.status(400).json({ success: false, message: 'Employee already has a valid attendance record for this date.' });
+        }
+        // If it's Not Mention, we can update it
+        const updateResult = await pool.query(
+          `UPDATE attendance 
+           SET attendance_status = 'Absent', absent_reason = $1, validation_method = 'Manual', updated_at = CURRENT_TIMESTAMP
+           WHERE id = $2 RETURNING *`,
+          [reason, existing.rows[0].id]
+        );
+        attendanceRecord = updateResult.rows[0];
+      } else {
+        // Insert new Absent record
+        const insertResult = await pool.query(
+          `INSERT INTO attendance (
+             employee_id, attendance_date, attendance_status, 
+             absent_reason, validation_method, created_at, updated_at
+           ) VALUES ($1, $2, 'Absent', $3, 'Manual', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING *`,
+          [employee_id, date, reason]
+        );
+        attendanceRecord = insertResult.rows[0];
       }
-
-      // Insert new Absent record
-      const insertResult = await pool.query(
-        `INSERT INTO attendance (
-           employee_id, attendance_date, attendance_status, 
-           absent_reason, validation_method, created_at, updated_at
-         ) VALUES ($1, $2, 'Absent', $3, 'Manual', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING *`,
-        [employee_id, date, reason]
-      );
-      attendanceRecord = insertResult.rows[0];
     } else {
       // Verify attendance is Absent
       const checkResult = await pool.query(
@@ -104,10 +138,10 @@ const updateAbsentReason = async (req, res) => {
         return res.status(404).json({ success: false, message: 'Attendance record not found' });
       }
 
-      if (checkResult.rows[0].attendance_status !== 'Absent') {
+      if (checkResult.rows[0].attendance_status !== 'Not Mention' && checkResult.rows[0].attendance_status !== 'Absent') {
         return res.status(400).json({ 
           success: false, 
-          message: 'Absent reasons can only be added to employees whose attendance status is Absent.' 
+          message: 'Absent reasons can only be added to employees whose attendance status is Not Mention or Absent.' 
         });
       }
 
@@ -116,7 +150,7 @@ const updateAbsentReason = async (req, res) => {
       // Update reason
       const updateResult = await pool.query(
         `UPDATE attendance 
-         SET absent_reason = $1, updated_at = CURRENT_TIMESTAMP
+         SET absent_reason = $1, attendance_status = 'Absent', updated_at = CURRENT_TIMESTAMP
          WHERE id = $2 RETURNING *`,
         [reason, attendance_id]
       );
@@ -144,7 +178,12 @@ const updateAbsentReason = async (req, res) => {
     });
   } catch (error) {
     console.error('Update absent reason error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({ 
+      success: false, 
+      message: error.message || 'Server error',
+      code: error.code || 'UNKNOWN_ERROR'
+    });
   }
 };
 
@@ -165,7 +204,7 @@ const clearAbsentReason = async (req, res) => {
     const oldReason = checkResult.rows[0].absent_reason;
 
     await pool.query(
-      'UPDATE attendance SET absent_reason = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      "UPDATE attendance SET absent_reason = NULL, attendance_status = 'Not Mention', updated_at = CURRENT_TIMESTAMP WHERE id = $1",
       [attendance_id]
     );
 
@@ -185,7 +224,12 @@ const clearAbsentReason = async (req, res) => {
     res.json({ success: true, message: 'Absent reason cleared successfully.' });
   } catch (error) {
     console.error('Clear absent reason error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({ 
+      success: false, 
+      message: error.message || 'Server error',
+      code: error.code || 'UNKNOWN_ERROR'
+    });
   }
 };
 
@@ -194,3 +238,4 @@ module.exports = {
   updateAbsentReason,
   clearAbsentReason
 };
+

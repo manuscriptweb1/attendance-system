@@ -36,12 +36,11 @@ api.interceptors.response.use(
     const isManualAttendanceConflict = error.response?.data?.errorCode && ['DUPLICATE_ATTENDANCE', 'EARLY_CHECKIN', 'EARLY_CHECKOUT', 'INVALID_TIME'].includes(error.response?.data?.errorCode);
     
     if (!currentPath.includes('/login') && !isLoginAttempt && !isValidationConflict && !isDepartmentInactive && !isManualAttendanceConflict) {
-      // Map error to config and dispatch
-      const config = mapErrorToDialogConfig(error);
-      window.dispatchEvent(new CustomEvent('showGlobalError', { detail: config }));
-      
-      // Attach flag so components know it was handled globally
-      error.isGlobalError = true;
+      error.userMessage = 
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        "Something went wrong. Please try again.";
     }
     
     return Promise.reject(error);
@@ -290,6 +289,8 @@ export const getEmployeesForManualAttendance = (params) => api.get('/manual-atte
 export const createManualAttendance = (data) => api.post('/manual-attendance', data);
 export const updateManualAttendance = (id, data) => api.put(`/manual-attendance/${id}`, data);
 export const deleteManualAttendance = (id) => api.delete(`/manual-attendance/${id}`);
+export const checkInRowManualAttendance = (data) => api.post('/manual-attendance/check-in', data);
+export const checkOutRowManualAttendance = (data) => api.post('/manual-attendance/check-out', data);
 
 // --- Absent Reason ---
 export const getAbsentEmployees = (params) => api.get('/absent-reasons', { params });

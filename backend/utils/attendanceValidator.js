@@ -39,7 +39,7 @@ const validateAttendance = async (req, latitude, longitude, accuracy, isWFH = fa
       accuracy: accuracyCheck.accuracy,
       threshold: accuracyCheck.threshold
     };
-    
+
     if (!accuracyCheck.valid) {
       console.log('❌ GPS accuracy validation FAILED:', accuracyCheck.message);
       locationValid = false;
@@ -55,7 +55,7 @@ const validateAttendance = async (req, latitude, longitude, accuracy, isWFH = fa
       locationValid = locationCheck.valid;
       locationMessage = locationCheck.message;
       locationDistance = locationCheck.distance;
-      
+
       console.log(locationValid ? '✅ Location validation PASSED' : '❌ Location validation FAILED');
     }
 
@@ -119,10 +119,10 @@ const validateAttendance = async (req, latitude, longitude, accuracy, isWFH = fa
         // Pass if EITHER location OR network is valid
         if (locationValid || networkValid) {
           const method = locationValid ? 'location' : 'network';
-          const message = locationValid ? 
+          const message = locationValid ?
             `Location validation passed${networkValid ? ' (network also valid)' : ''}` :
             'Network validation passed (location failed but not required)';
-          
+
           console.log('✅ VALIDATION PASSED (location_or_network) - Method:', method);
           return {
             valid: true,
@@ -164,7 +164,7 @@ const validateAttendance = async (req, latitude, longitude, accuracy, isWFH = fa
             failedChecks.push(`Network: ${networkMessage}`);
             console.log('❌ Network validation failed');
           }
-          
+
           console.log('❌ VALIDATION FAILED (location_and_network)');
           return {
             valid: false,
@@ -214,7 +214,7 @@ const validateAttendance = async (req, latitude, longitude, accuracy, isWFH = fa
  */
 const calculateAttendanceStatus = async (isWFH) => {
   const settings = await getSettingsFromDB();
-  
+
   // Get current time in IST (UTC+5:30)
   const currentTime = new Date();
   const istOffset = 5.5 * 60; // IST is UTC+5:30 in minutes
@@ -225,9 +225,9 @@ const calculateAttendanceStatus = async (isWFH) => {
   const lateMinutesFromMidnight = parseTime(settings.workingHours.lateAfterTime);
   const lateHour = Math.floor(lateMinutesFromMidnight / 60);
   const lateMinute = lateMinutesFromMidnight % 60;
-  
+
   let attendanceStatus = 'Present';
-  
+
   // Check if late (applies to ALL employees, both office and WFH)
   if (currentHour > lateHour || (currentHour === lateHour && currentMinute > lateMinute)) {
     attendanceStatus = 'Late';

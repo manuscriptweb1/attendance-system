@@ -57,6 +57,7 @@ const EmployeeDashboard = () => {
   /* ─── New State ─── */
   const [monthlyAttendance, setMonthlyAttendance] = useState([]);
   const [monthlyHolidays, setMonthlyHolidays]     = useState([]);
+  const [dashboardStats, setDashboardStats]       = useState(null);
   const [currentTime, setCurrentTime]             = useState(new Date());
   const [liveSeconds, setLiveSeconds]             = useState(0);
   
@@ -102,6 +103,9 @@ const EmployeeDashboard = () => {
       if (monthlyRes.data.success) {
         setMonthlyAttendance(monthlyRes.data.attendance || []);
         setMonthlyHolidays(monthlyRes.data.holidays || []);
+        if (monthlyRes.data.dashboardStats) {
+          setDashboardStats(monthlyRes.data.dashboardStats);
+        }
 
         // Dynamic Motivation Setup
         const holidays = monthlyRes.data.holidays || [];
@@ -379,27 +383,16 @@ const EmployeeDashboard = () => {
 
   /* ─── Stats (computed from monthly attendance) ─── */
   const stats = useMemo(() => {
-    const presentDays = monthlyAttendance.filter(r => r.login_time).length;
-    const lateDays    = monthlyAttendance.filter(r => r.attendance_status === 'Late').length;
-    const wfhDays     = monthlyAttendance.filter(r => r.is_wfh && r.login_time).length;
-
-    // Calculate working days up to today (excl. Sundays & holidays)
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const maxDay = now.getDate();
-    let workingDays = 0;
-    for (let d = 1; d <= maxDay; d++) {
-      const date = new Date(year, month, d);
-      if (date.getDay() === 0) continue; // Skip Sunday
-      const dateStr = toLocalDateStr(date);
-      const isHoliday = monthlyHolidays.some(h => toLocalDateStr(h.holiday_date) === dateStr);
-      if (!isHoliday) workingDays++;
+    if (dashboardStats) {
+      return {
+        presentDays: dashboardStats.presentDays,
+        lateDays: dashboardStats.lateDays,
+        wfhDays: dashboardStats.wfhDays,
+        percentage: dashboardStats.attendanceRate
+      };
     }
-    const percentage = workingDays > 0 ? Math.min(100, Math.round((presentDays / workingDays) * 100)) : 0;
-
-    return { presentDays, lateDays, wfhDays, percentage, workingDays };
-  }, [monthlyAttendance, monthlyHolidays]);
+    return { presentDays: 0, lateDays: 0, wfhDays: 0, percentage: 0 };
+  }, [dashboardStats]);
 
   /* ─── Weekly Chart Data ─── */
   const weekData = useMemo(() => {

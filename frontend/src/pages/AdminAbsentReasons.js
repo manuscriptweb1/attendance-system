@@ -4,6 +4,8 @@ import AlertDialog from '../components/AlertDialog';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
 import { getAbsentEmployees, updateAbsentReason, clearAbsentReason, getAllDepartments } from '../services/api';
+import { getErrorMessage } from '../utils/errorHandler';
+import { validateDateString } from '../utils/dateValidation';
 import { FiEdit, FiSearch, FiCalendar, FiFilter, FiSave, FiX, FiLayers, FiTrash2 } from 'react-icons/fi';
 
 const getLocalYMD = () => {
@@ -63,13 +65,19 @@ const AdminAbsentReasons = () => {
         setEmployees(res.data.absentEmployees);
       }
     } catch (error) {
-      console.error(error);
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
   const openModal = (emp) => {
+    const dateError = validateDateString(date, { allowFuture: false, isAbsentReason: true });
+    if (dateError) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: dateError, type: 'error' });
+      return;
+    }
+
     setTargetAttendanceId(emp.attendance_id);
     setTargetEmployeeId(emp.employee_id);
     setTargetDate(date);
@@ -80,6 +88,13 @@ const AdminAbsentReasons = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const dateError = validateDateString(targetDate, { allowFuture: false, isAbsentReason: true });
+    if (dateError) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: dateError, type: 'error' });
+      return;
+    }
+
     if (!reason.trim()) {
       setAlertDialog({ isOpen: true, title: 'Error', message: 'Absent reason cannot be empty.', type: 'error' });
       return;
@@ -99,7 +114,7 @@ const AdminAbsentReasons = () => {
         fetchData();
       }
     } catch (error) {
-      setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Failed to save reason.', type: 'error' });
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' });
     }
   };
 
@@ -113,7 +128,7 @@ const AdminAbsentReasons = () => {
         fetchData();
       }
     } catch (error) {
-      setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Failed to clear reason.', type: 'error' });
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' });
     } finally {
       setClearingId(null);
     }

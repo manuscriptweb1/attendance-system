@@ -7,6 +7,8 @@ import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
 import { getAllAttendance, downloadMonthlyMatrixPDF, downloadMonthlyMatrixExcel, downloadMonthlyExcel, resetAttendance, deleteAttendance, clearMonthlyAttendance } from '../services/api';
 import { formatTime, formatDate, formatWorkingHours } from '../utils/formatTime';
+import { getErrorMessage } from '../utils/errorHandler';
+import { validateDateString, validateMonthYear } from '../utils/dateValidation';
 import { FiDownload, FiFilter, FiRefreshCw, FiTrash2, FiRotateCcw, FiX, FiCalendar, FiCheckCircle, FiAlertCircle, FiClock, FiHome, FiTrendingUp } from 'react-icons/fi';
 
 const getLocalDateString = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`; };
@@ -30,13 +32,22 @@ const AdminAttendance = () => {
       const r = await getAllAttendance(filters); 
       if (r.data.success) setAttendance(r.data.attendance); 
     }
-    catch (e) { setAlertDialog({ isOpen:true, title:'Error', message:'Error loading attendance data', type:'error' }); }
+    catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
     finally { setLoading(false); }
   };
   
   useEffect(() => { fetchAttendance(); }, [filters]); // eslint-disable-line
 
-  const handleFilterChange = e => setFilters(f => ({ ...f, [e.target.name]: e.target.value }));
+  const handleFilterChange = (e) => {
+    if (e.target.name === 'date') {
+      const dateError = validateDateString(e.target.value, { allowFuture: false });
+      if (dateError) {
+        setAlertDialog({ isOpen: true, title: 'Error', message: dateError, type: 'error' });
+        return; // do not update filter
+      }
+    }
+    setFilters(f => ({ ...f, [e.target.name]: e.target.value }));
+  };
 
   /* ─── DOWNLOAD & ACTIONS ─── */
   const handleDownloadPDF = format => {
@@ -47,7 +58,8 @@ const AdminAttendance = () => {
 
   const downloadMatrix = async () => {
     const { month, year } = downloadData;
-    if (!month || !year || parseInt(month) < 1 || parseInt(month) > 12) { setAlertDialog({ isOpen:true, title:'Error', message:'Please enter a valid month (1–12) and year.', type:'error' }); return; }
+    const errorMsg = validateMonthYear(month, year);
+    if (errorMsg) { setAlertDialog({ isOpen:true, title:'Error', message: errorMsg, type:'error' }); return; }
     setShowDownloadDialog(false);
     try {
       let response, fileName;
@@ -59,7 +71,7 @@ const AdminAttendance = () => {
       const link = document.createElement('a'); link.href = url; link.download = fileName;
       document.body.appendChild(link); link.click(); document.body.removeChild(link); window.URL.revokeObjectURL(url);
       setAlertDialog({ isOpen:true, title:'Success', message:`${downloadFormat.toUpperCase()} downloaded successfully!`, type:'success' });
-    } catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: e.response?.data?.message || 'Error downloading file.', type:'error' }); }
+    } catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
   };
 
   const handleResetAttendance = (record, resetType) => {
@@ -67,7 +79,7 @@ const AdminAttendance = () => {
     setConfirmDialog({ isOpen:true, title:`Reset ${resetText}`, type:'warning', message:`Reset ${resetText} for "${record.name}" on ${formatDate(record.attendance_date)}?`,
       onConfirm: async () => {
         try { const r = await resetAttendance(record.id, resetType); if (r.data.success) { setAlertDialog({ isOpen:true, title:'Success', message:`${resetText} reset successfully!`, type:'success' }); fetchAttendance(); } else throw new Error(r.data.message); }
-        catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: e.response?.data?.message || 'Operation failed.', type:'error' }); }
+        catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
       },
     });
   };
@@ -77,7 +89,7 @@ const AdminAttendance = () => {
     message:`Permanently delete the attendance record for "${record.name}" on ${formatDate(record.attendance_date)}?`,
     onConfirm: async () => {
       try { const r = await deleteAttendance(record.id); if (r.data.success) { setAlertDialog({ isOpen:true, title:'Success', message:'Record deleted successfully!', type:'success' }); fetchAttendance(); } else throw new Error(r.data.message); }
-      catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: e.response?.data?.message || 'Delete failed.', type:'error' }); }
+      catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
     },
   });
 
@@ -91,7 +103,7 @@ const AdminAttendance = () => {
         setAlertDialog({ isOpen: true, title: 'Error', message: response.data.message || 'Failed to clear attendance', type: 'error' });
       }
     } catch (error) {
-      setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Failed to clear attendance records', type: 'error' });
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' });
     }
   };
 
@@ -187,6 +199,7 @@ const AdminAttendance = () => {
                   <option value="Late">Late</option>
                   <option value="Half Day">Half Day</option>
                   <option value="Absent">Absent</option>
+                  <option value="Not Mention">Not Mention</option>
                 </select>
               </div>
               <div>
@@ -211,7 +224,7 @@ const AdminAttendance = () => {
               <div className="overflow-x-auto dark-scroll">
                 <table className="min-w-full divide-y divide-white/[0.04]">
                   <thead className="bg-[#0E1320]/80">
-                    <tr>{['Date','Emp ID','Name','Dept','Check In','Check Out','Hours','Late/Early','Status','Absent Reason','Type','Actions'].map(h => (
+                    <tr>{['Date','Emp ID','Name','Dept','Check In','Check Out','Hours','In Status','Out Status','Status','Absent Reason','Type','Actions'].map(h => (
                       <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-[#64748B] uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}</tr>
                   </thead>
@@ -230,35 +243,30 @@ const AdminAttendance = () => {
                         <td className="px-5 py-4 text-xs text-[#CBD5E1] font-mono whitespace-nowrap">{r.logout_time ? formatWorkingHours(parseFloat(r.total_working_hours)) : '—'}</td>
                         <td className="px-5 py-4 whitespace-nowrap">
                           {(() => {
-                            const isLate = r.late_minutes > 0;
-                            const isEarly = r.early_minutes > 0;
-                            const isLateStatus = r.checkin_status === 'late' || String(r.attendance_status || '').toLowerCase() === 'late';
-                            
-                            if (isLate && isEarly) {
-                              return (
-                                <>
-                                  <span className="block text-[10px] text-amber-500 font-bold">Late: {r.late_minutes}m</span>
-                                  <span className="block text-[10px] text-purple-400 font-bold">Early: {r.early_minutes}m</span>
-                                </>
-                              );
-                            }
-                            if (isLate) return <span className="block text-[10px] text-amber-500 font-bold">Late: {r.late_minutes}m</span>;
-                            if (isEarly) return <span className="block text-[10px] text-purple-400 font-bold">Early: {r.early_minutes}m</span>;
-                            if (isLateStatus) return <span className="block text-[10px] text-amber-500 font-bold">Late</span>;
+                            if (r.checkin_status === 'late') return <span className="block text-[10px] text-amber-500 font-bold">Late {r.late_minutes}m</span>;
+                            if (r.checkin_status === 'early') return <span className="block text-[10px] text-purple-400 font-bold">Early</span>;
                             if (r.login_time) return <span className="text-[10px] text-emerald-400 font-bold">On Time</span>;
                             return <span className="text-[10px] text-[#64748B]">—</span>;
                           })()}
                         </td>
                         <td className="px-5 py-4 whitespace-nowrap">
+                          {(() => {
+                            if (r.checkout_status === 'late') return <span className="block text-[10px] text-amber-500 font-bold">Late</span>;
+                            if (r.checkout_status === 'early') return <span className="block text-[10px] text-purple-400 font-bold">Early {r.early_minutes}m</span>;
+                            if (r.logout_time) return <span className="text-[10px] text-emerald-400 font-bold">On Time</span>;
+                            return <span className="text-[10px] text-[#64748B]">—</span>;
+                          })()}
+                        </td>
+                        <td className="px-5 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
-                            <StatusBadge status={r.attendance_status || 'Absent'} dark />
+                            <StatusBadge status={r.attendance_status || 'Not Mention'} dark />
                             {r.validation_method === 'Manual' && (
                               <span className="text-[10px] font-bold text-purple-400 bg-purple-500/20 border border-purple-500/30 px-2 py-0.5 rounded-full">Manual</span>
                             )}
                           </div>
                         </td>
                         <td className="px-5 py-4 text-xs font-semibold text-[#CBD5E1] whitespace-nowrap">
-                          {r.attendance_status === 'Absent' ? (r.absent_reason || '—') : '—'}
+                          {r.attendance_status === 'Absent' || r.attendance_status === 'Not Mention' ? (r.absent_reason || '—') : '—'}
                         </td>
                         <td className="px-5 py-4 whitespace-nowrap">
                           {r.is_wfh ? <span className="text-[10px] font-bold text-blue-400 bg-blue-500/20 border border-blue-500/30 px-2.5 py-1 rounded-full">WFH</span> : <span className="text-xs text-[#475569] font-medium">Office</span>}
@@ -331,3 +339,4 @@ const AdminAttendance = () => {
   );
 };
 export default AdminAttendance;
+

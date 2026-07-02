@@ -14,13 +14,23 @@ export const formatWorkingHours = (decimalHours) => {
   }
 };
 
-// Format time from timestamp
+// Format time from timestamp safely in Asia/Kolkata timezone
 export const formatTime = (timestamp) => {
   if (!timestamp) return '-';
-  return new Date(timestamp).toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  try {
+    const d = new Date(timestamp);
+    if (isNaN(d.getTime())) return '-';
+    
+    // Explicitly use IST to prevent browser local timezone shifting
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    }).format(d);
+  } catch (err) {
+    return '-';
+  }
 };
 
 // Format date

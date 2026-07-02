@@ -5,6 +5,8 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { Spinner } from '../components/Loader';
 import api from '../services/api';
 import { formatDate } from '../utils/formatTime';
+import { getErrorMessage } from '../utils/errorHandler';
+import { validateDateString, validateMonthYear } from '../utils/dateValidation';
 import { FiDownload, FiPlus, FiEdit, FiTrash2, FiTrendingUp, FiCreditCard, FiDollarSign, FiArchive, FiX } from 'react-icons/fi';
 
 const AdminExpenses = () => {
@@ -24,6 +26,13 @@ const AdminExpenses = () => {
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'danger' });
 
   const fetchData = async () => {
+    const errorMsg = validateMonthYear(month, year);
+    if (errorMsg) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: errorMsg, type: 'error' });
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const [expRes, sumRes, typeRes] = await Promise.all([
@@ -40,7 +49,7 @@ const AdminExpenses = () => {
       if (e.response?.status === 401) {
         setAlertDialog({ isOpen: true, title: 'Session Expired', message: 'Session expired. Please login again.', type: 'error' });
       } else {
-        setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to fetch expenses', type: 'error' });
+        setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(e), type: 'error' });
       }
     } finally {
       setLoading(false);
@@ -53,6 +62,12 @@ const AdminExpenses = () => {
 
   const handleSubmit = async e => {
     e.preventDefault();
+    const dateError = validateDateString(formData.expense_date, { allowFuture: true });
+    if (dateError) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: dateError, type: 'error' });
+      return;
+    }
+
     try {
       const response = editMode ? await api.put(`/expenses/${formData.id}`, formData) : await api.post('/expenses', formData);
       if (response.data.success) {
@@ -60,7 +75,7 @@ const AdminExpenses = () => {
         fetchData(); closeModal();
       }
     } catch (error) { 
-      setAlertDialog({ isOpen: true, title: 'Error', message: 'Operation failed.', type: 'error' }); 
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' }); 
     }
   };
 
@@ -83,11 +98,17 @@ const AdminExpenses = () => {
         setAlertDialog({ isOpen: true, title: 'Success', message: 'Deleted successfully!', type: 'success' }); 
         fetchData(); 
       }
-      catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Delete failed.', type: 'error' }); }
+      catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' }); }
     },
   });
 
   const handleExport = async () => {
+    const errorMsg = validateMonthYear(month, year);
+    if (errorMsg) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: errorMsg, type: 'error' });
+      return;
+    }
+
     try {
       const res = await api.get('/expenses/export', { params: { month, year }, responseType: 'blob' });
       const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -96,7 +117,7 @@ const AdminExpenses = () => {
       link.download = `Expenses_${month}_${year}.xlsx`;
       document.body.appendChild(link); link.click(); document.body.removeChild(link); window.URL.revokeObjectURL(url);
     } catch (e) {
-      setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to export expenses', type: 'error' });
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(e), type: 'error' });
     }
   };
 

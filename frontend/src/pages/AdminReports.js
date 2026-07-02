@@ -3,6 +3,8 @@ import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
 import { Spinner } from '../components/Loader';
 import api, { getMonthlyAttendanceReport, exportMonthlyAttendanceReport } from '../services/api';
+import { getErrorMessage } from '../utils/errorHandler';
+import { validateMonthYear } from '../utils/dateValidation';
 import { FiDownload, FiFileText, FiRefreshCw } from 'react-icons/fi';
 
 const AdminReports = () => {
@@ -15,6 +17,12 @@ const AdminReports = () => {
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
 
   const handleGenerateReport = async () => {
+    const errorMsg = validateMonthYear(month, year);
+    if (errorMsg) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: errorMsg, type: 'error' });
+      return;
+    }
+    
     try {
       setLoading(true);
       const res = await getMonthlyAttendanceReport(month, year);
@@ -22,13 +30,19 @@ const AdminReports = () => {
         setReportData(res.data.reports || res.data.report || []);
       }
     } catch (e) {
-      setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to generate report', type: 'error' });
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(e), type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
   const handleExport = async () => {
+    const errorMsg = validateMonthYear(month, year);
+    if (errorMsg) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: errorMsg, type: 'error' });
+      return;
+    }
+
     try {
       const res = await exportMonthlyAttendanceReport(month, year);
       const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -37,7 +51,7 @@ const AdminReports = () => {
       link.download = `Attendance_Report_${month}_${year}.xlsx`;
       document.body.appendChild(link); link.click(); document.body.removeChild(link); window.URL.revokeObjectURL(url);
     } catch (e) {
-      setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to export report', type: 'error' });
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(e), type: 'error' });
     }
   };
 
@@ -114,7 +128,13 @@ const AdminReports = () => {
                         <td className="px-5 py-3.5 text-xs font-bold text-yellow-500 whitespace-nowrap">{r.halfDay}</td>
                         <td className="px-5 py-3.5 text-xs font-bold text-blue-400 whitespace-nowrap">{r.holiday}</td>
                         <td className="px-5 py-3.5 text-xs font-bold text-amber-500 whitespace-nowrap">{r.lateCount}</td>
-                        <td className="px-5 py-3.5 text-xs text-white whitespace-nowrap">{r.totalHours}</td>
+                        <td className="px-5 py-3.5 text-xs text-white whitespace-nowrap">
+                          {(() => {
+                            const rawTotalHours = r.totalHours ?? r.total_hours ?? r.totalWorkingHours ?? r.total_working_hours ?? r.workingHours ?? r.working_hours ?? 0;
+                            const displayTotalHours = Number(rawTotalHours || 0);
+                            return displayTotalHours % 1 === 0 ? displayTotalHours.toString() : displayTotalHours.toFixed(1);
+                          })()}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

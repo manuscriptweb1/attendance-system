@@ -3,6 +3,8 @@ import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
 import { Spinner } from '../components/Loader';
 import api from '../services/api';
+import { getErrorMessage } from '../utils/errorHandler';
+import { validateMonthYear } from '../utils/dateValidation';
 import { FiDownload, FiRefreshCw, FiDollarSign } from 'react-icons/fi';
 
 const formatCurrency = (value) => {
@@ -22,6 +24,13 @@ const AdminPayroll = () => {
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
 
   const fetchPayroll = async () => {
+    const errorMsg = validateMonthYear(month, year);
+    if (errorMsg) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: errorMsg, type: 'error' });
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       const res = await api.get('/payroll', { params: { month, year } });
@@ -30,7 +39,7 @@ const AdminPayroll = () => {
         setIsCalculated(res.data.isCalculated);
       }
     } catch (e) {
-      setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to fetch payroll data', type: 'error' });
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(e), type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -41,6 +50,12 @@ const AdminPayroll = () => {
   }, [month, year]); // eslint-disable-line
 
   const handleCalculate = async () => {
+    const errorMsg = validateMonthYear(month, year);
+    if (errorMsg) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: errorMsg, type: 'error' });
+      return;
+    }
+
     try {
       setCalculating(true);
       const res = await api.post('/payroll/calculate', { month, year });
@@ -49,13 +64,19 @@ const AdminPayroll = () => {
         fetchPayroll();
       }
     } catch (e) {
-      setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to calculate payroll', type: 'error' });
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(e), type: 'error' });
     } finally {
       setCalculating(false);
     }
   };
 
   const handleExport = async () => {
+    const errorMsg = validateMonthYear(month, year);
+    if (errorMsg) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: errorMsg, type: 'error' });
+      return;
+    }
+
     try {
       const res = await api.get('/payroll/export', { params: { month, year }, responseType: 'blob' });
       const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -64,7 +85,7 @@ const AdminPayroll = () => {
       link.download = `Payroll_${month}_${year}.xlsx`;
       document.body.appendChild(link); link.click(); document.body.removeChild(link); window.URL.revokeObjectURL(url);
     } catch (e) {
-      setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to export payroll', type: 'error' });
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(e), type: 'error' });
     }
   };
 
@@ -82,7 +103,7 @@ const AdminPayroll = () => {
       }
     } catch (e) {
       fetchPayroll();
-      setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to update status', type: 'error' });
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(e), type: 'error' });
     }
   };
 
@@ -183,7 +204,16 @@ const AdminPayroll = () => {
                         <td className="px-5 py-4 text-xs font-bold text-white whitespace-nowrap">{r.totalDays}</td>
                         <td className="px-5 py-4 text-xs text-[#CBD5E1] whitespace-nowrap">{r.workingDays}</td>
                         <td className="px-5 py-4 text-xs font-bold text-emerald-400 whitespace-nowrap">{parseFloat(r.paidDays).toFixed(1)}</td>
-                        <td className="px-5 py-4 text-xs text-yellow-500 whitespace-nowrap">{r.halfDays > 0 ? r.halfDays : '-'}</td>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          {parseFloat(r.halfDays) > 0 ? (
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold text-yellow-500">{parseFloat(r.halfDays).toFixed(1)} days</span>
+                              <span className="text-[10px] text-red-400/80">{formatCurrency(r.halfDayLossAmount ?? r.half_day_loss_amount ?? 0)}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-[#64748B]">-</span>
+                          )}
+                        </td>
                         <td className="px-5 py-4 text-xs text-white whitespace-nowrap">{formatCurrency(r.monthlyEarning)}</td>
                         <td className="px-5 py-4 text-xs text-[#94A3B8] whitespace-nowrap">₹{parseFloat(r.perDaySalary).toFixed(0)}</td>
                         <td className="px-5 py-4 whitespace-nowrap">

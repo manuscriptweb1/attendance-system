@@ -1,0 +1,1 @@
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS trusted_device_id VARCHAR(255), ADD COLUMN IF NOT EXISTS device_source VARCHAR(50), ADD COLUMN IF NOT EXISTS desktop_public_key_hash TEXT;

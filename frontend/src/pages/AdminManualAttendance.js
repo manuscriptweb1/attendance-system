@@ -4,13 +4,16 @@ import AlertDialog from '../components/AlertDialog';
 import ConfirmDialog from '../components/ConfirmDialog';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
-import { getEmployeesForManualAttendance, createManualAttendance, updateManualAttendance, deleteManualAttendance, getAllDepartments } from '../services/api';
+import { getAllDepartments, getAllEmployees, getEmployeesForManualAttendance, createManualAttendance, updateManualAttendance, deleteManualAttendance, checkInRowManualAttendance, checkOutRowManualAttendance } from '../services/api';
+import { formatTime } from '../utils/formatTime';
+import { getErrorMessage } from '../utils/errorHandler';
+import { validateDateString } from '../utils/dateValidation';
 import { FiCheckSquare, FiSquare, FiEdit, FiSearch, FiCalendar, FiFilter, FiSave, FiX, FiLayers, FiPlus, FiTrash2 } from 'react-icons/fi';
 
 const AdminManualAttendance = () => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [departmentId, setDepartmentId] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [departments, setDepartments] = useState([]);
   
@@ -61,7 +64,7 @@ const AdminManualAttendance = () => {
         setSelectedIds([]);
       }
     } catch (error) {
-      console.error(error);
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -77,8 +80,13 @@ const AdminManualAttendance = () => {
   };
 
   const isFutureDate = () => {
-    const today = new Date().toISOString().split('T')[0];
-    return date > today;
+    return validateDateString(date, { allowFuture: false }) !== null;
+  };
+
+  const isSunday = new Date(date).getDay() === 0;
+
+  const isFinalStatus = (status) => {
+    return ['Present', 'Late', 'Half Day', 'Absent', 'P', 'HD', 'A'].includes(status);
   };
 
   const handleDelete = (emp) => {
@@ -96,7 +104,7 @@ const AdminManualAttendance = () => {
             fetchData();
           }
         } catch (error) {
-          setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Failed to delete.', type: 'error' });
+          setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' });
         }
       }
     });
@@ -113,10 +121,10 @@ const AdminManualAttendance = () => {
       return;
     }
     
-    // Check if any selected employee already has attendance
-    const hasExisting = employees.find(e => selectedIds.includes(e.employee_id) && e.attendance_id);
+    // Check if any selected employee already has a final attendance status
+    const hasExisting = employees.find(e => selectedIds.includes(e.employee_id) && e.attendance_status && !['Not Mention', 'No Record', ''].includes(e.attendance_status));
     if (hasExisting) {
-      setAlertDialog({ isOpen: true, title: 'Error', message: `Attendance already exists for ${hasExisting.name}. Do NOT overwrite. Use individual Edit instead.`, type: 'error' });
+      setAlertDialog({ isOpen: true, title: 'Error', message: `This employee with employee ID ${hasExisting.employee_id} already has attendance for this date.`, type: 'error' });
       return;
     }
 
@@ -148,21 +156,43 @@ const AdminManualAttendance = () => {
 
   const handleInputChange = (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    setFormData(f => ({ ...f, [e.target.name]: value }));
+    const name = e.target.name;
+    
+    if (name === 'attendance_status') {
+      if (value === 'Absent') {
+        setFormData(f => ({ ...f, [name]: value, login_time: '', logout_time: '' }));
+      } else {
+        setFormData(f => ({ ...f, [name]: value }));
+      }
+    } else {
+      setFormData(f => ({ ...f, [name]: value }));
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const today = new Date().toISOString().split('T')[0];
-    if (date > today) {
+    const dateError = validateDateString(date, { allowFuture: false });
+    if (dateError) {
       setAlertDialog({
         isOpen: true,
         title: 'Invalid Date',
-        message: 'Cannot create manual attendance for future dates.',
+        message: dateError,
         type: 'error'
       });
       return;
     }
+
+    if (['Present', 'Late', 'Half Day'].includes(formData.attendance_status)) {
+      if (!formData.login_time || !formData.logout_time) {
+        setAlertDialog({ isOpen: true, title: 'Validation Error', message: 'Check-in and check-out time are required for Present, Late, or Half Day.', type: 'error' });
+        return;
+      }
+      if (formData.logout_time < formData.login_time) {
+        setAlertDialog({ isOpen: true, title: 'Validation Error', message: 'Check-out time cannot be earlier than check-in time.', type: 'error' });
+        return;
+      }
+    }
+
     executeSubmit();
   };
 
@@ -174,6 +204,7 @@ const AdminManualAttendance = () => {
           logout_time: formData.logout_time ? `${date}T${formData.logout_time}:00` : null,
           attendance_status: formData.attendance_status,
           is_wfh: formData.is_wfh,
+          remarks: formData.remarks,
           reason: formData.reason
         };
         const res = await updateManualAttendance(targetAttendanceId, payload);
@@ -201,7 +232,7 @@ const AdminManualAttendance = () => {
         }
       }
     } catch (error) {
-      setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Operation failed', type: 'error' });
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' });
     }
   };
 
@@ -221,8 +252,8 @@ const AdminManualAttendance = () => {
               <h1 className="text-xl font-bold text-white">Manual Attendance</h1>
               <p className="text-sm text-slate-400 mt-0.5">Emergency Attendance Management</p>
             </div>
-            <button onClick={openBulkModal} disabled={selectedIds.length === 0}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${selectedIds.length > 0 ? 'bg-amber-500 hover:bg-amber-400 text-white shadow-glow-amber-sm' : 'bg-white/5 text-slate-500 cursor-not-allowed'}`}>
+            <button onClick={openBulkModal} disabled={selectedIds.length === 0 || isSunday}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${selectedIds.length > 0 && !isSunday ? 'bg-amber-500 hover:bg-amber-400 text-white shadow-glow-amber-sm' : 'bg-white/5 text-slate-500 cursor-not-allowed'}`}>
               <FiEdit size={16} /> Add for Selected ({selectedIds.length})
             </button>
           </div>
@@ -251,13 +282,13 @@ const AdminManualAttendance = () => {
               <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Status</label>
               <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
                 className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6] appearance-none">
-                <option value="" className="bg-[#1C2540]">All</option>
-                <option value="No Record" className="bg-[#1C2540]">No Record</option>
+                <option value="All" className="bg-[#1C2540]">All</option>
                 <option value="Present" className="bg-[#1C2540]">Present</option>
-                <option value="Absent" className="bg-[#1C2540]">Absent</option>
                 <option value="Late" className="bg-[#1C2540]">Late</option>
                 <option value="Half Day" className="bg-[#1C2540]">Half Day</option>
-                <option value="Leave" className="bg-[#1C2540]">Leave</option>
+                <option value="Absent" className="bg-[#1C2540]">Absent</option>
+                <option value="Not Mention" className="bg-[#1C2540]">Not Mention</option>
+                <option value="No Record" className="bg-[#1C2540]">No Record</option>
               </select>
             </div>
             <div className="relative">
@@ -270,6 +301,15 @@ const AdminManualAttendance = () => {
             </div>
           </div>
 
+          {isSunday && (
+            <div className="mb-6 bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                <FiX size={16} />
+              </div>
+              <p className="text-sm font-medium">Manual attendance is not allowed on holidays or Sundays.</p>
+            </div>
+          )}
+
           <div className="bg-[#161D2E] border border-white/[0.07] rounded-2xl overflow-hidden shadow-clay-admin">
             <div className="overflow-x-auto dark-scroll">
               <table className="min-w-full divide-y divide-white/[0.04]">
@@ -280,7 +320,7 @@ const AdminManualAttendance = () => {
                         {selectedIds.length > 0 && selectedIds.length === filteredEmployees.length ? <FiCheckSquare size={18} className="text-blue-400" /> : <FiSquare size={18} />}
                       </button>
                     </th>
-                    {['Emp ID', 'Name', 'Department', 'Status', 'Check-In', 'Check-Out', 'Actions'].map(h => (
+                    {['Emp ID', 'Name', 'Department', 'In Status', 'Out Status', 'Total Hours', 'Status', 'Reason', 'Actions'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-[#64748B] uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -291,35 +331,120 @@ const AdminManualAttendance = () => {
                   ) : filteredEmployees.length > 0 ? filteredEmployees.map(emp => (
                     <tr key={emp.employee_id} className={`admin-table-row ${selectedIds.includes(emp.employee_id) ? 'bg-blue-500/5' : ''}`}>
                       <td className="px-4 py-3.5">
-                        <button onClick={() => toggleSelection(emp.employee_id)} className="text-slate-400 hover:text-white">
+                        <button onClick={() => toggleSelection(emp.employee_id)} disabled={isFinalStatus(emp.attendance_status) || isSunday} className={`transition-colors ${isFinalStatus(emp.attendance_status) || isSunday ? 'text-slate-600 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-white'}`}>
                           {selectedIds.includes(emp.employee_id) ? <FiCheckSquare size={18} className="text-blue-400" /> : <FiSquare size={18} />}
                         </button>
                       </td>
                       <td className="px-4 py-3.5 text-sm text-slate-400 font-mono whitespace-nowrap">{emp.employee_id}</td>
                       <td className="px-4 py-3.5 text-sm font-semibold text-white whitespace-nowrap">{emp.name}</td>
                       <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.department_name || '-'}</td>
+                      
+                      <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">
+                        {emp.login_time ? (
+                          <div>
+                            <span className="block font-medium text-white">{formatTime(emp.login_time)}</span>
+                            {emp.checkin_status && (
+                              <span className={`block text-[10px] font-bold mt-0.5 ${emp.checkin_status === 'late' ? 'text-amber-500' : emp.checkin_status === 'early' ? 'text-purple-400' : 'text-emerald-400'}`}>
+                                {emp.checkin_status === 'late' ? `Late ${Number(emp.late_minutes || 0)}m` : emp.checkin_status === 'early' ? 'Early Check-In' : 'On Time'}
+                              </span>
+                            )}
+                          </div>
+                        ) : '-'}
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">
+                        {emp.logout_time ? (
+                          <div>
+                            <span className="block font-medium text-white">{formatTime(emp.logout_time)}</span>
+                            {emp.checkout_status && (
+                              <span className={`block text-[10px] font-bold mt-0.5 ${emp.checkout_status === 'late' ? 'text-amber-500' : emp.checkout_status === 'early' ? 'text-purple-400' : 'text-emerald-400'}`}>
+                                {emp.checkout_status === 'late' ? `Late Check-Out` : emp.checkout_status === 'early' ? `Early Check-Out ${Number(emp.early_minutes || 0)}m` : 'On Time'}
+                              </span>
+                            )}
+                          </div>
+                        ) : '-'}
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-slate-400 font-medium whitespace-nowrap">
+                        {emp.total_hours && emp.total_hours > 0 ? `${emp.total_hours} hrs` : '-'}
+                      </td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         {emp.attendance_status ? <StatusBadge status={emp.attendance_status} dark /> : <span className="text-xs text-slate-500 font-medium px-2.5 py-1 bg-white/5 rounded-full border border-white/10">No Record</span>}
                       </td>
                       <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">
-                        {emp.login_time ? new Date(emp.login_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
+                        {emp.absent_reason || '-'}
                       </td>
-                      <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">
-                        {emp.logout_time ? new Date(emp.logout_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
-                      </td>
+                      
                       <td className="px-4 py-3.5 whitespace-nowrap">
-                        {emp.attendance_id ? (
-                          emp.validation_method === 'Manual' ? (
+                        {(() => {
+                          const hasCheckIn = !!emp.login_time;
+                          const hasCheckOut = !!emp.logout_time;
+                          const status = emp.attendance_status || 'Not Mention';
+                          
+                          const editButton = (
+                            <button onClick={() => openEditModal(emp)} disabled={isSunday} className={`text-blue-400 hover:text-blue-300 transition-colors text-sm font-medium flex items-center gap-1.5 ${isSunday ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                              <FiEdit size={14} /> {emp.attendance_id ? 'Edit' : 'Add (Edit)'}
+                            </button>
+                          );
+
+                          const deleteButton = emp.attendance_id && emp.validation_method === 'Manual' ? (
+                            <button onClick={() => handleDelete(emp)} disabled={isSunday} className={`text-red-400 hover:text-red-300 transition-colors text-sm font-medium flex items-center gap-1.5 ${isSunday ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                              <FiTrash2 size={14} />
+                            </button>
+                          ) : null;
+
+                          const handleRowAction = async (emp, action) => {
+                            try {
+                              let res;
+                              if (action === 'checkin') {
+                                res = await checkInRowManualAttendance({ employee_id: emp.employee_id, attendance_date: date });
+                              } else {
+                                res = await checkOutRowManualAttendance({ employee_id: emp.employee_id, attendance_date: date });
+                              }
+                              if (res.data.success) {
+                                setAlertDialog({ isOpen: true, title: 'Success', message: res.data.message, type: 'success' });
+                                fetchData();
+                              }
+                            } catch (error) {
+                              setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Operation failed', type: 'error' });
+                            }
+                          };
+
+                          const checkInBtn = (
+                            <button onClick={() => handleRowAction(emp, 'checkin')} disabled={isSunday} className={`transition-colors text-sm font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${isSunday ? 'bg-white/5 text-slate-500 border-white/5 cursor-not-allowed' : 'bg-emerald-500/10 text-emerald-400 hover:text-emerald-300 border-emerald-500/20'}`}>
+                              Check-In
+                            </button>
+                          );
+
+                          const checkOutBtn = (
+                            <button onClick={() => handleRowAction(emp, 'checkout')} disabled={isSunday} className={`transition-colors text-sm font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${isSunday ? 'bg-white/5 text-slate-500 border-white/5 cursor-not-allowed' : 'bg-blue-500/10 text-blue-400 hover:text-blue-300 border-blue-500/20'}`}>
+                              Check-Out
+                            </button>
+                          );
+
+                          const completedBadge = <span className="text-xs text-slate-500 font-medium px-2 py-1 bg-white/5 rounded-md border border-white/5">Already Marked</span>;
+
+                          let actions = [];
+
+                          if (status === 'Absent') {
+                            if (editButton) actions.push(editButton);
+                          } else if (!hasCheckIn) {
+                            actions.push(checkInBtn);
+                            if (editButton) actions.push(editButton);
+                          } else if (hasCheckIn && !hasCheckOut) {
+                            actions.push(checkOutBtn);
+                            if (editButton) actions.push(editButton);
+                          } else {
+                            actions.push(completedBadge);
+                            if (editButton) actions.push(editButton);
+                          }
+
+                          if (deleteButton) actions.push(deleteButton);
+
+                          return (
                             <div className="flex items-center gap-3">
-                              <button onClick={() => openEditModal(emp)} className="text-blue-400 hover:text-blue-300 transition-colors text-sm font-medium flex items-center gap-1.5"><FiEdit size={14} /> Edit</button>
-                              <button onClick={() => handleDelete(emp)} className="text-red-400 hover:text-red-300 transition-colors text-sm font-medium flex items-center gap-1.5"><FiTrash2 size={14} /> Delete</button>
+                              {actions.map((action, idx) => <React.Fragment key={idx}>{action}</React.Fragment>)}
                             </div>
-                          ) : (
-                            <span className="text-xs text-slate-500 italic">System Generated</span>
-                          )
-                        ) : (
-                          <button onClick={() => { setSelectedIds([emp.employee_id]); setTimeout(openBulkModal, 50); }} className="text-amber-400 hover:text-amber-300 transition-colors text-sm font-medium flex items-center gap-1.5"><FiPlus size={14} /> Add</button>
-                        )}
+                          );
+                        })()}
                       </td>
                     </tr>
                   )) : (
@@ -365,11 +490,11 @@ const AdminManualAttendance = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Check-In Time</label>
-                    <input type="time" name="login_time" value={formData.login_time} onChange={handleInputChange} className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6]" />
+                    <input type="time" name="login_time" value={formData.login_time} onChange={handleInputChange} disabled={formData.attendance_status === 'Absent'} className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6] disabled:opacity-50" />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Check-Out Time</label>
-                    <input type="time" name="logout_time" value={formData.logout_time} onChange={handleInputChange} className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6]" />
+                    <input type="time" name="logout_time" value={formData.logout_time} onChange={handleInputChange} disabled={formData.attendance_status === 'Absent'} className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6] disabled:opacity-50" />
                   </div>
                 </div>
                 
@@ -381,9 +506,6 @@ const AdminManualAttendance = () => {
                       <option value="Absent" className="bg-[#1C2540]">Absent</option>
                       <option value="Late" className="bg-[#1C2540]">Late</option>
                       <option value="Half Day" className="bg-[#1C2540]">Half Day</option>
-                      <option value="Leave" className="bg-[#1C2540]">Leave</option>
-                      <option value="Holiday" className="bg-[#1C2540]">Holiday</option>
-                      <option value="Weekend" className="bg-[#1C2540]">Weekend</option>
                     </select>
                   </div>
                   <div className="flex items-center mt-6">
@@ -397,7 +519,14 @@ const AdminManualAttendance = () => {
                   </div>
                 </div>
 
-                {!editMode && (
+                {formData.attendance_status === 'Absent' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-red-400 uppercase tracking-wider mb-2">Absent Reason *</label>
+                    <input type="text" name="remarks" value={formData.remarks} onChange={handleInputChange} required placeholder="Reason for absence" className="w-full bg-red-500/10 border border-red-500/30 text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 placeholder:text-red-500/50" />
+                  </div>
+                )}
+
+                {!editMode && formData.attendance_status !== 'Absent' && (
                   <div>
                     <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Remarks (Optional)</label>
                     <input type="text" name="remarks" value={formData.remarks} onChange={handleInputChange} placeholder="e.g. Field work" className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6]" />

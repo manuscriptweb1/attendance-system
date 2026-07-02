@@ -10,7 +10,7 @@ const getClientIP = (req) => {
     // x-forwarded-for can contain multiple IPs, take the first one
     return forwarded.split(',')[0].trim();
   }
-  
+
   return (
     req.headers['x-real-ip'] ||
     req.connection.remoteAddress ||
@@ -25,12 +25,12 @@ const getClientIP = (req) => {
  */
 const normalizeIP = (ip) => {
   if (!ip) return 'Unknown';
-  
+
   // Remove IPv6 prefix from IPv4 addresses
   if (ip.startsWith('::ffff:')) {
     return ip.substring(7);
   }
-  
+
   return ip;
 };
 
@@ -41,17 +41,17 @@ const isIPAllowed = (clientIP, allowedIPs) => {
   if (!allowedIPs || allowedIPs.length === 0) {
     return false;
   }
-  
+
   const normalizedClientIP = normalizeIP(clientIP);
-  
+
   // Check exact matches
   for (const allowedIP of allowedIPs) {
     const normalizedAllowedIP = normalizeIP(allowedIP.trim());
-    
+
     if (normalizedClientIP === normalizedAllowedIP) {
       return true;
     }
-    
+
     // Check IP range (simple CIDR notation support - e.g., 192.168.1.0/24)
     if (allowedIP.includes('/')) {
       if (isIPInRange(normalizedClientIP, allowedIP)) {
@@ -59,7 +59,7 @@ const isIPAllowed = (clientIP, allowedIPs) => {
       }
     }
   }
-  
+
   return false;
 };
 
@@ -70,10 +70,10 @@ const isIPInRange = (ip, cidr) => {
   try {
     const [range, bits] = cidr.split('/');
     const mask = ~(2 ** (32 - parseInt(bits)) - 1);
-    
+
     const ipNum = ipToNumber(ip);
     const rangeNum = ipToNumber(range);
-    
+
     return (ipNum & mask) === (rangeNum & mask);
   } catch (error) {
     console.error('Error checking IP range:', error);
@@ -96,18 +96,18 @@ const validateNetwork = async (req) => {
     const settings = await getSettingsFromDB();
     const clientIP = getClientIP(req);
     const normalizedClientIP = normalizeIP(clientIP);
-    
+
     console.log('=== NETWORK VALIDATION ===');
     console.log('Client IP (raw):', clientIP);
     console.log('Client IP (normalized):', normalizedClientIP);
-    
+
     // Get network settings from the correct location
     const officePublicIP = settings.network?.officePublicIP;
     const allowedIPs = settings.network?.allowedIPs || [];
-    
+
     console.log('Office Public IP (from DB):', officePublicIP);
     console.log('Allowed IPs (from DB):', allowedIPs);
-    
+
     // If no network validation configured, return invalid
     if (!officePublicIP && (!allowedIPs || allowedIPs.length === 0)) {
       console.log('❌ No office IPs configured in database');
@@ -117,12 +117,12 @@ const validateNetwork = async (req) => {
         clientIP: normalizedClientIP
       };
     }
-    
+
     // Check primary office IP
     if (officePublicIP) {
       const normalizedOfficeIP = normalizeIP(officePublicIP);
       console.log('Checking Primary Office IP:', normalizedOfficeIP);
-      
+
       if (normalizedClientIP === normalizedOfficeIP) {
         console.log('✅ IP matches primary office IP');
         return {
@@ -136,20 +136,20 @@ const validateNetwork = async (req) => {
         console.log('   Got:', normalizedClientIP);
       }
     }
-    
+
     // Check allowed IPs list
     if (allowedIPs && allowedIPs.length > 0) {
       console.log('Checking allowed IPs list...');
-      
+
       for (const allowedIP of allowedIPs) {
         const normalizedAllowedIP = normalizeIP(allowedIP.trim());
         console.log('  Checking:', normalizedAllowedIP, 'vs', normalizedClientIP);
-        
+
         if (normalizedClientIP === normalizedAllowedIP) {
           console.log('  ✅ Match found!');
         }
       }
-      
+
       if (isIPAllowed(clientIP, allowedIPs)) {
         console.log('✅ IP found in allowed list');
         return {
@@ -159,7 +159,7 @@ const validateNetwork = async (req) => {
         };
       }
     }
-    
+
     console.log('❌ IP not authorized');
     console.log('=== NETWORK VALIDATION FAILED ===');
     return {

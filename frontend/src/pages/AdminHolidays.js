@@ -6,6 +6,8 @@ import { Spinner } from '../components/Loader';
 import { FiUmbrella, FiPlus, FiEdit2, FiTrash2, FiCalendar, FiSun, FiMap, FiCheckCircle } from 'react-icons/fi';
 import { getAllHolidays, addHoliday, updateHoliday, deleteHoliday, toggleHolidayStatus } from '../services/api';
 import { formatDate } from '../utils/formatTime';
+import { getErrorMessage } from '../utils/errorHandler';
+import { validateDateString } from '../utils/dateValidation';
 
 /* ─── CUSTOM TOGGLE SWITCH ─── */
 const ToggleSwitch = ({ checked, onChange }) => (
@@ -79,7 +81,7 @@ const AdminHolidays = () => {
   const fetchHolidays = async () => {
     setLoading(true);
     try { const r = await getAllHolidays(); if (r.data.success) setHolidays(r.data.holidays || []); }
-    catch (e) { setAlertDialog({ isOpen:true, title:'Error', message:'Failed to load holidays', type:'error' }); }
+    catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
     finally { setLoading(false); }
   };
 
@@ -87,23 +89,27 @@ const AdminHolidays = () => {
   const resetForm = () => setFormData({ holiday_date:'', holiday_type:'Government Holiday', holiday_title:'', holiday_note:'', is_enabled:true });
 
   const handleAdd = async () => {
+    const dateError = validateDateString(formData.holiday_date, { allowFuture: true });
+    if (dateError) { setAlertDialog({ isOpen:true, title:'Error', message: dateError, type:'error' }); return; }
     try { const r = await addHoliday(formData); if (r.data.success) { setAlertDialog({ isOpen:true, title:'Success', message:'Holiday added!', type:'success' }); setShowAddModal(false); resetForm(); fetchHolidays(); } }
-    catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: e.response?.data?.message || 'Failed to add', type:'error' }); }
+    catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
   };
   const handleEdit = async () => {
+    const dateError = validateDateString(formData.holiday_date, { allowFuture: true });
+    if (dateError) { setAlertDialog({ isOpen:true, title:'Error', message: dateError, type:'error' }); return; }
     try { const r = await updateHoliday(selectedHoliday.id, formData); if (r.data.success) { setAlertDialog({ isOpen:true, title:'Success', message:'Holiday updated!', type:'success' }); setShowEditModal(false); resetForm(); setSelectedHoliday(null); fetchHolidays(); } }
-    catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: e.response?.data?.message || 'Failed to update', type:'error' }); }
+    catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
   };
   const handleToggle = async holiday => {
     try { const r = await toggleHolidayStatus(holiday.id, !holiday.is_enabled); if (r.data.success) fetchHolidays(); }
-    catch (e) { setAlertDialog({ isOpen:true, title:'Error', message:'Toggle failed', type:'error' }); }
+    catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
   };
   const handleDelete = holiday => setConfirmDialog({
     isOpen:true, title:'Delete Holiday', type:'danger',
     message:`Delete "${holiday.holiday_title}"? This cannot be undone.`,
     onConfirm: async () => {
       try { const r = await deleteHoliday(holiday.id); if (r.data.success) { setAlertDialog({ isOpen:true, title:'Success', message:'Deleted!', type:'success' }); fetchHolidays(); } }
-      catch (e) { setAlertDialog({ isOpen:true, title:'Error', message:'Delete failed', type:'error' }); }
+      catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
     },
   });
   const openEdit = holiday => { setSelectedHoliday(holiday); setFormData({ holiday_date: holiday.holiday_date.split('T')[0], holiday_type: holiday.holiday_type, holiday_title: holiday.holiday_title, holiday_note: holiday.holiday_note || '', is_enabled: holiday.is_enabled }); setShowEditModal(true); };

@@ -16,6 +16,7 @@ const mapRecordToCamelCase = (r) => ({
   blankUnmarkedDays: parseFloat(r.blank_unmarked_days || 0),
   paidDays: parseFloat(r.paid_days || 0),
   halfDays: parseFloat(r.half_days || 0),
+  halfDayLossAmount: parseFloat(r.half_day_loss_amount || 0),
   monthlyEarning: parseFloat(r.monthly_earning || 0),
   perDaySalary: parseFloat(r.per_day_salary || 0),
   lopDays: parseFloat(r.lop_days || 0),
@@ -78,15 +79,15 @@ const calculatePayroll = async (req, res) => {
         `INSERT INTO payroll_records (
           employee_id, employee_code, payroll_month, payroll_year, 
           present_days, late_days, absent_days, blank_unmarked_days, holiday_days,
-          total_days, working_days, paid_days, half_days, 
+          total_days, working_days, paid_days, half_days, half_day_loss_amount,
           monthly_earning, per_day_salary, lop_days, lop_amount, net_earning,
           basic_salary, hra, special_allowance, staff_advance, professional_tax, tds, net_payable, status
         ) VALUES (
           $1, $2, $3, $4, 
           $5, $6, $7, $8, $9,
-          $10, $11, $12, $13,
-          $14, $15, $16, $17, $18,
-          $19, $20, $21, $22, $23, $24, $25, $26
+          $10, $11, $12, $13, $14,
+          $15, $16, $17, $18, $19,
+          $20, $21, $22, $23, $24, $25, $26, $27
         )
         ON CONFLICT (employee_id, payroll_month, payroll_year) DO UPDATE SET
           present_days = EXCLUDED.present_days,
@@ -98,6 +99,7 @@ const calculatePayroll = async (req, res) => {
           working_days = EXCLUDED.working_days,
           paid_days = EXCLUDED.paid_days,
           half_days = EXCLUDED.half_days,
+          half_day_loss_amount = EXCLUDED.half_day_loss_amount,
           monthly_earning = EXCLUDED.monthly_earning,
           per_day_salary = EXCLUDED.per_day_salary,
           lop_days = EXCLUDED.lop_days,
@@ -114,7 +116,7 @@ const calculatePayroll = async (req, res) => {
         [
           pr.employeeCode, pr.employeeCode, month, year,
           pr.presentDays, pr.lateDays, pr.absentDays, pr.blankUnmarkedDays, pr.holidayDays,
-          pr.totalDays, pr.workingDays, pr.paidDays, pr.halfDays,
+          pr.totalDays, pr.workingDays, pr.paidDays, pr.halfDays, pr.halfDayLossAmount,
           pr.monthlyEarning, pr.perDaySalary, pr.lopDays, pr.lopAmount, pr.netEarning,
           pr.basicSalary, pr.hra, pr.specialAllowance, pr.staffAdvance, pr.professionalTax, pr.tds, pr.netPayable, 'pending'
         ]
@@ -184,6 +186,7 @@ const exportPayroll = async (req, res) => {
       { header: 'Working Days', key: 'working_days', width: 15 },
       { header: 'Paid Days', key: 'paid_days', width: 12 },
       { header: 'Half Days', key: 'half_days', width: 12 },
+      { header: 'Half Day Amount', key: 'half_day_loss_amount', width: 15 },
       { header: 'Monthly Earning', key: 'monthly_earning', width: 18 },
       { header: 'Per Day Salary', key: 'per_day_salary', width: 18 },
       { header: 'LOP Days', key: 'lop_days', width: 12 },

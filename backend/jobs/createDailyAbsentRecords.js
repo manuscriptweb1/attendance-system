@@ -12,7 +12,7 @@ const getLocalDateString = () => {
 };
 
 /**
- * Create daily attendance records with "Absent" status for all active employees
+ * Create daily attendance records with "Not Mention" status for all active employees
  * This should be run at the start of each day (e.g., via cron job or manual trigger)
  */
 async function createDailyAbsentRecords(date = null) {
@@ -24,7 +24,7 @@ async function createDailyAbsentRecords(date = null) {
     // Get all active employees who don't have attendance record for today
     const result = await pool.query(`
       INSERT INTO attendance (employee_id, attendance_date, attendance_status)
-      SELECT e.employee_id, $1, 'Absent'
+      SELECT e.employee_id, $1, 'Not Mention'
       FROM employees e
       WHERE e.status = 'Active'
       AND NOT EXISTS (

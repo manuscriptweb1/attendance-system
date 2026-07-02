@@ -6,6 +6,7 @@ const STATUS_CONFIG = {
   'Late':              { bg: 'bg-amber-50',    text: 'text-amber-700',   border: 'border-amber-200/80',   dot: 'bg-amber-500'   },
   'Half Day':          { bg: 'bg-orange-50',   text: 'text-orange-700',  border: 'border-orange-200/80',  dot: 'bg-orange-500'  },
   'Absent':            { bg: 'bg-red-50',      text: 'text-red-700',     border: 'border-red-200/80',     dot: 'bg-red-500'     },
+  'Not Mention':       { bg: 'bg-slate-50',    text: 'text-slate-600',   border: 'border-slate-200/80',   dot: 'bg-slate-400'   },
   'Work From Home':    { bg: 'bg-blue-50',     text: 'text-blue-700',    border: 'border-blue-200/80',    dot: 'bg-blue-500'    },
   'Government Holiday':{ bg: 'bg-purple-50',   text: 'text-purple-700',  border: 'border-purple-200/80',  dot: 'bg-purple-500'  },
   'Office Holiday':    { bg: 'bg-violet-50',   text: 'text-violet-700',  border: 'border-violet-200/80',  dot: 'bg-violet-500'  },
@@ -20,6 +21,7 @@ const DARK_CONFIG = {
   'Late':              { bg: 'bg-amber-500/15',   text: 'text-amber-400',   border: 'border-amber-500/25',   dot: 'bg-amber-400'   },
   'Half Day':          { bg: 'bg-orange-500/15',  text: 'text-orange-400',  border: 'border-orange-500/25',  dot: 'bg-orange-400'  },
   'Absent':            { bg: 'bg-red-500/15',     text: 'text-red-400',     border: 'border-red-500/25',     dot: 'bg-red-400'     },
+  'Not Mention':       { bg: 'bg-slate-500/15',   text: 'text-slate-400',   border: 'border-slate-500/20',   dot: 'bg-slate-500'   },
   'Work From Home':    { bg: 'bg-blue-500/15',    text: 'text-blue-400',    border: 'border-blue-500/25',    dot: 'bg-blue-400'    },
   'Government Holiday':{ bg: 'bg-purple-500/15',  text: 'text-purple-400',  border: 'border-purple-500/25',  dot: 'bg-purple-400'  },
   'Office Holiday':    { bg: 'bg-violet-500/15',  text: 'text-violet-400',  border: 'border-violet-500/25',  dot: 'bg-violet-400'  },
@@ -63,3 +65,4 @@ const StatusBadge = ({ status, showDot = true, size = 'sm', dark = false, light 
 };
 
 export default StatusBadge;
+

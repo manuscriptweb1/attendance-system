@@ -68,10 +68,10 @@ const ensureDailyAttendanceRecords = async (date) => {
       return 0; // Holiday - no absent records needed
     }
     
-    // Create absent records for all active employees who don't have a record yet
+    // Create 'Not Mention' records for all active employees who don't have a record yet
     const result = await pool.query(`
       INSERT INTO attendance (employee_id, attendance_date, attendance_status)
-      SELECT e.employee_id, $1, 'Absent'
+      SELECT e.employee_id, $1, 'Not Mention'
       FROM employees e
       WHERE e.status = 'Active'
       AND NOT EXISTS (
@@ -1223,10 +1223,93 @@ const getEmployeeMonthlyAttendance = async (req, res) => {
 
     const holidayResult = await pool.query(holidayQuery, holidayValues);
 
+    // --- Calculate Dashboard Stats ---
+    const now = new Date();
+    // Offset local timezone safely
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    const todayStr = now.toISOString().split('T')[0];
+    
+    // Determine the range of days to evaluate
+    let targetYear = year ? parseInt(year) : now.getFullYear();
+    let targetMonth = month ? parseInt(month) - 1 : now.getMonth();
+    
+    // Max day to iterate: if current month, up to today's date. Otherwise, last day of that month.
+    let isCurrentMonth = (targetYear === now.getFullYear() && targetMonth === now.getMonth());
+    let maxDay = isCurrentMonth ? now.getDate() : new Date(targetYear, targetMonth + 1, 0).getDate();
+
+    let eligibleDays = 0;
+    let attendedDays = 0;
+    let presentDays = 0;
+    let lateDays = 0;
+    let halfDays = 0;
+    let wfhDays = 0;
+
+    for (let d = 1; d <= maxDay; d++) {
+      const iterDate = new Date(targetYear, targetMonth, d);
+      // Skip Sunday (0)
+      if (iterDate.getDay() === 0) continue;
+
+      // Local string for the iterated date
+      iterDate.setMinutes(iterDate.getMinutes() - iterDate.getTimezoneOffset());
+      const iterStr = iterDate.toISOString().split('T')[0];
+
+      // Skip holidays
+      const isHoliday = holidayResult.rows.some(h => {
+        const hd = new Date(h.holiday_date);
+        hd.setMinutes(hd.getMinutes() - hd.getTimezoneOffset());
+        return hd.toISOString().split('T')[0] === iterStr;
+      });
+      if (isHoliday) continue;
+
+      // Find attendance record
+      const record = result.rows.find(r => {
+        const rd = new Date(r.attendance_date);
+        rd.setMinutes(rd.getMinutes() - rd.getTimezoneOffset());
+        return rd.toISOString().split('T')[0] === iterStr;
+      });
+
+      const status = record ? record.attendance_status : 'Not Mention';
+      const isWfh = record ? record.is_wfh : false;
+
+      // Future dates check (in case maxDay logic is somehow bypassed)
+      if (iterStr > todayStr) continue;
+
+      // "Today Not Mention should not become Absent before day ends."
+      if (iterStr === todayStr && (status === 'Not Mention' || !status)) {
+        continue;
+      }
+
+      eligibleDays++;
+
+      if (status === 'Present' || status === 'Late' || status === 'Work From Home') {
+        attendedDays += 1;
+        if (status === 'Present' || status === 'Work From Home') presentDays++;
+        if (status === 'Late') lateDays++;
+        if (isWfh) wfhDays++;
+      } else if (status === 'Half Day') {
+        attendedDays += 0.5;
+        halfDays++;
+      }
+      // Absent or past 'Not Mention' adds 0 to attendedDays
+    }
+
+    const attendanceRate = eligibleDays > 0 ? Math.round((attendedDays / eligibleDays) * 100) : 0;
+
+    const dashboardStats = {
+      presentDays,
+      lateDays,
+      halfDays,
+      wfhDays,
+      attendedDays,
+      eligibleDays,
+      attendanceRate
+    };
+
     res.json({
       success: true,
       attendance: result.rows,
-      holidays: holidayResult.rows
+      holidays: holidayResult.rows,
+      dashboardStats
     });
 
   } catch (error) {
@@ -1267,7 +1350,9 @@ const getAllAttendance = async (req, res) => {
       else if (status === 'Present') {
         query += ` AND a.attendance_status IN ('Present', 'Work From Home')`;
       } else if (status === 'Absent') {
-        query += ` AND (a.attendance_status = 'Absent' OR a.attendance_status IS NULL)`;
+        query += ` AND a.attendance_status = 'Absent'`;
+      } else if (status === 'Not Mention' || status === 'No Record') {
+        query += ` AND (a.attendance_status = 'Not Mention' OR a.attendance_status IS NULL)`;
       } else {
         query += ` AND a.attendance_status = $${paramCount}`;
         values.push(status);

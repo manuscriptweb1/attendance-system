@@ -37,7 +37,7 @@ const exportMonthlyAttendanceReport = async (req, res) => {
       { header: 'Total Hours', key: 'totalHours', width: 12 }
     ];
 
-    worksheet.addRows(reportData);
+    worksheet.addRows(summaryRows);
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=Attendance_Report_${month}_${year}.xlsx`);

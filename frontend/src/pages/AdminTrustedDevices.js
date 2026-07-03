@@ -3,6 +3,7 @@ import Sidebar from '../components/Sidebar';
 import DetailsDialog from '../components/DetailsDialog';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
+import AdminToast from '../components/AdminToast';
 import PromptDialog from '../components/PromptDialog';
 import { Spinner } from '../components/Loader';
 import { FiSmartphone, FiCheck, FiX, FiEdit2, FiSave, FiRefreshCw, FiEye, FiTrash2, FiSearch, FiMonitor, FiTablet, FiAlertTriangle, FiShieldOff, FiUnlock } from 'react-icons/fi';
@@ -69,6 +70,7 @@ const AdminTrustedDevices = () => {
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'info' });
   const [promptDialog, setPromptDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'info', confirmText: 'Submit' });
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
+  const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
 
   useEffect(() => { 
     fetchDevices(); 
@@ -97,7 +99,7 @@ const AdminTrustedDevices = () => {
     try {
       const response = await approveTrustedDevice(deviceId);
       if (response.data.success) {
-        setAlertDialog({ isOpen: true, title: 'Success', message: 'Device approved successfully', type: 'success' });
+        setToastConfig({ message: 'Device approved successfully', type: 'success' });
         fetchDevices(); fetchStats();
       }
     } catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to approve device', type: 'error' }); }
@@ -111,7 +113,7 @@ const AdminTrustedDevices = () => {
         try {
           const response = await rejectTrustedDevice(device.id, remarks);
           if (response.data.success) {
-            setAlertDialog({ isOpen: true, title: 'Success', message: 'Device rejected successfully', type: 'success' });
+            setToastConfig({ message: 'Device rejected successfully', type: 'success' });
             fetchDevices(); fetchStats();
           }
         } catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to reject device', type: 'error' }); }
@@ -128,7 +130,7 @@ const AdminTrustedDevices = () => {
           // You could optionally ask for remarks using PromptDialog, but requirements say optional and confirm dialog is fine.
           const response = await blockTrustedDevice(device.id, 'Blocked by Admin');
           if (response.data.success) {
-            setAlertDialog({ isOpen: true, title: 'Success', message: 'Device blocked successfully', type: 'success' });
+            setToastConfig({ message: 'Device blocked successfully', type: 'success' });
             fetchDevices(); fetchStats();
           }
         } catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to block device', type: 'error' }); }
@@ -144,7 +146,7 @@ const AdminTrustedDevices = () => {
         try {
           const response = await unblockTrustedDevice(device.id);
           if (response.data.success) {
-            setAlertDialog({ isOpen: true, title: 'Success', message: 'Device unblocked successfully', type: 'success' });
+            setToastConfig({ message: 'Device unblocked successfully', type: 'success' });
             fetchDevices(); fetchStats();
           }
         } catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to unblock device', type: 'error' }); }
@@ -176,7 +178,7 @@ const AdminTrustedDevices = () => {
         try {
           const response = await removeTrustedDeviceApproval(device.id);
           if (response.data.success) {
-            setAlertDialog({ isOpen: true, title: 'Success', message: 'Approval removed successfully', type: 'success' });
+            setToastConfig({ message: 'Approval removed successfully', type: 'success' });
             fetchDevices(); fetchStats();
           }
         } catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to remove approval', type: 'error' }); }
@@ -192,7 +194,7 @@ const AdminTrustedDevices = () => {
         try {
           const response = await deleteTrustedDevice(device.id);
           if (response.data.success) {
-            setAlertDialog({ isOpen: true, title: 'Success', message: 'Device deleted successfully', type: 'success' });
+            setToastConfig({ message: 'Device deleted successfully', type: 'success' });
             fetchDevices(); fetchStats();
           }
         } catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to delete device', type: 'error' }); }
@@ -425,6 +427,11 @@ const AdminTrustedDevices = () => {
       <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })} onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog({ ...confirmDialog, isOpen: false }); }} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText={confirmDialog.confirmText || (confirmDialog.type === 'danger' ? 'Delete' : 'Confirm')} />
       <PromptDialog isOpen={promptDialog.isOpen} onClose={() => setPromptDialog({ ...promptDialog, isOpen: false })} onConfirm={(val) => { promptDialog.onConfirm(val); setPromptDialog({ ...promptDialog, isOpen: false }); }} title={promptDialog.title} message={promptDialog.message} type={promptDialog.type} confirmText={promptDialog.confirmText} />
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
+      <AdminToast 
+        message={toastConfig.message} 
+        type={toastConfig.type} 
+        onClose={() => setToastConfig({ message: '', type: 'success' })} 
+      />
     </div>
   );
 };

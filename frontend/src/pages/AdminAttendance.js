@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
+import AdminToast from '../components/AdminToast';
 import ClearDataDialog from '../components/ClearDataDialog';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
@@ -23,6 +24,7 @@ const AdminAttendance = () => {
   const [downloadData,   setDownloadData]   = useState({ month:'', year:'' });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen:false, title:'', message:'', onConfirm:null, type:'info' });
   const [alertDialog,   setAlertDialog]   = useState({ isOpen:false, title:'', message:'', type:'success' });
+  const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
   const [clearDialog, setClearDialog] = useState({ isOpen: false });
 
   const fetchAttendance = async () => {
@@ -70,7 +72,7 @@ const AdminAttendance = () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a'); link.href = url; link.download = fileName;
       document.body.appendChild(link); link.click(); document.body.removeChild(link); window.URL.revokeObjectURL(url);
-      setAlertDialog({ isOpen:true, title:'Success', message:`${downloadFormat.toUpperCase()} downloaded successfully!`, type:'success' });
+      setToastConfig({ message: `${downloadFormat.toUpperCase()} downloaded successfully!`, type: 'success' });
     } catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
   };
 
@@ -78,7 +80,7 @@ const AdminAttendance = () => {
     const resetText = resetType === 'check-in' ? 'Check-In' : 'Check-Out';
     setConfirmDialog({ isOpen:true, title:`Reset ${resetText}`, type:'warning', message:`Reset ${resetText} for "${record.name}" on ${formatDate(record.attendance_date)}?`,
       onConfirm: async () => {
-        try { const r = await resetAttendance(record.id, resetType); if (r.data.success) { setAlertDialog({ isOpen:true, title:'Success', message:`${resetText} reset successfully!`, type:'success' }); fetchAttendance(); } else throw new Error(r.data.message); }
+        try { const r = await resetAttendance(record.id, resetType); if (r.data.success) { setToastConfig({ message: `${resetText} reset successfully!`, type: 'success' }); fetchAttendance(); } else throw new Error(r.data.message); }
         catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
       },
     });
@@ -88,7 +90,7 @@ const AdminAttendance = () => {
     isOpen:true, title:'Delete Attendance Record', type:'danger',
     message:`Permanently delete the attendance record for "${record.name}" on ${formatDate(record.attendance_date)}?`,
     onConfirm: async () => {
-      try { const r = await deleteAttendance(record.id); if (r.data.success) { setAlertDialog({ isOpen:true, title:'Success', message:'Record deleted successfully!', type:'success' }); fetchAttendance(); } else throw new Error(r.data.message); }
+      try { const r = await deleteAttendance(record.id); if (r.data.success) { setToastConfig({ message: 'Record deleted successfully!', type: 'success' }); fetchAttendance(); } else throw new Error(r.data.message); }
       catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
     },
   });
@@ -97,7 +99,7 @@ const AdminAttendance = () => {
     try {
       const response = await clearMonthlyAttendance(year, month);
       if (response.data.success) {
-        setAlertDialog({ isOpen: true, title: 'Success', message: `Attendance records for ${month}/${year} cleared successfully`, type: 'success' });
+        setToastConfig({ message: `Attendance records for ${month}/${year} cleared successfully`, type: 'success' });
         fetchAttendance();
       } else {
         setAlertDialog({ isOpen: true, title: 'Error', message: response.data.message || 'Failed to clear attendance', type: 'error' });
@@ -224,54 +226,53 @@ const AdminAttendance = () => {
               <div className="overflow-x-auto dark-scroll">
                 <table className="min-w-full divide-y divide-white/[0.04]">
                   <thead className="bg-admin-bg">
-                    <tr>{['Date','Emp ID','Name','Dept','Check In','Check Out','Hours','In Status','Out Status','Status','Absent Reason','Type','Actions'].map(h => (
-                      <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
+                    <tr>{['Date','Employee','IN','OUT','Hours','Status','Reason','Actions'].map(h => (
+                      <th key={h} className={`px-3 py-2.5 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap ${h === 'Actions' ? 'sticky right-0 z-10 bg-admin-bg border-l border-white/[0.04] shadow-[-4px_0_15px_rgba(0,0,0,0.2)]' : ''}`}>{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
                     {attendance.length > 0 ? attendance.map(r => (
                       <tr key={r.id} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors group">
-                        <td className="px-5 py-4 text-xs font-semibold text-admin-secondary whitespace-nowrap">{formatDate(r.attendance_date)}</td>
-                        <td className="px-5 py-4 text-xs text-admin-muted font-mono whitespace-nowrap">{r.emp_id}</td>
-                        <td className="px-5 py-4 text-sm font-bold text-admin-text whitespace-nowrap">{r.name}</td>
-                        <td className="px-5 py-4 text-xs text-admin-muted whitespace-nowrap">{r.department}</td>
-                        <td className="px-5 py-4 text-xs text-admin-secondary font-mono whitespace-nowrap">{formatTime(r.login_time)}</td>
-                        <td className="px-5 py-4 text-xs text-admin-secondary font-mono whitespace-nowrap">
-                          {formatTime(r.logout_time) || '—'}
-                          {r.is_auto_checkout && r.logout_time && <span className="block text-[10px] text-amber-500/80 font-bold mt-0.5">(Auto)</span>}
+                        <td className="px-3 py-2.5 text-[11px] font-semibold text-admin-secondary whitespace-nowrap">{formatDate(r.attendance_date)}</td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          <div className="text-xs font-bold text-admin-text">{r.name}</div>
+                          <div className="text-[10px] text-admin-muted font-mono">{r.emp_id} • {r.department}</div>
                         </td>
-                        <td className="px-5 py-4 text-xs text-admin-secondary font-mono whitespace-nowrap">{r.logout_time ? formatWorkingHours(parseFloat(r.total_working_hours)) : '—'}</td>
-                        <td className="px-5 py-4 whitespace-nowrap">
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          <div className="text-xs text-admin-secondary font-mono">{formatTime(r.login_time) || '—'}</div>
                           {(() => {
-                            if (r.checkin_status === 'late') return <span className="block text-[10px] text-amber-500 font-bold">Late {r.late_minutes}m</span>;
-                            if (r.checkin_status === 'early') return <span className="block text-[10px] text-purple-400 font-bold">Early</span>;
-                            if (r.login_time) return <span className="text-[10px] text-emerald-400 font-bold">On Time</span>;
-                            return <span className="text-[10px] text-admin-secondary">—</span>;
+                            if (r.checkin_status === 'late') return <span className="block text-[10px] text-amber-500 font-bold mt-0.5">Late {r.late_minutes}m</span>;
+                            if (r.checkin_status === 'early') return <span className="block text-[10px] text-purple-400 font-bold mt-0.5">Early</span>;
+                            if (r.login_time) return <span className="block text-[10px] text-emerald-400 font-bold mt-0.5">On Time</span>;
+                            return null;
                           })()}
                         </td>
-                        <td className="px-5 py-4 whitespace-nowrap">
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          <div className="text-xs text-admin-secondary font-mono">
+                            {formatTime(r.logout_time) || '—'}
+                            {r.is_auto_checkout && r.logout_time && <span className="ml-1 text-[9px] text-amber-500/80 font-bold">(Auto)</span>}
+                          </div>
                           {(() => {
-                            if (r.checkout_status === 'late') return <span className="block text-[10px] text-amber-500 font-bold">Late</span>;
-                            if (r.checkout_status === 'early') return <span className="block text-[10px] text-purple-400 font-bold">Early {r.early_minutes}m</span>;
-                            if (r.logout_time) return <span className="text-[10px] text-emerald-400 font-bold">On Time</span>;
-                            return <span className="text-[10px] text-admin-secondary">—</span>;
+                            if (r.checkout_status === 'late') return <span className="block text-[10px] text-amber-500 font-bold mt-0.5">Late</span>;
+                            if (r.checkout_status === 'early') return <span className="block text-[10px] text-purple-400 font-bold mt-0.5">Early {r.early_minutes}m</span>;
+                            if (r.logout_time) return <span className="block text-[10px] text-emerald-400 font-bold mt-0.5">On Time</span>;
+                            return null;
                           })()}
                         </td>
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <StatusBadge status={r.attendance_status || 'Not Mention'} dark />
-                            {r.validation_method === 'Manual' && (
-                              <span className="text-[10px] font-bold text-purple-400 bg-purple-500/20 border border-purple-500/30 px-2 py-0.5 rounded-full">Manual</span>
-                            )}
+                        <td className="px-3 py-2.5 text-xs text-admin-secondary font-mono whitespace-nowrap">{r.logout_time ? formatWorkingHours(parseFloat(r.total_working_hours)) : '—'}</td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          <div className="flex flex-col items-start gap-1">
+                            <div className="flex items-center gap-1.5">
+                              <StatusBadge status={r.attendance_status || 'Not Mention'} dark />
+                              {r.validation_method === 'Manual' && <span className="text-[9px] font-bold text-purple-400 bg-purple-500/20 border border-purple-500/30 px-1.5 py-0.5 rounded-sm">M</span>}
+                            </div>
+                            {r.is_wfh ? <span className="text-[9px] font-bold text-blue-400 bg-blue-500/20 border border-blue-500/30 px-1.5 py-0.5 rounded-sm">WFH</span> : <span className="text-[9px] text-[#475569] font-medium">Office</span>}
                           </div>
                         </td>
-                        <td className="px-5 py-4 text-xs font-semibold text-admin-secondary whitespace-nowrap">
+                        <td className="px-3 py-2.5 text-[11px] font-semibold text-admin-secondary whitespace-nowrap">
                           {r.attendance_status === 'Absent' || r.attendance_status === 'Not Mention' ? (r.absent_reason || '—') : '—'}
                         </td>
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          {r.is_wfh ? <span className="text-[10px] font-bold text-blue-400 bg-blue-500/20 border border-blue-500/30 px-2.5 py-1 rounded-full">WFH</span> : <span className="text-xs text-[#475569] font-medium">Office</span>}
-                        </td>
-                        <td className="px-5 py-4 whitespace-nowrap">
+                        <td className="px-3 py-2.5 whitespace-nowrap sticky right-0 z-10 bg-admin-surface border-l border-white/[0.04] shadow-[-4px_0_15px_rgba(0,0,0,0.2)]">
                           <div className="flex items-center gap-1.5 opacity-50 group-hover:opacity-100 transition-opacity">
                             {r.login_time && (
                               <button onClick={() => handleResetAttendance(r, 'check-in')} title="Reset Check-In" className="w-8 h-8 rounded-xl flex items-center justify-center text-amber-500 bg-admin-elevated border border-admin-border hover:bg-amber-500/10 hover:border-amber-500/20 transition-all shadow-sm"><FiRotateCcw size={14} /></button>

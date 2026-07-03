@@ -94,6 +94,7 @@ const addEmployee = async (req, res) => {
       email, 
       password,
       date_of_birth,
+      joining_date,
       status = 'active'
     } = req.body;
 
@@ -178,11 +179,11 @@ const addEmployee = async (req, res) => {
     // Insert employee
     const result = await pool.query(
       `INSERT INTO employees 
-       (employee_id, name, department_id, job_role, mobile, email, password, status, date_of_birth, 
+       (employee_id, name, department_id, job_role, mobile, email, password, status, date_of_birth, joining_date,
        monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) 
        RETURNING *`,
-      [employee_id, name, department_id, job_role, mobile, email, hashedPassword, status, date_of_birth, 
+      [employee_id, name, department_id, job_role, mobile, email, hashedPassword, status, date_of_birth, joining_date || null,
        monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds]
     );
 
@@ -194,7 +195,7 @@ const addEmployee = async (req, res) => {
       actionType: ADMIN_ACTION_TYPES.CREATE_EMPLOYEE,
       moduleName: MODULE_NAMES.EMPLOYEE,
       description: `Created employee ${employee_id} - ${name}`,
-      newData: { employee_id, name, job_role, email, mobile, department_id, date_of_birth },
+      newData: { employee_id, name, job_role, email, mobile, department_id, date_of_birth, joining_date },
       ipAddress: getClientIP(req),
       browserInfo: req.headers['user-agent']
     });
@@ -226,7 +227,8 @@ const updateEmployee = async (req, res) => {
       email, 
       status,
       password,
-      date_of_birth
+      date_of_birth,
+      joining_date
     } = req.body;
 
     let monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds;
@@ -295,7 +297,8 @@ const updateEmployee = async (req, res) => {
       job_role: checkResult.rows[0].job_role,
       mobile: checkResult.rows[0].mobile,
       department_id: checkResult.rows[0].department_id,
-      status: checkResult.rows[0].status
+      status: checkResult.rows[0].status,
+      joining_date: checkResult.rows[0].joining_date
     };
 
     // Check if department is active
@@ -322,21 +325,21 @@ const updateEmployee = async (req, res) => {
       query = `UPDATE employees 
                SET name = $1, department_id = $2, job_role = $3, 
                    mobile = $4, email = $5, status = $6, password = $7, 
-                   date_of_birth = $8, monthly_salary = $9, basic_salary = $10, hra = $11, 
-                   special_allowance = $12, staff_advance = $13, professional_tax = $14, tds = $15, updated_at = CURRENT_TIMESTAMP 
-               WHERE id = $16 
+                   date_of_birth = $8, joining_date = $9, monthly_salary = $10, basic_salary = $11, hra = $12, 
+                   special_allowance = $13, staff_advance = $14, professional_tax = $15, tds = $16, updated_at = CURRENT_TIMESTAMP 
+               WHERE id = $17 
                RETURNING *`;
-      values = [name, department_id, job_role, mobile, email, status, hashedPassword, date_of_birth, 
+      values = [name, department_id, job_role, mobile, email, status, hashedPassword, date_of_birth, joining_date || null,
                 monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds, id];
     } else {
       query = `UPDATE employees 
                SET name = $1, department_id = $2, job_role = $3, 
                    mobile = $4, email = $5, status = $6, 
-                   date_of_birth = $7, monthly_salary = $8, basic_salary = $9, hra = $10, 
-                   special_allowance = $11, staff_advance = $12, professional_tax = $13, tds = $14, updated_at = CURRENT_TIMESTAMP 
-               WHERE id = $15 
+                   date_of_birth = $7, joining_date = $8, monthly_salary = $9, basic_salary = $10, hra = $11, 
+                   special_allowance = $12, staff_advance = $13, professional_tax = $14, tds = $15, updated_at = CURRENT_TIMESTAMP 
+               WHERE id = $16 
                RETURNING *`;
-      values = [name, department_id, job_role, mobile, email, status, date_of_birth, 
+      values = [name, department_id, job_role, mobile, email, status, date_of_birth, joining_date || null,
                 monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds, id];
     }
 
@@ -351,7 +354,7 @@ const updateEmployee = async (req, res) => {
       moduleName: MODULE_NAMES.EMPLOYEE,
       description: `Updated employee ${checkResult.rows[0].employee_id} - ${name}`,
       oldData,
-      newData: { name, email, job_role, mobile, department_id, status, date_of_birth, passwordChanged: !!password },
+      newData: { name, email, job_role, mobile, department_id, status, date_of_birth, joining_date, passwordChanged: !!password },
       ipAddress: getClientIP(req),
       browserInfo: req.headers['user-agent']
     });

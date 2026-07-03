@@ -109,7 +109,7 @@ const AdminAbsentReasons = () => {
       const payload = { reason, employee_id: targetEmployeeId, date: targetDate };
       const res = await updateAbsentReason(targetAttendanceId || 'new', payload);
       if (res.data.success) {
-        setAlertDialog({ isOpen: true, title: 'Success', message: 'Absent reason saved successfully.', type: 'success' });
+        setToastConfig({ message: 'Absent reason saved.', type: 'success' });
         setShowModal(false);
         fetchData();
       }
@@ -124,7 +124,7 @@ const AdminAbsentReasons = () => {
     try {
       const res = await clearAbsentReason(emp.attendance_id);
       if (res.data.success) {
-        setAlertDialog({ isOpen: true, title: 'Cleared', message: 'Absent reason has been cleared.', type: 'success' });
+        setToastConfig({ message: 'Absent reason has been cleared.', type: 'success' });
         fetchData();
       }
     } catch (error) {

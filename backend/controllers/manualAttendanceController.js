@@ -347,6 +347,11 @@ const updateManualAttendance = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Absent reason is required' });
     }
 
+    // Validate attendance_date (if provided in body)
+    if (req.body.attendance_date) {
+      validateDateInput(req.body.attendance_date, { allowFuture: false });
+    }
+
     // Validate times
     if (login_time && logout_time && new Date(login_time) > new Date(logout_time)) {
       const err = new Error('Check-out time cannot be earlier than check-in time');
@@ -550,6 +555,9 @@ const checkInRow = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing employee_id or attendance_date' });
     }
 
+    // Validate attendance_date
+    validateDateInput(attendance_date, { allowFuture: false });
+
     const recordDate = new Date(attendance_date);
     if (recordDate.getDay() === 0) {
       return res.status(400).json({ success: false, message: 'Cannot check-in on Sundays' });
@@ -632,6 +640,9 @@ const checkOutRow = async (req, res) => {
     if (!employee_id || !attendance_date) {
       return res.status(400).json({ success: false, message: 'Missing employee_id or attendance_date' });
     }
+
+    // Validate attendance_date
+    validateDateInput(attendance_date, { allowFuture: false });
 
     const checkResult = await pool.query('SELECT * FROM attendance WHERE employee_id = $1 AND attendance_date = $2', [employee_id, attendance_date]);
     const record = checkResult.rows[0];

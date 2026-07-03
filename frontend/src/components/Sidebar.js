@@ -22,16 +22,16 @@ const employeeSections = [
   { label: 'Account',    items: [{ path: '/employee/profile', icon: FiUser, label: 'Profile' }, { path: '/employee/change-password', icon: FiLock, label: 'Change Password' }] },
 ];
 
-const AdminNavItem = ({ path, icon: Icon, label, isActive, onClick }) => (
+const AdminNavItem = ({ path, icon: Icon, label, isActive, onClick, isCollapsed }) => (
   <li>
-    <Link to={path} onClick={onClick}
-      className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+    <Link to={path} onClick={onClick} title={isCollapsed ? label : undefined}
+      className={`group relative flex items-center ${isCollapsed ? 'justify-center px-0 py-3' : 'gap-3 px-3 py-2.5'} rounded-xl text-sm font-medium transition-all duration-200 ${
         isActive ? 'bg-admin-accent/20 text-admin-text nav-active-glow' : 'text-admin-secondary hover:bg-admin-elevated hover:text-admin-text'
       }`}>
       {isActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-admin-accent rounded-r-full" />}
       <span className={`flex-shrink-0 transition-colors ${isActive ? 'text-admin-accent2' : 'text-admin-muted group-hover:text-admin-secondary'}`}><Icon size={17} /></span>
-      <span className="truncate">{label}</span>
-      {isActive && <FiChevronRight size={12} className="ml-auto text-admin-accent2/70 flex-shrink-0" />}
+      {!isCollapsed && <span className="truncate">{label}</span>}
+      {!isCollapsed && isActive && <FiChevronRight size={12} className="ml-auto text-admin-accent2/70 flex-shrink-0" />}
     </Link>
   </li>
 );
@@ -69,7 +69,10 @@ const Sidebar = () => {
   const nameStr  = user?.name || user?.username || 'U';
   const initials = nameStr.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
-  /* ─── Admin Sidebar (COMPLETELY UNCHANGED) ─── */
+  const isWideTablePage = location.pathname.includes('/admin/attendance') || location.pathname.includes('/admin/payroll');
+  const isCollapsed = isAdmin && isWideTablePage;
+
+  /* ─── Admin Sidebar (COMPLETELY UNCHANGED aside from collapse logic) ─── */
   if (isAdmin) {
     return (
       <>
@@ -78,19 +81,21 @@ const Sidebar = () => {
           {isMobileMenuOpen ? <FiX size={20} /> : <FiMenu size={20} />}
         </button>
         {isMobileMenuOpen && <div className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-30" onClick={() => setIsMobileMenuOpen(false)} />}
-        <aside className={`fixed lg:sticky lg:top-0 inset-y-0 left-0 z-40 w-64 flex-shrink-0 h-screen flex flex-col overflow-hidden bg-admin-bg border-r border-admin-border transform transition-transform duration-300 ease-out dark-scroll ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+        <aside className={`fixed lg:sticky lg:top-0 inset-y-0 left-0 z-40 ${isCollapsed ? 'w-14' : 'w-64'} flex-shrink-0 h-screen flex flex-col overflow-hidden bg-admin-bg border-r border-admin-border transform transition-transform duration-300 ease-out dark-scroll ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
           {/* Logo */}
-          <div className="flex items-center gap-3 px-5 h-16 border-b border-admin-border flex-shrink-0">
+          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 px-5'} h-16 border-b border-admin-border flex-shrink-0`}>
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-admin-accent to-admin-accent2 flex items-center justify-center flex-shrink-0 shadow-glow-blue-sm">
               <FiClock size={16} className="text-white" />
             </div>
-            <div className="min-w-0">
-              <p className="font-bold text-admin-text text-sm leading-none tracking-tight">AttendanceMS</p>
-              <p className="text-[10px] text-admin-accent mt-0.5 font-medium">Admin Panel</p>
-            </div>
+            {!isCollapsed && (
+              <div className="min-w-0">
+                <p className="font-bold text-admin-text text-sm leading-none tracking-tight">AttendanceMS</p>
+                <p className="text-[10px] text-admin-accent mt-0.5 font-medium">Admin Panel</p>
+              </div>
+            )}
           </div>
           {/* User chip */}
-          <div className="px-4 py-3 border-b border-admin-border flex-shrink-0">
+          <div className={`px-4 py-3 border-b border-admin-border flex-shrink-0 ${isCollapsed ? 'hidden' : ''}`}>
             <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-admin-surface border border-admin-border">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-admin-accent to-admin-accent2 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">{initials}</div>
               <div className="min-w-0 flex-1">
@@ -104,28 +109,28 @@ const Sidebar = () => {
           <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5 dark-scroll">
             {sections.map(section => (
               <div key={section.label}>
-                <p className="px-3 mb-2 text-[9px] font-bold uppercase tracking-[0.15em] text-admin-muted/50">{section.label}</p>
+                {!isCollapsed && <p className="px-3 mb-2 text-[9px] font-bold uppercase tracking-[0.15em] text-admin-muted/50">{section.label}</p>}
                 <ul className="space-y-0.5">
-                  {section.items.map(item => <AdminNavItem key={item.path} {...item} isActive={location.pathname === item.path} onClick={() => setIsMobileMenuOpen(false)} />)}
+                  {section.items.map(item => <AdminNavItem key={item.path} {...item} isActive={location.pathname === item.path} onClick={() => setIsMobileMenuOpen(false)} isCollapsed={isCollapsed} />)}
                 </ul>
               </div>
             ))}
           </nav>
           
           {/* Theme Toggle */}
-          <div className="px-3 py-2 flex-shrink-0 border-t border-admin-border">
-            <button onClick={toggleTheme}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-admin-muted hover:bg-admin-elevated hover:text-admin-text transition-all duration-200">
+          <div className={`px-3 py-2 flex-shrink-0 border-t border-admin-border ${isCollapsed ? 'flex justify-center' : ''}`}>
+            <button onClick={toggleTheme} title={isCollapsed ? (theme === 'dark' ? 'Light Theme' : 'Dark Theme') : undefined}
+              className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0 py-3' : 'gap-3 px-3 py-2.5'} rounded-xl text-sm font-medium text-admin-muted hover:bg-admin-elevated hover:text-admin-text transition-all duration-200`}>
               {theme === 'dark' ? <FiSun size={17} className="flex-shrink-0" /> : <FiMoon size={17} className="flex-shrink-0" />}
-              <span>{theme === 'dark' ? 'Light Theme' : 'Dark Theme'}</span>
+              {!isCollapsed && <span>{theme === 'dark' ? 'Light Theme' : 'Dark Theme'}</span>}
             </button>
           </div>
 
           {/* Sign out */}
-          <div className="px-3 pb-4 pt-1 flex-shrink-0">
-            <button onClick={() => { setIsMobileMenuOpen(false); handleLogoutClick(); }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-admin-muted hover:bg-red-500/10 hover:text-red-400 transition-all duration-200">
-              <FiLogOut size={17} className="flex-shrink-0" /><span>Sign Out</span>
+          <div className={`px-3 pb-4 pt-1 flex-shrink-0 ${isCollapsed ? 'flex justify-center' : ''}`}>
+            <button onClick={() => { setIsMobileMenuOpen(false); handleLogoutClick(); }} title={isCollapsed ? 'Sign Out' : undefined}
+              className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0 py-3' : 'gap-3 px-3 py-2.5'} rounded-xl text-sm font-medium text-admin-muted hover:bg-red-500/10 hover:text-red-400 transition-all duration-200`}>
+              <FiLogOut size={17} className="flex-shrink-0" />{!isCollapsed && <span>Sign Out</span>}
             </button>
           </div>
         </aside>

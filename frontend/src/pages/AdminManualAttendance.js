@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
 import ConfirmDialog from '../components/ConfirmDialog';
+import AdminToast from '../components/AdminToast';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
 import { getAllDepartments, getAllEmployees, getEmployeesForManualAttendance, createManualAttendance, updateManualAttendance, deleteManualAttendance, checkInRowManualAttendance, checkOutRowManualAttendance } from '../services/api';
@@ -36,6 +37,7 @@ const AdminManualAttendance = () => {
   });
   
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
+  const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', type: 'warning', confirmText: 'Confirm', onConfirm: null });
 
   useEffect(() => {
@@ -100,7 +102,7 @@ const AdminManualAttendance = () => {
         try {
           const res = await deleteManualAttendance(emp.attendance_id);
           if (res.data.success) {
-            setAlertDialog({ isOpen: true, title: 'Deleted', message: res.data.message, type: 'success' });
+            setToastConfig({ message: res.data.message, type: 'success' });
             fetchData();
           }
         } catch (error) {
@@ -134,13 +136,13 @@ const AdminManualAttendance = () => {
     setShowModal(true);
   };
 
-  const openEditModal = (emp) => {
+  const openEditModal = (emp = null) => {
     if (isFutureDate()) {
-      setAlertDialog({ isOpen: true, title: 'Invalid Date', message: 'Cannot edit manual attendance for future dates.', type: 'error' });
+      setAlertDialog({ isOpen: true, title: 'Invalid Date', message: 'Future date attendance is not allowed. Please select today or a past date.', type: 'error' });
       return;
     }
 
-    if (emp.validation_method !== 'Manual') {
+    if (emp && emp.validation_method !== 'Manual') {
       setAlertDialog({ isOpen: true, title: 'Error', message: 'Only manually created attendance records can be edited from this module.', type: 'error' });
       return;
     }
@@ -171,6 +173,16 @@ const AdminManualAttendance = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isFutureDate()) {
+      setAlertDialog({ isOpen: true, title: 'Invalid Date', message: 'Future date attendance is not allowed. Please select today or a past date.', type: 'error' });
+      return;
+    }
+    
+    if (!formData.reason.trim()) {
+      setAlertDialog({ isOpen: true, title: 'Validation Error', message: 'Reason is required.', type: 'error' });
+      return;
+    }
+
     const dateError = validateDateString(date, { allowFuture: false });
     if (dateError) {
       setAlertDialog({
@@ -209,7 +221,7 @@ const AdminManualAttendance = () => {
         };
         const res = await updateManualAttendance(targetAttendanceId, payload);
         if (res.data.success) {
-          setAlertDialog({ isOpen: true, title: 'Success', message: res.data.message, type: 'success' });
+          setToastConfig({ message: res.data.message, type: 'success' });
           setShowModal(false);
           fetchData();
         }
@@ -226,7 +238,7 @@ const AdminManualAttendance = () => {
         const payload = { records, reason: formData.reason };
         const res = await createManualAttendance(payload);
         if (res.data.success) {
-          setAlertDialog({ isOpen: true, title: 'Success', message: res.data.message, type: 'success' });
+          setToastConfig({ message: res.data.message, type: 'success' });
           setShowModal(false);
           fetchData();
         }
@@ -253,7 +265,7 @@ const AdminManualAttendance = () => {
               <p className="text-sm text-slate-400 mt-0.5">Emergency Attendance Management</p>
             </div>
             <button onClick={openBulkModal} disabled={selectedIds.length === 0 || isSunday}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${selectedIds.length > 0 && !isSunday ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-admin-elevated border border-admin-border text-admin-muted cursor-not-allowed'}`}>
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${selectedIds.length > 0 && !isSunday ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-200 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-500 dark:text-slate-400 cursor-not-allowed'}`}>
               <FiEdit size={16} /> Add for Selected ({selectedIds.length})
             </button>
           </div>
@@ -316,8 +328,8 @@ const AdminManualAttendance = () => {
                 <thead className="bg-admin-bg">
                   <tr>
                     <th className="px-4 py-3 text-left w-12">
-                      <button onClick={toggleAll} className="text-slate-400 hover:text-admin-text">
-                        {selectedIds.length > 0 && selectedIds.length === filteredEmployees.length ? <FiCheckSquare size={18} className="text-blue-400" /> : <FiSquare size={18} />}
+                      <button onClick={toggleAll} className="text-slate-500 dark:text-slate-400 hover:text-admin-text">
+                        {selectedIds.length > 0 && selectedIds.length === filteredEmployees.length ? <FiCheckSquare size={18} className="text-blue-500 dark:text-blue-400" /> : <FiSquare size={18} />}
                       </button>
                     </th>
                     {['Emp ID', 'Name', 'Department', 'In Status', 'Out Status', 'Total Hours', 'Status', 'Reason', 'Actions'].map(h => (
@@ -331,8 +343,8 @@ const AdminManualAttendance = () => {
                   ) : filteredEmployees.length > 0 ? filteredEmployees.map(emp => (
                     <tr key={emp.employee_id} className={`admin-table-row ${selectedIds.includes(emp.employee_id) ? 'bg-blue-500/5' : ''}`}>
                       <td className="px-4 py-3.5">
-                        <button onClick={() => toggleSelection(emp.employee_id)} disabled={isFinalStatus(emp.attendance_status) || isSunday} className={`transition-colors ${isFinalStatus(emp.attendance_status) || isSunday ? 'text-slate-600 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-admin-text'}`}>
-                          {selectedIds.includes(emp.employee_id) ? <FiCheckSquare size={18} className="text-blue-400" /> : <FiSquare size={18} />}
+                        <button onClick={() => toggleSelection(emp.employee_id)} disabled={isFinalStatus(emp.attendance_status) || isSunday} className={`transition-colors ${isFinalStatus(emp.attendance_status) || isSunday ? 'text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-50' : 'text-slate-500 dark:text-slate-400 hover:text-admin-text'}`}>
+                          {selectedIds.includes(emp.employee_id) ? <FiCheckSquare size={18} className="text-blue-500 dark:text-blue-400" /> : <FiSquare size={18} />}
                         </button>
                       </td>
                       <td className="px-4 py-3.5 text-sm text-slate-400 font-mono whitespace-nowrap">{emp.employee_id}</td>
@@ -392,6 +404,10 @@ const AdminManualAttendance = () => {
                           ) : null;
 
                           const handleRowAction = async (emp, action) => {
+                            if (isFutureDate()) {
+                              setAlertDialog({ isOpen: true, title: 'Invalid Date', message: 'Future date attendance is not allowed. Please select today or a past date.', type: 'error' });
+                              return;
+                            }
                             try {
                               let res;
                               if (action === 'checkin') {
@@ -400,11 +416,11 @@ const AdminManualAttendance = () => {
                                 res = await checkOutRowManualAttendance({ employee_id: emp.employee_id, attendance_date: date });
                               }
                               if (res.data.success) {
-                                setAlertDialog({ isOpen: true, title: 'Success', message: res.data.message, type: 'success' });
+                                setToastConfig({ message: res.data.message, type: 'success' });
                                 fetchData();
                               }
                             } catch (error) {
-                              setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Operation failed', type: 'error' });
+                              setToastConfig({ message: error.response?.data?.message || 'Operation failed', type: 'error' });
                             }
                           };
 
@@ -550,6 +566,11 @@ const AdminManualAttendance = () => {
           </div>
         </div>
       )}
+      <AdminToast 
+        message={toastConfig.message} 
+        type={toastConfig.type} 
+        onClose={() => setToastConfig({ message: '', type: 'success' })} 
+      />
     </div>
   );
 };

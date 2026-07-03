@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
+import AdminToast from '../components/AdminToast';
 import { Spinner } from '../components/Loader';
 import api, { getMonthlyAttendanceReport, exportMonthlyAttendanceReport } from '../services/api';
 import { getErrorMessage } from '../utils/errorHandler';
@@ -15,6 +16,7 @@ const AdminReports = () => {
   const [year, setYear] = useState(new Date().getFullYear());
   
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
+  const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
 
   const handleGenerateReport = async () => {
     const errorMsg = validateMonthYear(month, year);
@@ -146,6 +148,11 @@ const AdminReports = () => {
         </div>
       </div>
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog(d => ({ ...d, isOpen: false }))} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
+      <AdminToast 
+        message={toastConfig.message} 
+        type={toastConfig.type} 
+        onClose={() => setToastConfig({ message: '', type: 'success' })} 
+      />
     </div>
   );
 };

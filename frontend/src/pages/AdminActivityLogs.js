@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FiActivity, FiDownload, FiFilter, FiSearch, FiX, FiEye, FiRefreshCw, FiTrash2, FiSettings, FiCalendar, FiLogIn, FiAlertTriangle } from 'react-icons/fi';
 import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
+import AdminToast from '../components/AdminToast';
 import ClearDataDialog from '../components/ClearDataDialog';
 import { Spinner } from '../components/Loader';
 import { 
@@ -19,6 +20,7 @@ const AdminActivityLogs = () => {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'info' });
+  const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
   const [detailsDialog, setDetailsDialog] = useState({ isOpen: false, log: null });
   const [stats, setStats] = useState({ today: 0, thisWeek: 0, total: 0 });
   
@@ -85,7 +87,7 @@ const AdminActivityLogs = () => {
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
       const link = document.createElement('a'); link.href = url; link.setAttribute('download', `admin_activity_logs_${Date.now()}.pdf`);
       document.body.appendChild(link); link.click(); link.remove();
-      setAlertDialog({ isOpen: true, title: 'Success', message: 'Activity logs exported successfully', type: 'success' });
+      setToastConfig({ message: 'Activity logs exported successfully', type: 'success' });
     } catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Export failed', type: 'error' }); } 
     finally { setExporting(false); }
   };
@@ -94,7 +96,7 @@ const AdminActivityLogs = () => {
     try {
       const response = await clearAdminActivityLogs();
       if (response.data.success) {
-        setAlertDialog({ isOpen: true, title: 'Success', message: 'Logs cleared successfully', type: 'success' });
+        setToastConfig({ message: 'Logs cleared successfully', type: 'success' });
         fetchLogs(); fetchStats();
       } else { setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to clear logs', type: 'error' }); }
     } catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to clear activity logs', type: 'error' }); }
@@ -350,6 +352,11 @@ const AdminActivityLogs = () => {
 
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
       <ClearDataDialog isOpen={clearDialog.isOpen} onClose={() => setClearDialog({ isOpen: false })} onConfirm={handleClearActivityLogs} title="Clear Admin Logs" message="Permanently delete ALL admin activity records? This action cannot be undone." confirmText="delete" type="danger" />
+      <AdminToast 
+        message={toastConfig.message} 
+        type={toastConfig.type} 
+        onClose={() => setToastConfig({ message: '', type: 'success' })} 
+      />
     </div>
   );
 };

@@ -3,6 +3,7 @@ import Sidebar from '../components/Sidebar';
 import DetailsDialog from '../components/DetailsDialog';
 import ClearDataDialog from '../components/ClearDataDialog';
 import AlertDialog from '../components/AlertDialog';
+import AdminToast from '../components/AdminToast';
 import { Spinner } from '../components/Loader';
 import { FiShield, FiEye, FiEdit2, FiSave, FiX, FiRefreshCw, FiMonitor, FiList, FiAlertCircle, FiTrash2, FiSearch, FiFilter, FiCalendar } from 'react-icons/fi';
 import axios from 'axios';
@@ -74,6 +75,7 @@ const AdminSecurityLogs = () => {
   const [detailsDialog, setDetailsDialog] = useState({ isOpen:false, title:'', details:null });
   const [clearDialog, setClearDialog] = useState({ isOpen: false });
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'info' });
+  const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
 
   useEffect(() => { fetchData(); }, []);
 
@@ -142,7 +144,7 @@ const AdminSecurityLogs = () => {
     try {
       const response = await clearEmployeeAuditLogs();
       if (response.data.success) {
-        setAlertDialog({ isOpen: true, title: 'Success', message: 'Logs cleared successfully', type: 'success' });
+        setToastConfig({ message: 'Logs cleared successfully', type: 'success' });
         fetchData();
       }
     } catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to clear logs', type: 'error' }); }
@@ -371,6 +373,11 @@ const AdminSecurityLogs = () => {
       <DetailsDialog isOpen={detailsDialog.isOpen} onClose={() => setDetailsDialog({ isOpen:false, title:'', details:null })} title={detailsDialog.title} details={detailsDialog.details} />
       <ClearDataDialog isOpen={clearDialog.isOpen} onClose={() => setClearDialog({ isOpen: false })} onConfirm={handleClearLogs} title="Clear Audit Logs" message="Permanently delete ALL audit log records? This cannot be undone." confirmText="delete" type="danger" />
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
+      <AdminToast 
+        message={toastConfig.message} 
+        type={toastConfig.type} 
+        onClose={() => setToastConfig({ message: '', type: 'success' })} 
+      />
     </div>
   );
 };

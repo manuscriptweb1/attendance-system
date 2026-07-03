@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
+import AdminToast from '../components/AdminToast';
 import { Spinner } from '../components/Loader';
 import { getSettings, updateSettings } from '../services/api';
 import { FiMapPin, FiClock, FiSave, FiWifi, FiShield, FiInfo, FiSliders, FiCheckCircle } from 'react-icons/fi';
@@ -48,6 +49,7 @@ const AdminSettings = () => {
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const [alertDialog, setAlertDialog] = useState({ isOpen:false, title:'', message:'', type:'success' });
+  const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
 
   useEffect(() => { fetchSettings(); }, []);
 
@@ -90,7 +92,7 @@ const AdminSettings = () => {
     e.preventDefault(); setSaving(true);
     try { 
       const response = await updateSettings(settings); 
-      if (response.data.success) setAlertDialog({ isOpen:true, title:'Success', message:'Settings updated successfully', type:'success' }); 
+      if (response.data.success) setToastConfig({ message: 'Settings updated successfully', type: 'success' }); 
     }
     catch (error) { setAlertDialog({ isOpen:true, title:'Error', message: error.response?.data?.message || 'Failed to update settings', type:'error' }); }
     finally { setSaving(false); }
@@ -100,7 +102,7 @@ const AdminSettings = () => {
     if (!navigator.geolocation) { setAlertDialog({ isOpen:true, title:'Error', message:'Geolocation is not supported by your browser', type:'error' }); return; }
     navigator.geolocation.getCurrentPosition(position => { 
       setSettings({ ...settings, latitude:position.coords.latitude.toFixed(6), longitude:position.coords.longitude.toFixed(6) }); 
-      setAlertDialog({ isOpen:true, title:'Success', message:'Current location captured successfully!', type:'success' }); 
+      setToastConfig({ message: 'Current location captured successfully!', type: 'success' }); 
     }, () => { 
       setAlertDialog({ isOpen:true, title:'Error', message:'Unable to get your location.', type:'error' }); 
     }, { enableHighAccuracy:true, timeout:10000, maximumAge:0 });
@@ -264,7 +266,13 @@ const AdminSettings = () => {
       </div>
 
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog({ ...alertDialog, isOpen:false })} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
+      <AdminToast 
+        message={toastConfig.message} 
+        type={toastConfig.type} 
+        onClose={() => setToastConfig({ message: '', type: 'success' })} 
+      />
     </div>
   );
 };
+
 export default AdminSettings;

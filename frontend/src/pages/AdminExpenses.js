@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
+import AdminToast from '../components/AdminToast';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { Spinner } from '../components/Loader';
 import api from '../services/api';
@@ -23,6 +24,7 @@ const AdminExpenses = () => {
   const [formData, setFormData] = useState({ id: '', expense_type_id: '', title: '', description: '', amount: '', expense_date: new Date().toISOString().split('T')[0], payment_mode: 'bank', status: 'paid', paid_to: '' });
   
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
+  const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'danger' });
 
   const fetchData = async () => {
@@ -71,7 +73,7 @@ const AdminExpenses = () => {
     try {
       const response = editMode ? await api.put(`/expenses/${formData.id}`, formData) : await api.post('/expenses', formData);
       if (response.data.success) {
-        setAlertDialog({ isOpen: true, title: 'Success', message: editMode ? 'Expense updated!' : 'Expense added!', type: 'success' });
+        setToastConfig({ message: editMode ? 'Expense updated!' : 'Expense added!', type: 'success' });
         fetchData(); closeModal();
       }
     } catch (error) { 
@@ -95,7 +97,7 @@ const AdminExpenses = () => {
     onConfirm: async () => {
       try { 
         await api.delete(`/expenses/${exp.id}`);
-        setAlertDialog({ isOpen: true, title: 'Success', message: 'Deleted successfully!', type: 'success' }); 
+        setToastConfig({ message: 'Deleted successfully!', type: 'success' }); 
         fetchData(); 
       }
       catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' }); }
@@ -312,6 +314,11 @@ const AdminExpenses = () => {
           </div>
         </div>
       )}
+      <AdminToast 
+        message={toastConfig.message} 
+        type={toastConfig.type} 
+        onClose={() => setToastConfig({ message: '', type: 'success' })} 
+      />
     </div>
   );
 };

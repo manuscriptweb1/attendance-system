@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
+import AdminToast from '../components/AdminToast';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
 import { getAllEmployees, getAllDepartments, addEmployee, updateEmployee, deleteEmployee, enableWFH, disableWFH, toggleEarlyCheckout } from '../services/api';
@@ -39,6 +40,12 @@ const formatCurrency = (value) => {
   }).format(num);
 };
 
+const formatDate = (dateStr) => {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
 const AdminEmployees = () => {
   const [employees,    setEmployees]    = useState([]);
   const [departments,  setDepartments]  = useState([]);
@@ -49,8 +56,9 @@ const AdminEmployees = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen:false, title:'', message:'', onConfirm:null, type:'danger' });
   const [alertDialog,   setAlertDialog]   = useState({ isOpen:false, title:'', message:'', type:'success' });
+  const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
   const [formData, setFormData] = useState({ 
-    id:'', employee_id:'', name:'', department_id:'', job_role:'', mobile:'', email:'', password:'', status:'Active', date_of_birth:'',
+    id:'', employee_id:'', name:'', department_id:'', job_role:'', mobile:'', email:'', password:'', status:'Active', date_of_birth:'', joining_date:'',
     monthly_salary:'', basic_salary:'', hra:'', special_allowance:'', staff_advance:'', professional_tax:'', tds:''
   });
 
@@ -89,7 +97,7 @@ const AdminEmployees = () => {
 
       const response = editMode ? await updateEmployee(payload.id, payload) : await addEmployee(payload);
       if (response.data.success) {
-        setAlertDialog({ isOpen:true, title:'Success', message: editMode ? 'Employee updated successfully!' : 'Employee added successfully!', type:'success' });
+        setToastConfig({ message: editMode ? 'Employee updated successfully!' : 'Employee added successfully!', type: 'success' });
         fetchData(); closeModal();
       }
     } catch (error) { setAlertDialog({ isOpen:true, title:'Error', message: error.response?.data?.message || 'Operation failed.', type:'error' }); }
@@ -98,7 +106,8 @@ const AdminEmployees = () => {
   const handleEdit = emp => {
     // Format date_of_birth to YYYY-MM-DD for the date input if it exists
     const dob = emp.date_of_birth ? new Date(emp.date_of_birth).toISOString().split('T')[0] : '';
-    setFormData({ ...emp, password:'', date_of_birth: dob });
+    const joinDate = emp.joining_date ? new Date(emp.joining_date).toISOString().split('T')[0] : '';
+    setFormData({ ...emp, password:'', date_of_birth: dob, joining_date: joinDate });
     setEditMode(true);
     setShowModal(true);
   };
@@ -107,7 +116,7 @@ const AdminEmployees = () => {
     isOpen:true, title:'Delete Employee', type:'danger',
     message:`Are you sure you want to delete "${emp.name}"? This cannot be undone.`,
     onConfirm: async () => {
-      try { const r = await deleteEmployee(emp.id); if (r.data.success) { setAlertDialog({ isOpen:true, title:'Success', message:'Employee deleted successfully!', type:'success' }); fetchData(); } }
+      try { const r = await deleteEmployee(emp.id); if (r.data.success) { setToastConfig({ message: 'Employee deleted successfully!', type: 'success' }); fetchData(); } }
       catch (error) { setAlertDialog({ isOpen:true, title:'Error', message: error.response?.data?.message || 'Delete failed.', type:'error' }); }
     },
   });
@@ -118,7 +127,7 @@ const AdminEmployees = () => {
       isOpen:true, title:`${action === 'disable' ? 'Disable' : 'Enable'} Work From Home`, type: emp.wfh_enabled ? 'warning' : 'info',
       message:`Are you sure you want to ${action} WFH access for "${emp.name}"?`,
       onConfirm: async () => {
-        try { emp.wfh_enabled ? await disableWFH(emp.employee_id) : await enableWFH(emp.employee_id); setAlertDialog({ isOpen:true, title:'Success', message:`WFH access ${action}d successfully!`, type:'success' }); fetchData(); }
+        try { emp.wfh_enabled ? await disableWFH(emp.employee_id) : await enableWFH(emp.employee_id); setToastConfig({ message: `WFH access ${action}d successfully!`, type: 'success' }); fetchData(); }
         catch (error) { setAlertDialog({ isOpen:true, title:'Error', message: error.response?.data?.message || 'Operation failed.', type:'error' }); }
       },
     });
@@ -130,7 +139,7 @@ const AdminEmployees = () => {
       isOpen:true, title:`${action === 'disable' ? 'Disable' : 'Enable'} Early Checkout`, type: emp.early_checkout_enabled ? 'warning' : 'info',
       message:`Are you sure you want to ${action} early checkout for "${emp.name}"?`,
       onConfirm: async () => {
-        try { const r = await toggleEarlyCheckout(emp.employee_id, !emp.early_checkout_enabled); if (r.data.success) { setAlertDialog({ isOpen:true, title:'Success', message:r.data.message, type:'success' }); fetchData(); } else throw new Error(r.data.message); }
+        try { const r = await toggleEarlyCheckout(emp.employee_id, !emp.early_checkout_enabled); if (r.data.success) { setToastConfig({ message: r.data.message, type: 'success' }); fetchData(); } else throw new Error(r.data.message); }
         catch (error) { setAlertDialog({ isOpen:true, title:'Error', message: error.response?.data?.message || 'Operation failed.', type:'error' }); }
       },
     });
@@ -139,7 +148,7 @@ const AdminEmployees = () => {
   const closeModal = () => { 
     setShowModal(false); setEditMode(false); setShowPassword(false); 
     setFormData({ 
-      id:'', employee_id:'', name:'', department_id:'', job_role:'', mobile:'', email:'', password:'', status:'Active', date_of_birth:'',
+      id:'', employee_id:'', name:'', department_id:'', job_role:'', mobile:'', email:'', password:'', status:'Active', date_of_birth:'', joining_date:'',
       monthly_salary:'', basic_salary:'', hra:'', special_allowance:'', staff_advance:'', professional_tax:'', tds:''
     }); 
   };
@@ -185,7 +194,7 @@ const AdminEmployees = () => {
               <table className="min-w-full divide-y divide-white/[0.04]">
                 <thead className="bg-admin-bg">
                   <tr>
-                    {['Emp ID','Name','Department','Job Role','Monthly Salary','Mobile','Email','Status','WFH','Early CO','Actions'].map(h => (
+                    {['Emp ID','Name','Department','Job Role','Monthly Salary','Mobile','Email','Status','Joining Date','WFH','Early CO','Actions'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -206,6 +215,7 @@ const AdminEmployees = () => {
                       <td className="hidden xl:table-cell px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.mobile}</td>
                       <td className="hidden xl:table-cell px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.email}</td>
                       <td className="px-4 py-3.5 whitespace-nowrap"><StatusBadge status={emp.status} dark /></td>
+                      <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{formatDate(emp.joining_date)}</td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         <button onClick={() => handleWFHToggle(emp)} title={emp.wfh_enabled ? 'WFH Enabled' : 'WFH Disabled'}
                           className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${emp.wfh_enabled ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30' : 'bg-white/5 text-admin-secondary hover:bg-white/10'}`}>
@@ -260,10 +270,11 @@ const AdminEmployees = () => {
                   { label:'Job Role',    name:'job_role',    type:'text' },
                   { label:'Mobile',      name:'mobile',      type:'tel'  },
                   { label:'Email',       name:'email',       type:'email'},
-                ].map(({ label, name, type, disabled, ...rest }) => (
+                  { label:'Joining Date', name:'joining_date', type:'date', max: new Date().toISOString().split('T')[0], required: false },
+                ].map(({ label, name, type, disabled, required = true, ...rest }) => (
                   <div key={name}>
                     <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">{label}</label>
-                    <input type={type} name={name} value={formData[name] || ''} onChange={handleInputChange} required disabled={disabled} max={rest.max}
+                    <input type={type} name={name} value={formData[name] || ''} onChange={handleInputChange} required={required && !disabled} disabled={disabled} max={rest.max}
                       className="admin-input" />
                   </div>
                 ))}

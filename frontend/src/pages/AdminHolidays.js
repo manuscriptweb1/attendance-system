@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
+import AdminToast from '../components/AdminToast';
 import { Spinner } from '../components/Loader';
 import { FiUmbrella, FiPlus, FiEdit2, FiTrash2, FiCalendar, FiSun, FiMap, FiCheckCircle } from 'react-icons/fi';
 import { getAllHolidays, addHoliday, updateHoliday, deleteHoliday, toggleHolidayStatus } from '../services/api';
@@ -75,6 +76,7 @@ const AdminHolidays = () => {
   const [formData, setFormData] = useState({ holiday_date:'', holiday_type:'Government Holiday', holiday_title:'', holiday_note:'', is_enabled:true });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen:false, title:'', message:'', onConfirm:null, type:'danger' });
   const [alertDialog, setAlertDialog] = useState({ isOpen:false, title:'', message:'', type:'success' });
+  const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
 
   useEffect(() => { fetchHolidays(); }, []);
 
@@ -91,13 +93,13 @@ const AdminHolidays = () => {
   const handleAdd = async () => {
     const dateError = validateDateString(formData.holiday_date, { allowFuture: true });
     if (dateError) { setAlertDialog({ isOpen:true, title:'Error', message: dateError, type:'error' }); return; }
-    try { const r = await addHoliday(formData); if (r.data.success) { setAlertDialog({ isOpen:true, title:'Success', message:'Holiday added!', type:'success' }); setShowAddModal(false); resetForm(); fetchHolidays(); } }
+    try { const r = await addHoliday(formData); if (r.data.success) { setToastConfig({ message: 'Holiday added!', type: 'success' }); setShowAddModal(false); resetForm(); fetchHolidays(); } }
     catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
   };
   const handleEdit = async () => {
     const dateError = validateDateString(formData.holiday_date, { allowFuture: true });
     if (dateError) { setAlertDialog({ isOpen:true, title:'Error', message: dateError, type:'error' }); return; }
-    try { const r = await updateHoliday(selectedHoliday.id, formData); if (r.data.success) { setAlertDialog({ isOpen:true, title:'Success', message:'Holiday updated!', type:'success' }); setShowEditModal(false); resetForm(); setSelectedHoliday(null); fetchHolidays(); } }
+    try { const r = await updateHoliday(selectedHoliday.id, formData); if (r.data.success) { setToastConfig({ message: 'Holiday updated!', type: 'success' }); setShowEditModal(false); resetForm(); setSelectedHoliday(null); fetchHolidays(); } }
     catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
   };
   const handleToggle = async holiday => {
@@ -108,7 +110,7 @@ const AdminHolidays = () => {
     isOpen:true, title:'Delete Holiday', type:'danger',
     message:`Delete "${holiday.holiday_title}"? This cannot be undone.`,
     onConfirm: async () => {
-      try { const r = await deleteHoliday(holiday.id); if (r.data.success) { setAlertDialog({ isOpen:true, title:'Success', message:'Deleted!', type:'success' }); fetchHolidays(); } }
+      try { const r = await deleteHoliday(holiday.id); if (r.data.success) { setToastConfig({ message: 'Deleted!', type: 'success' }); fetchHolidays(); } }
       catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
     },
   });
@@ -248,6 +250,11 @@ const AdminHolidays = () => {
       
       <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(d => ({ ...d, isOpen:false }))} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText="Delete" />
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog(d => ({ ...d, isOpen:false }))} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
+      <AdminToast 
+        message={toastConfig.message} 
+        type={toastConfig.type} 
+        onClose={() => setToastConfig({ message: '', type: 'success' })} 
+      />
     </div>
   );
 };

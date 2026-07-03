@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
+import AdminToast from '../components/AdminToast';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
 import { getAllDepartments, addDepartment, updateDepartment, deleteDepartment } from '../services/api';
@@ -17,6 +18,7 @@ const AdminDepartments = () => {
   
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'danger' });
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
+  const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
   const [formData, setFormData] = useState({ id: '', name: '', description: '', status: 'Active' });
 
   useEffect(() => {
@@ -45,7 +47,7 @@ const AdminDepartments = () => {
     try {
       const response = editMode ? await updateDepartment(formData.id, formData) : await addDepartment(formData);
       if (response.data.success) {
-        setAlertDialog({ isOpen: true, title: 'Success', message: editMode ? 'Department updated successfully!' : 'Department added successfully!', type: 'success' });
+        setToastConfig({ message: editMode ? 'Department updated successfully!' : 'Department added successfully!', type: 'success' });
         fetchData();
         closeModal();
       }
@@ -67,7 +69,7 @@ const AdminDepartments = () => {
       try {
         const r = await deleteDepartment(dept.id);
         if (r.data.success) {
-          setAlertDialog({ isOpen: true, title: 'Success', message: 'Department deleted successfully!', type: 'success' });
+          setToastConfig({ message: 'Department deleted successfully!', type: 'success' });
           fetchData();
         }
       } catch (error) {
@@ -231,7 +233,13 @@ const AdminDepartments = () => {
           </div>
         </div>
       )}
+      <AdminToast 
+        message={toastConfig.message} 
+        type={toastConfig.type} 
+        onClose={() => setToastConfig({ message: '', type: 'success' })} 
+      />
     </div>
   );
 };
+
 export default AdminDepartments;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
+import AdminToast from '../components/AdminToast';
 import { Spinner } from '../components/Loader';
 import api from '../services/api';
 import { getErrorMessage } from '../utils/errorHandler';
@@ -22,6 +23,7 @@ const AdminPayroll = () => {
   const [year, setYear] = useState(new Date().getFullYear());
   const [isCalculated, setIsCalculated] = useState(false);
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
+  const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
 
   const fetchPayroll = async () => {
     const errorMsg = validateMonthYear(month, year);
@@ -30,7 +32,7 @@ const AdminPayroll = () => {
       setLoading(false);
       return;
     }
-    
+
     try {
       setLoading(true);
       const res = await api.get('/payroll', { params: { month, year } });
@@ -60,7 +62,7 @@ const AdminPayroll = () => {
       setCalculating(true);
       const res = await api.post('/payroll/calculate', { month, year });
       if (res.data.success) {
-        setAlertDialog({ isOpen: true, title: 'Success', message: 'Payroll calculated successfully!', type: 'success' });
+        setToastConfig({ message: 'Payroll calculated successfully!', type: 'success' });
         fetchPayroll();
       }
     } catch (e) {
@@ -81,7 +83,7 @@ const AdminPayroll = () => {
       const res = await api.get('/payroll/export', { params: { month, year }, responseType: 'blob' });
       const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a'); link.href = url; 
+      const link = document.createElement('a'); link.href = url;
       link.download = `Payroll_${month}_${year}.xlsx`;
       document.body.appendChild(link); link.click(); document.body.removeChild(link); window.URL.revokeObjectURL(url);
     } catch (e) {
@@ -113,20 +115,20 @@ const AdminPayroll = () => {
     <div className="flex h-screen bg-admin-bg dark-scroll">
       <Sidebar />
       <div className="flex-1 overflow-y-auto min-w-0 dark-scroll">
-        <div className="px-5 py-6 lg:px-8 lg:py-8 max-w-[1600px] mx-auto pt-16 lg:pt-8">
-          
+        <div className="px-2 py-4 lg:px-4 lg:py-6 w-full max-w-none pt-16 lg:pt-8">
+
           {/* Header */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 mb-6 animate-fadeInUp stagger-1">
             <div>
               <h1 className="text-2xl lg:text-3xl font-extrabold text-admin-heading tracking-tight">Payroll Management</h1>
               <p className="text-sm text-admin-muted mt-1.5 font-medium">Calculate and process monthly employee salaries.</p>
             </div>
-            
+
             <div className="flex flex-col sm:flex-row items-center gap-4">
               <div className="flex items-center gap-2">
                 <select value={month} onChange={e => setMonth(parseInt(e.target.value))} className="admin-select py-2 text-sm text-admin-muted">
                   {[...Array(12).keys()].map(m => (
-                    <option key={m+1} value={m+1}>{new Date(0, m).toLocaleString('default', { month: 'long' })}</option>
+                    <option key={m + 1} value={m + 1}>{new Date(0, m).toLocaleString('default', { month: 'long' })}</option>
                   ))}
                 </select>
                 <select value={year} onChange={e => setYear(parseInt(e.target.value))} className="admin-select py-2 text-sm text-admin-muted">
@@ -138,15 +140,15 @@ const AdminPayroll = () => {
               </div>
 
               <div className="flex flex-wrap gap-2.5">
-                <button 
-                  onClick={handleCalculate} 
+                <button
+                  onClick={handleCalculate}
                   disabled={calculating}
                   className="flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-glow-blue-sm disabled:opacity-50">
-                  <FiRefreshCw size={16} className={calculating ? 'animate-spin' : ''} /> 
+                  <FiRefreshCw size={16} className={calculating ? 'animate-spin' : ''} />
                   {calculating ? 'Calculating...' : 'Calculate All'}
                 </button>
-                <button 
-                  onClick={handleExport} 
+                <button
+                  onClick={handleExport}
                   disabled={!isCalculated || records.length === 0}
                   className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(16,185,129,0.2)] disabled:opacity-50">
                   <FiDownload size={16} /> Export Excel
@@ -157,13 +159,13 @@ const AdminPayroll = () => {
 
           {/* Stats Card */}
           <div className="bg-admin-surface border border-admin-border rounded-2xl p-5 mb-6 shadow-clay-admin animate-fadeInUp stagger-2 flex items-center justify-between">
-             <div className="flex items-center gap-3">
-               <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                 <FiDollarSign size={20} className="text-emerald-400" />
-               </div>
-               <span className="text-sm font-bold text-admin-secondary uppercase tracking-wider">Total Net Payable</span>
-             </div>
-             <span className="text-2xl font-extrabold text-admin-heading">{formatCurrency(totalNetPayable)}</span>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                <FiDollarSign size={20} className="text-emerald-400" />
+              </div>
+              <span className="text-sm font-bold text-admin-secondary uppercase tracking-wider">Total Net Payable</span>
+            </div>
+            <span className="text-2xl font-extrabold text-admin-heading">{formatCurrency(totalNetPayable)}</span>
           </div>
 
           {/* Table */}
@@ -178,71 +180,85 @@ const AdminPayroll = () => {
                   <FiDollarSign size={28} className="text-blue-400" />
                 </div>
                 <h3 className="text-lg font-bold text-admin-heading mb-1">Payroll Not Calculated</h3>
-                <p className="text-sm text-admin-secondary max-w-md text-center">Click "Calculate All" to generate salary records for {new Date(0, month-1).toLocaleString('default', { month: 'long' })} {year}.</p>
+                <p className="text-sm text-admin-secondary max-w-md text-center">Click "Calculate All" to generate salary records for {new Date(0, month - 1).toLocaleString('default', { month: 'long' })} {year}.</p>
               </div>
             ) : (
               <div className="overflow-x-auto dark-scroll">
-                <table className="min-w-full divide-y divide-white/[0.04]">
+                <table className="w-full table-fixed divide-y divide-white/[0.04]">
                   <thead className="bg-admin-bg">
                     <tr>
                       {[
-                        'Employee', 'Total Days', 'Working Days', 'Paid Days', 'Half Days', 
-                        'Monthly Earning', 'Per Day Salary', 'LOP Days', 'Net Earning', 
-                        'Basic', 'HRA', 'Special Allowance', 'Staff Advance', 'PT', 'TDS', 'Net Payable', 'Status'
-                      ].map(h => (
-                        <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
+                        { label: 'Employee', w: 'w-[12%]' },
+                        { label: 'Total', w: 'w-[4%]', center: true },
+                        { label: 'Work', w: 'w-[4%]', center: true },
+                        { label: 'Paid', w: 'w-[4%]', center: true },
+                        { label: 'Half', w: 'w-[5%]', center: true },
+                        { label: 'Monthly', w: 'w-[7%]' },
+                        { label: 'Per Day', w: 'w-[6%]' },
+                        { label: 'LOP', w: 'w-[5%]', center: true },
+                        { label: 'Net Earn', w: 'w-[7%]' },
+                        { label: 'Basic', w: 'w-[6%]' },
+                        { label: 'HRA', w: 'w-[6%]' },
+                        { label: 'Special', w: 'w-[6%]' },
+                        { label: 'Advance', w: 'w-[5%]' },
+                        { label: 'PT', w: 'w-[4%]' },
+                        { label: 'TDS', w: 'w-[4%]' },
+                        { label: 'Payable', w: 'w-[7%]' },
+                        { label: 'Status', w: 'w-[5%]' }
+                        // Future Action column can be added here
+                      ].map(c => (
+                        <th key={c.label} className={`px-2 py-2 text-[10px] font-bold text-admin-secondary uppercase tracking-tighter leading-tight ${c.w} ${c.center ? 'text-center' : 'text-left'} align-middle`}>{c.label}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
                     {records.map(r => (
                       <tr key={r.id} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors">
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <div className="text-sm font-bold text-admin-text">{r.employeeName}</div>
-                          <div className="text-xs text-admin-muted font-mono">{r.employeeCode}</div>
+                        <td className="px-2 py-2 align-middle">
+                          <div className="text-[11px] font-bold text-admin-text truncate max-w-[130px] leading-tight" title={r.employeeName}>{r.employeeName}</div>
+                          <div className="text-[10px] text-admin-muted font-mono leading-tight">{r.employeeCode}</div>
                         </td>
-                        <td className="px-5 py-4 text-xs font-bold text-admin-text whitespace-nowrap">{r.totalDays}</td>
-                        <td className="px-5 py-4 text-xs text-admin-secondary whitespace-nowrap">{r.workingDays}</td>
-                        <td className="px-5 py-4 text-xs font-bold text-emerald-400 whitespace-nowrap">{parseFloat(r.paidDays).toFixed(1)}</td>
-                        <td className="px-5 py-4 whitespace-nowrap">
+                        <td className="px-2 py-2 text-[11px] font-bold text-admin-text text-center align-middle">{r.totalDays}</td>
+                        <td className="px-2 py-2 text-[11px] text-admin-secondary text-center align-middle">{r.workingDays}</td>
+                        <td className="px-2 py-2 text-[11px] font-bold text-emerald-400 text-center align-middle">{parseFloat(r.paidDays).toFixed(1)}</td>
+                        <td className="px-2 py-2 align-middle text-center">
                           {parseFloat(r.halfDays) > 0 ? (
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-yellow-500">{parseFloat(r.halfDays).toFixed(1)} days</span>
-                              <span className="text-[10px] text-red-400/80">{formatCurrency(r.halfDayLossAmount ?? r.half_day_loss_amount ?? 0)}</span>
+                            <div className="flex flex-col items-center justify-center">
+                              <span className="text-[11px] font-bold text-yellow-500 leading-tight">{parseFloat(r.halfDays).toFixed(1)}</span>
+                              <span className="text-[9px] text-red-400/80 leading-tight">{formatCurrency(r.halfDayLossAmount ?? r.half_day_loss_amount ?? 0)}</span>
                             </div>
                           ) : (
-                            <span className="text-xs text-admin-secondary">-</span>
+                            <span className="text-[11px] text-admin-secondary">-</span>
                           )}
                         </td>
-                        <td className="px-5 py-4 text-xs text-admin-text whitespace-nowrap">{formatCurrency(r.monthlyEarning)}</td>
-                        <td className="px-5 py-4 text-xs text-admin-muted whitespace-nowrap">₹{parseFloat(r.perDaySalary).toFixed(0)}</td>
-                        <td className="px-5 py-4 whitespace-nowrap">
+                        <td className="px-2 py-2 text-[11px] text-admin-text align-middle">{formatCurrency(r.monthlyEarning)}</td>
+                        <td className="px-2 py-2 text-[11px] text-admin-muted align-middle">₹{parseFloat(r.perDaySalary).toFixed(0)}</td>
+                        <td className="px-2 py-2 align-middle text-center">
                           {parseFloat(r.lopDays) > 0 ? (
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-red-400">{parseFloat(r.lopDays).toFixed(1)} days</span>
-                              <span className="text-[10px] text-red-400/80">{formatCurrency(r.lopAmount)}</span>
+                            <div className="flex flex-col items-center justify-center">
+                              <span className="text-[11px] font-bold text-red-400 leading-tight">{parseFloat(r.lopDays).toFixed(1)}</span>
+                              <span className="text-[9px] text-red-400/80 leading-tight">{formatCurrency(r.lopAmount)}</span>
                             </div>
                           ) : (
-                            <span className="text-xs text-admin-secondary">-</span>
+                            <span className="text-[11px] text-admin-secondary">-</span>
                           )}
                         </td>
-                        <td className="px-5 py-4 text-xs text-admin-text whitespace-nowrap">{formatCurrency(r.netEarning)}</td>
-                        <td className="px-5 py-4 text-xs text-admin-muted whitespace-nowrap">{formatCurrency(r.basicSalary)}</td>
-                        <td className="px-5 py-4 text-xs text-admin-muted whitespace-nowrap">{formatCurrency(r.hra)}</td>
-                        <td className="px-5 py-4 text-xs text-admin-muted whitespace-nowrap">{formatCurrency(r.specialAllowance)}</td>
-                        <td className="px-5 py-4 text-xs text-red-400 whitespace-nowrap">{formatCurrency(r.staffAdvance)}</td>
-                        <td className="px-5 py-4 text-xs text-red-400 whitespace-nowrap">{formatCurrency(r.professionalTax)}</td>
-                        <td className="px-5 py-4 text-xs text-red-400 whitespace-nowrap">{formatCurrency(r.tds)}</td>
-                        <td className="px-5 py-4 text-sm font-bold text-emerald-400 whitespace-nowrap">{formatCurrency(r.netPayable)}</td>
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <select 
+                        <td className="px-2 py-2 text-[11px] text-admin-text font-bold align-middle">{formatCurrency(r.netEarning)}</td>
+                        <td className="px-2 py-2 text-[11px] text-admin-muted align-middle">{formatCurrency(r.basicSalary)}</td>
+                        <td className="px-2 py-2 text-[11px] text-admin-muted align-middle">{formatCurrency(r.hra)}</td>
+                        <td className="px-2 py-2 text-[11px] text-admin-muted align-middle">{formatCurrency(r.specialAllowance)}</td>
+                        <td className="px-2 py-2 text-[11px] text-red-400 align-middle">{formatCurrency(r.staffAdvance)}</td>
+                        <td className="px-2 py-2 text-[11px] text-red-400 align-middle">{formatCurrency(r.professionalTax)}</td>
+                        <td className="px-2 py-2 text-[11px] text-red-400 align-middle">{formatCurrency(r.tds)}</td>
+                        <td className="px-2 py-2 text-[11px] font-bold text-emerald-400 align-middle">{formatCurrency(r.netPayable)}</td>
+                        <td className="px-2 py-2 align-middle sticky right-0 z-10 bg-admin-surface border-l border-white/[0.04] shadow-[-4px_0_15px_rgba(0,0,0,0.2)]">
+                          <select
                             value={r.status || 'pending'}
                             onChange={(e) => handleStatusChange(r.id, e.target.value)}
-                            className={`text-xs font-bold px-3 py-1.5 rounded-lg outline-none cursor-pointer border ${
-                              r.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                            className={`text-xs font-bold px-3 py-1.5 rounded-lg outline-none cursor-pointer border ${r.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
                               r.status === 'hold' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                              'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-                            }`}
+                                'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                              }`}
                           >
                             <option value="pending" className="admin-dropdown-option bg-admin-dropdown text-admin-dropdown-text">Pending</option>
                             <option value="hold" className="admin-dropdown-option bg-admin-dropdown text-admin-dropdown-text">Hold</option>
@@ -259,6 +275,11 @@ const AdminPayroll = () => {
         </div>
       </div>
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog(d => ({ ...d, isOpen: false }))} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
+      <AdminToast
+        message={toastConfig.message}
+        type={toastConfig.type}
+        onClose={() => setToastConfig({ message: '', type: 'success' })}
+      />
     </div>
   );
 };

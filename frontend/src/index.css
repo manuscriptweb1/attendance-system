@@ -232,6 +232,30 @@ body.admin-theme-light .admin-btn-neutral:hover {
   background: #f1f5f9 !important;
 }
 
+body.admin-theme-light .admin-toast,
+html.admin-theme-light .admin-toast,
+.admin-theme-light .admin-toast {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.1), 0 4px 6px -4px rgba(15, 23, 42, 0.1) !important;
+}
+
+body.admin-theme-light .admin-toast-text,
+html.admin-theme-light .admin-toast-text,
+.admin-theme-light .admin-toast-text {
+  color: #0f172a !important;
+}
+
+/* Default Dark Theme Toast */
+.admin-toast {
+  background: var(--admin-modal-bg);
+  border: 1px solid var(--admin-border);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+}
+.admin-toast-text {
+  color: var(--admin-modal-text);
+}
+
 .admin-overlay {
   background-color: var(--admin-overlay) !important;
 }

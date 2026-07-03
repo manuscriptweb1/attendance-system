@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
+import AdminToast from '../components/AdminToast';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { Spinner } from '../components/Loader';
 import { useAuth } from '../context/AuthContext';
@@ -21,6 +22,7 @@ const AdminManagement = () => {
   const [admins, setAdmins] = useState([]);
   const [loginLogs, setLoginLogs] = useState([]);
   const [alertDialog, setAlertDialog] = useState({ isOpen:false, title:'', message:'', type:'success' });
+  const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen:false, title:'', message:'', onConfirm:null, type:'danger' });
   
   const [showAdminForm, setShowAdminForm] = useState(false);
@@ -46,21 +48,21 @@ const AdminManagement = () => {
   const handleSaveAdmin = async () => {
     if (!adminForm.username || !adminForm.email) { setAlertDialog({ isOpen:true, title:'Validation Error', message:'Username and email are required', type:'error' }); return; }
     if (!editingAdmin && !adminForm.password) { setAlertDialog({ isOpen:true, title:'Validation Error', message:'Password is required for new admin', type:'error' }); return; }
-    try { setLoading(true); editingAdmin ? await api.put(`/admins/${editingAdmin.id}`, { username:adminForm.username, email:adminForm.email }) : await api.post('/admins', adminForm); setAlertDialog({ isOpen:true, title:'Success', message: editingAdmin ? 'Admin updated!' : 'Admin added!', type:'success' }); setShowAdminForm(false); fetchAdmins(); }
+    try { setLoading(true); editingAdmin ? await api.put(`/admins/${editingAdmin.id}`, { username:adminForm.username, email:adminForm.email }) : await api.post('/admins', adminForm); setToastConfig({ message: editingAdmin ? 'Admin updated!' : 'Admin added!', type: 'success' }); setShowAdminForm(false); fetchAdmins(); }
     catch(e) { setAlertDialog({ isOpen:true, title:'Error', message: e.response?.data?.message || 'Failed to save admin', type:'error' }); }
     finally { setLoading(false); }
   };
 
   const handleDeleteAdmin = admin => setConfirmDialog({
     isOpen:true, title:'Delete Admin', type:'danger', message:`Delete admin "${admin.username}"? This cannot be undone.`,
-    onConfirm: async () => { try { setLoading(true); await api.delete(`/admins/${admin.id}`); setAlertDialog({ isOpen:true, title:'Success', message:'Admin deleted!', type:'success' }); fetchAdmins(); } catch(e) { setAlertDialog({ isOpen:true, title:'Error', message: e.response?.data?.message || 'Failed to delete', type:'error' }); } finally { setLoading(false); } },
+    onConfirm: async () => { try { setLoading(true); await api.delete(`/admins/${admin.id}`); setToastConfig({ message: 'Admin deleted!', type: 'success' }); fetchAdmins(); } catch(e) { setAlertDialog({ isOpen:true, title:'Error', message: e.response?.data?.message || 'Failed to delete', type:'error' }); } finally { setLoading(false); } },
   });
 
   const handleChangePassword = async () => {
     if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) { setAlertDialog({ isOpen:true, title:'Validation Error', message:'All fields are required', type:'error' }); return; }
     if (passwordForm.newPassword !== passwordForm.confirmPassword) { setAlertDialog({ isOpen:true, title:'Validation Error', message:'Passwords do not match', type:'error' }); return; }
     if (passwordForm.newPassword.length < 6) { setAlertDialog({ isOpen:true, title:'Validation Error', message:'Password must be at least 6 characters', type:'error' }); return; }
-    try { setLoading(true); await api.post('/admins/change-password', { adminId:user.id, currentPassword:passwordForm.currentPassword, newPassword:passwordForm.newPassword }); setAlertDialog({ isOpen:true, title:'Success', message:'Password changed successfully!', type:'success' }); setPasswordForm({ currentPassword:'', newPassword:'', confirmPassword:'' }); }
+    try { setLoading(true); await api.post('/admins/change-password', { adminId:user.id, currentPassword:passwordForm.currentPassword, newPassword:passwordForm.newPassword }); setToastConfig({ message: 'Password changed successfully!', type: 'success' }); setPasswordForm({ currentPassword:'', newPassword:'', confirmPassword:'' }); }
     catch(e) { setAlertDialog({ isOpen:true, title:'Error', message: e.response?.data?.message || 'Failed to change password', type:'error' }); }
     finally { setLoading(false); }
   };
@@ -69,7 +71,7 @@ const AdminManagement = () => {
     try { setLoading(true); const params = {}; if (dateFilter.startDate) params.startDate = dateFilter.startDate; if (dateFilter.endDate) params.endDate = dateFilter.endDate;
       const response = await api.get('/pdf/admin-logs', { params, responseType:'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data])); const link = document.createElement('a'); link.href = url; link.setAttribute('download', `admin_login_logs_${Date.now()}.pdf`); document.body.appendChild(link); link.click(); link.remove();
-      setAlertDialog({ isOpen:true, title:'Success', message:'PDF downloaded!', type:'success' }); }
+      setToastConfig({ message: 'PDF downloaded!', type: 'success' }); }
     catch(e) { setAlertDialog({ isOpen:true, title:'Error', message: e.response?.data?.message || 'Failed to download PDF', type:'error' }); }
     finally { setLoading(false); }
   };
@@ -319,7 +321,13 @@ const AdminManagement = () => {
 
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog(d => ({ ...d, isOpen:false }))} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
       <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(d => ({ ...d, isOpen:false }))} onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(d => ({ ...d, isOpen:false })); }} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText="Delete" />
+      <AdminToast 
+        message={toastConfig.message} 
+        type={toastConfig.type} 
+        onClose={() => setToastConfig({ message: '', type: 'success' })} 
+      />
     </div>
   );
 };
+
 export default AdminManagement;

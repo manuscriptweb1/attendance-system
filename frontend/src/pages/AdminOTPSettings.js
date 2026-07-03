@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
+import AdminToast from '../components/AdminToast';
 import { Spinner } from '../components/Loader';
 import { getOTPSettings, updateOTPSettings } from '../services/api';
 import { FiSave, FiRefreshCw, FiClock, FiShield, FiAlertCircle, FiInfo, FiActivity, FiKey } from 'react-icons/fi';
@@ -24,6 +25,7 @@ const AdminOTPSettings = () => {
   const [originalSettings, setOriginalSettings] = useState(null);
   const [errors, setErrors] = useState({});
   const [alertDialog, setAlertDialog] = useState({ isOpen:false, title:'', message:'', type:'success' });
+  const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
 
   useEffect(() => { fetchSettings(); }, []);
 
@@ -59,7 +61,7 @@ const AdminOTPSettings = () => {
     setSaving(true);
     try {
       const response = await updateOTPSettings(settings);
-      if (response.data.success) { setOriginalSettings(settings); setAlertDialog({ isOpen:true, title:'Success', message:'OTP settings updated successfully! Changes apply immediately.', type:'success' }); }
+      if (response.data.success) { setOriginalSettings(settings); setToastConfig({ message: 'OTP settings updated successfully! Changes apply immediately.', type: 'success' }); }
     } catch (error) {
       setAlertDialog({ isOpen:true, title:'Error', message: error.response?.data?.message || 'Failed to update OTP settings', type:'error' });
     } finally { setSaving(false); }
@@ -239,6 +241,11 @@ const AdminOTPSettings = () => {
         </div>
       </div>
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog({ ...alertDialog, isOpen:false })} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
+      <AdminToast 
+        message={toastConfig.message} 
+        type={toastConfig.type} 
+        onClose={() => setToastConfig({ message: '', type: 'success' })} 
+      />
     </div>
   );
 };

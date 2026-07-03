@@ -10,19 +10,19 @@ const ToggleSwitch = ({ checked, onChange }) => (
   <button 
     type="button" 
     onClick={onChange} 
-    className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none ${checked ? 'bg-emerald-500' : 'bg-[#1C2540] border border-white/10'}`}
+    className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none ${checked ? 'bg-emerald-500' : 'bg-admin-elevated border border-admin-border'}`}
   >
-    <span className={`inline-block h-4 w-4 transform rounded-full bg-[#0B1120] transition-transform duration-300 ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
+    <span className={`inline-block h-4 w-4 transform rounded-full bg-admin-elevated transition-transform duration-300 ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
   </button>
 );
 
 const SectionCard = ({ icon: Icon, iconBg, iconColor, title, children }) => (
-  <div className="bg-[#161D2E] border border-white/[0.06] rounded-2xl shadow-clay-admin overflow-hidden mb-6 animate-fadeInUp">
-    <div className="flex items-center gap-3 px-6 py-5 border-b border-white/[0.04] bg-[#1C2540]/30">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/[0.04] shadow-sm ${iconBg} ${iconColor}`}>
+  <div className="bg-admin-surface border border-admin-border rounded-2xl shadow-clay-admin overflow-hidden mb-6 animate-fadeInUp">
+    <div className="flex items-center gap-3 px-6 py-5 border-b border-admin-border bg-admin-elevated">
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-admin-border shadow-sm ${iconBg} ${iconColor}`}>
         <Icon size={18} />
       </div>
-      <h2 className="text-sm font-bold text-white tracking-wide">{title}</h2>
+      <h2 className="text-sm font-bold text-admin-text tracking-wide">{title}</h2>
     </div>
     <div className="p-6 space-y-6">{children}</div>
   </div>
@@ -30,7 +30,7 @@ const SectionCard = ({ icon: Icon, iconBg, iconColor, title, children }) => (
 
 const Field = ({ label, hint, children }) => (
   <div>
-    <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">{label}</label>
+    <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">{label}</label>
     {children}
     {hint && <p className="text-xs font-medium text-[#475569] mt-2">{hint}</p>}
   </div>
@@ -107,24 +107,24 @@ const AdminSettings = () => {
   };
 
   if (loading) return (
-    <div className="flex h-screen bg-[#0E1320]">
+    <div className="flex h-screen bg-admin-bg">
       <Sidebar />
       <div className="flex-1 flex flex-col items-center justify-center gap-4">
         <Spinner size={36} color="blue" />
-        <p className="text-sm font-medium text-[#64748B] animate-pulse">Loading settings...</p>
+        <p className="text-sm font-medium text-admin-secondary animate-pulse">Loading settings...</p>
       </div>
     </div>
   );
 
   return (
-    <div className="flex h-screen bg-[#0E1320] dark-scroll relative">
+    <div className="flex h-screen bg-admin-bg dark-scroll relative">
       <Sidebar />
       <div className="flex-1 overflow-y-auto min-w-0 dark-scroll pb-24">
         <div className="px-5 py-6 lg:px-8 lg:py-8 max-w-4xl mx-auto pt-16 lg:pt-8">
           
           <div className="mb-8 animate-fadeInUp stagger-1">
-            <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">System Configuration</h1>
-            <p className="text-sm text-[#94A3B8] mt-1.5 font-medium">Manage office rules, security, and global application settings.</p>
+            <h1 className="text-2xl lg:text-3xl font-extrabold text-admin-heading tracking-tight">System Configuration</h1>
+            <p className="text-sm text-admin-muted mt-1.5 font-medium">Manage office rules, security, and global application settings.</p>
           </div>
 
           <form id="settings-form" onSubmit={handleSubmit}>
@@ -175,16 +175,16 @@ const AdminSettings = () => {
                   </select>
                 </Field>
               </div>
-              <div className="space-y-1 divide-y divide-white/[0.04] bg-[#1C2540]/30 border border-white/[0.04] rounded-2xl">
+              <div className="space-y-1 divide-y divide-white/[0.04] bg-admin-elevated border border-admin-border rounded-2xl">
                 {[
                   { field:'checkInEnabled', label:'Enable Global Check-In', desc:'Allow employees to check in to the system' }, 
                   { field:'checkOutEnabled', label:'Enable Global Check-Out', desc:'Allow employees to check out of the system' }, 
                   { field:'trustedDeviceValidationEnabled', label:'Strict Trusted Device Validation', desc:'Skip GPS/IP checks but only allow approved devices to mark attendance' }
                 ].map(({ field, label, desc }) => (
-                  <div key={field} className="flex items-center justify-between p-4 hover:bg-[#0B1120]/[0.02] transition-colors rounded-xl">
+                  <div key={field} className="flex items-center justify-between p-4 hover:bg-admin-elevated/[0.02] transition-colors rounded-xl">
                     <div>
-                      <p className="text-sm font-bold text-white mb-0.5">{label}</p>
-                      <p className="text-xs font-medium text-[#64748B]">{desc}</p>
+                      <p className="text-sm font-bold text-admin-text mb-0.5">{label}</p>
+                      <p className="text-xs font-medium text-admin-secondary">{desc}</p>
                     </div>
                     <ToggleSwitch checked={settings[field]} onChange={() => handleToggle(field)} />
                   </div>
@@ -194,11 +194,11 @@ const AdminSettings = () => {
 
             {/* Electron Desktop Configuration */}
             <div className="stagger-5"><SectionCard icon={FiSliders} iconBg="bg-blue-500/10" iconColor="text-blue-400" title="Electron Desktop Attendance Validation">
-              <div className="space-y-1 divide-y divide-white/[0.04] bg-[#1C2540]/30 border border-white/[0.04] rounded-2xl mb-6">
-                <div className="flex items-center justify-between p-4 hover:bg-[#0B1120]/[0.02] transition-colors rounded-xl">
+              <div className="space-y-1 divide-y divide-white/[0.04] bg-admin-elevated border border-admin-border rounded-2xl mb-6">
+                <div className="flex items-center justify-between p-4 hover:bg-admin-elevated/[0.02] transition-colors rounded-xl">
                   <div>
-                    <p className="text-sm font-bold text-white mb-0.5">Enable Electron Desktop Attendance</p>
-                    <p className="text-xs font-medium text-[#64748B]">Allow employees to check in using the desktop app</p>
+                    <p className="text-sm font-bold text-admin-text mb-0.5">Enable Electron Desktop Attendance</p>
+                    <p className="text-xs font-medium text-admin-secondary">Allow employees to check in using the desktop app</p>
                   </div>
                   <ToggleSwitch checked={settings.electronDesktopEnabled} onChange={() => handleToggle('electronDesktopEnabled')} />
                 </div>
@@ -239,7 +239,7 @@ const AdminSettings = () => {
             {/* System Info Box */}
             <div className="flex gap-4 p-5 bg-blue-500/10 border border-blue-500/20 rounded-2xl animate-fadeInUp stagger-6 mb-8">
               <FiInfo size={20} className="text-blue-400 flex-shrink-0 mt-0.5" />
-              <div className="text-xs font-medium text-[#94A3B8] space-y-1.5">
+              <div className="text-xs font-medium text-admin-muted space-y-1.5">
                 <p className="font-bold text-blue-300 text-sm mb-2">Important Information</p>
                 <p>• All settings changes apply immediately without requiring a server restart.</p>
                 <p>• Check-in/Check-out toggles control whether the buttons appear on the employee dashboard.</p>
@@ -252,9 +252,9 @@ const AdminSettings = () => {
       </div>
       
       {/* ═══ FIXED SAVE ACTION BAR ═══ */}
-      <div className="fixed bottom-0 left-0 lg:left-64 right-0 p-4 bg-[#0E1320]/80 backdrop-blur-xl border-t border-white/[0.06] z-40 animate-slideUp">
+      <div className="fixed bottom-0 left-0 lg:left-64 right-0 p-4 bg-admin-bg backdrop-blur-xl border-t border-admin-border z-40 animate-slideUp">
         <div className="max-w-4xl mx-auto flex items-center justify-between px-4">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#64748B]">
+          <div className="flex items-center gap-2 text-xs font-semibold text-admin-secondary">
             <FiCheckCircle size={14} className="text-emerald-500" /> All systems operational
           </div>
           <button type="submit" form="settings-form" disabled={saving} className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-[0_4px_16px_rgba(59,130,246,0.3)] hover:-translate-y-0.5">

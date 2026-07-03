@@ -122,7 +122,7 @@ const AdminAttendance = () => {
   }, [attendance]);
 
   return (
-    <div className="flex h-screen bg-[#0E1320] dark-scroll">
+    <div className="flex h-screen bg-admin-bg dark-scroll">
       <Sidebar />
       <div className="flex-1 overflow-y-auto min-w-0 dark-scroll">
         <div className="px-5 py-6 lg:px-8 lg:py-8 max-w-[1600px] mx-auto pt-16 lg:pt-8">
@@ -130,14 +130,14 @@ const AdminAttendance = () => {
           {/* ═══ HEADER ═══ */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 mb-6 animate-fadeInUp stagger-1">
             <div>
-              <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">Attendance Management</h1>
-              <p className="text-sm text-[#94A3B8] mt-1.5 font-medium">Monitor and manage employee attendance.</p>
+              <h1 className="text-2xl lg:text-3xl font-extrabold text-admin-heading tracking-tight">Attendance Management</h1>
+              <p className="text-sm text-admin-muted mt-1.5 font-medium">Monitor and manage employee attendance.</p>
             </div>
             <div className="flex flex-wrap gap-2.5">
-              <button onClick={() => setClearDialog({ isOpen: true })} className="flex items-center gap-2 bg-[#1C2540] hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 text-white hover:text-red-400 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-clay-admin">
-                <FiTrash2 size={16} /> Clear
+              <button onClick={() => setClearDialog({ isOpen: true })} className="admin-btn-neutral px-4 py-2.5 rounded-xl text-sm font-semibold hover:text-red-500 hover:border-red-500/50">
+                <FiTrash2 size={16} /> Clear Month
               </button>
-              <button onClick={() => handleDownloadPDF('pdf')} className="flex items-center gap-2 bg-[#1C2540] hover:bg-red-500 border border-white/10 hover:border-red-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-clay-admin">
+              <button onClick={() => handleDownloadPDF('pdf')} className="admin-btn-neutral px-4 py-2.5 rounded-xl text-sm font-semibold hover:text-red-500 hover:border-red-500/50">
                 <FiDownload size={16} /> PDF
               </button>
               <button onClick={() => handleDownloadPDF('excel')} className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(16,185,129,0.2)]">
@@ -154,10 +154,10 @@ const AdminAttendance = () => {
               { label: 'Half Day', value: stats.halfDay, icon: FiTrendingUp,  color: 'text-yellow-500',  bg: 'bg-yellow-500/10 border-yellow-500/20' },
               { label: 'WFH',      value: stats.wfh,     icon: FiHome,        color: 'text-blue-400',    bg: 'bg-blue-500/10 border-blue-500/20' }
             ].map((stat, i) => (
-              <div key={i} className="bg-[#161D2E] border border-white/[0.06] rounded-2xl p-4 shadow-clay-admin flex items-center justify-between">
+              <div key={i} className="bg-admin-surface border border-admin-border rounded-2xl p-4 shadow-clay-admin flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-1">{stat.label}</p>
-                  <p className="text-2xl font-extrabold text-white">{stat.value}</p>
+                  <p className="text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-1">{stat.label}</p>
+                  <p className="text-2xl font-extrabold text-admin-heading">{stat.value}</p>
                 </div>
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${stat.bg} ${stat.color}`}>
                   <stat.icon size={18} />
@@ -167,32 +167,32 @@ const AdminAttendance = () => {
           </div>
 
           {/* ═══ FILTERS ═══ */}
-          <div className="bg-[#161D2E] border border-white/[0.06] rounded-2xl p-5 mb-6 shadow-clay-admin animate-fadeInUp stagger-3">
+          <div className="bg-admin-surface border border-admin-border rounded-2xl p-5 mb-6 shadow-clay-admin animate-fadeInUp stagger-3">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center">
                 <FiFilter size={14} className="text-blue-400" />
               </div>
-              <h2 className="text-sm font-bold text-white">Filter Records</h2>
+              <h2 className="text-sm font-bold text-admin-text">Filter Records</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <div>
-                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Date</label>
+                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Date</label>
                 <input type="date" name="date" value={filters.date} onChange={handleFilterChange} className="admin-input py-2.5 text-sm" />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Search ID</label>
+                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Search ID</label>
                 <input type="text" name="employee_id" value={filters.employee_id} onChange={handleFilterChange} placeholder="EMP-001" className="admin-input py-2.5 text-sm" />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Department</label>
-                <select name="department" value={filters.department || ''} onChange={handleFilterChange} className="admin-select py-2.5 text-sm text-[#94A3B8]">
+                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Department</label>
+                <select name="department" value={filters.department || ''} onChange={handleFilterChange} className="admin-select py-2.5 text-sm text-admin-muted">
                   <option value="">All Depts</option>
                   {[...new Set(attendance.map(a=>a.department))].filter(Boolean).map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Status</label>
-                <select name="status" value={filters.status} onChange={handleFilterChange} className="admin-select py-2.5 text-sm text-[#94A3B8]">
+                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Status</label>
+                <select name="status" value={filters.status} onChange={handleFilterChange} className="admin-select py-2.5 text-sm text-admin-muted">
                   <option value="">All Statuses</option>
                   <option value="Currently Working">Currently Working</option>
                   <option value="Present">Present</option>
@@ -203,8 +203,8 @@ const AdminAttendance = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Work Type</label>
-                <select name="is_wfh" value={filters.is_wfh || ''} onChange={handleFilterChange} className="admin-select py-2.5 text-sm text-[#94A3B8]">
+                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Work Type</label>
+                <select name="is_wfh" value={filters.is_wfh || ''} onChange={handleFilterChange} className="admin-select py-2.5 text-sm text-admin-muted">
                   <option value="">All Types</option>
                   <option value="false">Office</option>
                   <option value="true">WFH</option>
@@ -214,39 +214,39 @@ const AdminAttendance = () => {
           </div>
 
           {/* ═══ TABLE ═══ */}
-          <div className="bg-[#161D2E] border border-white/[0.06] rounded-2xl overflow-hidden shadow-clay-admin animate-fadeInUp stagger-4">
+          <div className="bg-admin-surface border border-admin-border rounded-2xl overflow-hidden shadow-clay-admin animate-fadeInUp stagger-4">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-24">
                 <Spinner size={36} color="blue" />
-                <p className="text-sm font-medium text-[#64748B] mt-4 animate-pulse">Loading records...</p>
+                <p className="text-sm font-medium text-admin-secondary mt-4 animate-pulse">Loading records...</p>
               </div>
             ) : (
               <div className="overflow-x-auto dark-scroll">
                 <table className="min-w-full divide-y divide-white/[0.04]">
-                  <thead className="bg-[#0E1320]/80">
+                  <thead className="bg-admin-bg">
                     <tr>{['Date','Emp ID','Name','Dept','Check In','Check Out','Hours','In Status','Out Status','Status','Absent Reason','Type','Actions'].map(h => (
-                      <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-[#64748B] uppercase tracking-widest whitespace-nowrap">{h}</th>
+                      <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
                     {attendance.length > 0 ? attendance.map(r => (
-                      <tr key={r.id} className="admin-table-row hover:bg-[#0B1120]/[0.02] transition-colors group">
-                        <td className="px-5 py-4 text-xs font-semibold text-[#CBD5E1] whitespace-nowrap">{formatDate(r.attendance_date)}</td>
-                        <td className="px-5 py-4 text-xs text-[#94A3B8] font-mono whitespace-nowrap">{r.emp_id}</td>
-                        <td className="px-5 py-4 text-sm font-bold text-white whitespace-nowrap">{r.name}</td>
-                        <td className="px-5 py-4 text-xs text-[#94A3B8] whitespace-nowrap">{r.department}</td>
-                        <td className="px-5 py-4 text-xs text-[#CBD5E1] font-mono whitespace-nowrap">{formatTime(r.login_time)}</td>
-                        <td className="px-5 py-4 text-xs text-[#CBD5E1] font-mono whitespace-nowrap">
+                      <tr key={r.id} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors group">
+                        <td className="px-5 py-4 text-xs font-semibold text-admin-secondary whitespace-nowrap">{formatDate(r.attendance_date)}</td>
+                        <td className="px-5 py-4 text-xs text-admin-muted font-mono whitespace-nowrap">{r.emp_id}</td>
+                        <td className="px-5 py-4 text-sm font-bold text-admin-text whitespace-nowrap">{r.name}</td>
+                        <td className="px-5 py-4 text-xs text-admin-muted whitespace-nowrap">{r.department}</td>
+                        <td className="px-5 py-4 text-xs text-admin-secondary font-mono whitespace-nowrap">{formatTime(r.login_time)}</td>
+                        <td className="px-5 py-4 text-xs text-admin-secondary font-mono whitespace-nowrap">
                           {formatTime(r.logout_time) || '—'}
                           {r.is_auto_checkout && r.logout_time && <span className="block text-[10px] text-amber-500/80 font-bold mt-0.5">(Auto)</span>}
                         </td>
-                        <td className="px-5 py-4 text-xs text-[#CBD5E1] font-mono whitespace-nowrap">{r.logout_time ? formatWorkingHours(parseFloat(r.total_working_hours)) : '—'}</td>
+                        <td className="px-5 py-4 text-xs text-admin-secondary font-mono whitespace-nowrap">{r.logout_time ? formatWorkingHours(parseFloat(r.total_working_hours)) : '—'}</td>
                         <td className="px-5 py-4 whitespace-nowrap">
                           {(() => {
                             if (r.checkin_status === 'late') return <span className="block text-[10px] text-amber-500 font-bold">Late {r.late_minutes}m</span>;
                             if (r.checkin_status === 'early') return <span className="block text-[10px] text-purple-400 font-bold">Early</span>;
                             if (r.login_time) return <span className="text-[10px] text-emerald-400 font-bold">On Time</span>;
-                            return <span className="text-[10px] text-[#64748B]">—</span>;
+                            return <span className="text-[10px] text-admin-secondary">—</span>;
                           })()}
                         </td>
                         <td className="px-5 py-4 whitespace-nowrap">
@@ -254,7 +254,7 @@ const AdminAttendance = () => {
                             if (r.checkout_status === 'late') return <span className="block text-[10px] text-amber-500 font-bold">Late</span>;
                             if (r.checkout_status === 'early') return <span className="block text-[10px] text-purple-400 font-bold">Early {r.early_minutes}m</span>;
                             if (r.logout_time) return <span className="text-[10px] text-emerald-400 font-bold">On Time</span>;
-                            return <span className="text-[10px] text-[#64748B]">—</span>;
+                            return <span className="text-[10px] text-admin-secondary">—</span>;
                           })()}
                         </td>
                         <td className="px-5 py-4 whitespace-nowrap">
@@ -265,7 +265,7 @@ const AdminAttendance = () => {
                             )}
                           </div>
                         </td>
-                        <td className="px-5 py-4 text-xs font-semibold text-[#CBD5E1] whitespace-nowrap">
+                        <td className="px-5 py-4 text-xs font-semibold text-admin-secondary whitespace-nowrap">
                           {r.attendance_status === 'Absent' || r.attendance_status === 'Not Mention' ? (r.absent_reason || '—') : '—'}
                         </td>
                         <td className="px-5 py-4 whitespace-nowrap">
@@ -274,24 +274,24 @@ const AdminAttendance = () => {
                         <td className="px-5 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-1.5 opacity-50 group-hover:opacity-100 transition-opacity">
                             {r.login_time && (
-                              <button onClick={() => handleResetAttendance(r, 'check-in')} title="Reset Check-In" className="w-8 h-8 rounded-xl flex items-center justify-center text-amber-500 bg-[#1C2540] border border-white/5 hover:bg-amber-500/10 hover:border-amber-500/20 transition-all shadow-sm"><FiRotateCcw size={14} /></button>
+                              <button onClick={() => handleResetAttendance(r, 'check-in')} title="Reset Check-In" className="w-8 h-8 rounded-xl flex items-center justify-center text-amber-500 bg-admin-elevated border border-admin-border hover:bg-amber-500/10 hover:border-amber-500/20 transition-all shadow-sm"><FiRotateCcw size={14} /></button>
                             )}
                             {r.logout_time && (
-                              <button onClick={() => handleResetAttendance(r, 'check-out')} title="Reset Check-Out" className="w-8 h-8 rounded-xl flex items-center justify-center text-blue-400 bg-[#1C2540] border border-white/5 hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"><FiRefreshCw size={14} /></button>
+                              <button onClick={() => handleResetAttendance(r, 'check-out')} title="Reset Check-Out" className="w-8 h-8 rounded-xl flex items-center justify-center text-blue-400 bg-admin-elevated border border-admin-border hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"><FiRefreshCw size={14} /></button>
                             )}
-                            <button onClick={() => handleDeleteAttendance(r)} title="Delete Record" className="w-8 h-8 rounded-xl flex items-center justify-center text-red-500 bg-[#1C2540] border border-white/5 hover:bg-red-500/10 hover:border-red-500/20 transition-all shadow-sm"><FiTrash2 size={14} /></button>
+                            <button onClick={() => handleDeleteAttendance(r)} title="Delete Record" className="w-8 h-8 rounded-xl flex items-center justify-center text-red-500 bg-admin-elevated border border-admin-border hover:bg-red-500/10 hover:border-red-500/20 transition-all shadow-sm"><FiTrash2 size={14} /></button>
                           </div>
                         </td>
                       </tr>
                     )) : (
                       <tr><td colSpan={10} className="px-5 py-20 text-center">
                         <div className="flex flex-col items-center gap-3">
-                          <div className="w-16 h-16 rounded-2xl bg-[#0B1120]/[0.02] flex items-center justify-center">
+                          <div className="w-16 h-16 rounded-2xl bg-admin-elevated/[0.02] flex items-center justify-center">
                             <FiCalendar size={28} className="text-[#475569]" />
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-[#94A3B8]">No records found</p>
-                            <p className="text-xs font-medium text-[#64748B] mt-1">Try adjusting your filters</p>
+                            <p className="text-sm font-bold text-admin-muted">No records found</p>
+                            <p className="text-xs font-medium text-admin-secondary mt-1">Try adjusting your filters</p>
                           </div>
                         </div>
                       </td></tr>
@@ -306,24 +306,24 @@ const AdminAttendance = () => {
 
       {/* ═══ DIALOGS ═══ */}
       {showDownloadDialog && (
-        <div className="fixed inset-0 bg-[#0E1320]/80 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-[#161D2E] border border-white/[0.08] rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.4)] w-full max-w-sm animate-scale-in overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.06] bg-[#1C2540]/30">
-              <h2 className="text-sm font-bold text-white">Download Attendance</h2>
-              <button onClick={() => setShowDownloadDialog(false)} className="w-8 h-8 rounded-xl flex items-center justify-center text-[#64748B] hover:bg-[#0B1120]/5 hover:text-white transition-colors"><FiX size={16} /></button>
+        <div className="fixed inset-0 bg-admin-overlay backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-admin-surface border border-admin-border rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.4)] w-full max-w-sm animate-scale-in overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-admin-border bg-admin-elevated">
+              <h2 className="text-sm font-bold text-admin-text">Download Attendance</h2>
+              <button onClick={() => setShowDownloadDialog(false)} className="w-8 h-8 rounded-xl flex items-center justify-center text-admin-secondary hover:bg-admin-elevated hover:text-admin-text transition-colors"><FiX size={16} /></button>
             </div>
             <div className="px-6 py-6 space-y-5">
               <div>
-                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Month (1–12)</label>
+                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Month (1–12)</label>
                 <input type="number" min="1" max="12" value={downloadData.month} onChange={e => setDownloadData(d => ({ ...d, month: e.target.value }))} placeholder="1–12" className="admin-input py-2.5" />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Year</label>
+                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Year</label>
                 <input type="number" min="2020" max="2030" value={downloadData.year} onChange={e => setDownloadData(d => ({ ...d, year: e.target.value }))} placeholder="e.g. 2026" className="admin-input py-2.5" />
               </div>
             </div>
-            <div className="flex gap-3 px-6 py-5 border-t border-white/[0.06] bg-[#1C2540]/30">
-              <button onClick={() => setShowDownloadDialog(false)} className="flex-1 px-4 py-2.5 text-sm font-bold text-[#94A3B8] border border-white/10 rounded-xl hover:bg-[#0B1120]/5 transition-colors">Cancel</button>
+            <div className="flex gap-3 px-6 py-5 border-t border-admin-border bg-admin-elevated">
+              <button onClick={() => setShowDownloadDialog(false)} className="flex-1 px-4 py-2.5 text-sm font-bold text-admin-muted border border-admin-border rounded-xl hover:bg-admin-elevated transition-colors">Cancel</button>
               <button onClick={downloadMatrix} className={`flex-1 px-4 py-2.5 text-sm font-bold text-white rounded-xl shadow-sm transition-all duration-200 ${downloadFormat === 'pdf' ? 'bg-red-600 hover:bg-red-500 shadow-[0_4px_16px_rgba(220,38,38,0.2)]' : 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 shadow-[0_4px_16px_rgba(16,185,129,0.2)]'}`}>
                 Download {downloadFormat.toUpperCase()}
               </button>

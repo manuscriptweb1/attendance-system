@@ -91,7 +91,8 @@ const adminLogin = async (req, res) => {
         id: admin.id,
         username: admin.username,
         email: admin.email,
-        role: 'admin'
+        role: 'admin',
+        theme_preference: admin.theme_preference || 'dark'
       }
     });
 

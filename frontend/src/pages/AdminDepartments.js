@@ -97,11 +97,11 @@ const AdminDepartments = () => {
   }, [departments]);
 
   if (loading) return (
-    <div className="flex h-screen bg-[#0E1320]"><Sidebar /><div className="flex-1 flex items-center justify-center"><Spinner size={36} /></div></div>
+    <div className="flex h-screen bg-admin-bg"><Sidebar /><div className="flex-1 flex items-center justify-center"><Spinner size={36} /></div></div>
   );
 
   return (
-    <div className="flex h-screen bg-[#0E1320] dark-scroll">
+    <div className="flex h-screen bg-admin-bg dark-scroll">
       <Sidebar />
       <div className="flex-1 overflow-y-auto min-w-0 dark-scroll">
         <div className="px-5 py-6 lg:px-8 lg:py-8">
@@ -109,7 +109,7 @@ const AdminDepartments = () => {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pt-14 lg:pt-0">
             <div>
-              <h1 className="text-xl font-bold text-white">Department Management</h1>
+              <h1 className="text-xl font-bold text-admin-heading">Department Management</h1>
               <p className="text-sm text-slate-400 mt-0.5">Manage company departments and structures</p>
             </div>
             <button onClick={() => setShowModal(true)}
@@ -126,11 +126,11 @@ const AdminDepartments = () => {
               { label: 'Assigned', value: stats.assigned, icon: FiActivity, color: 'text-purple-400', bg: 'bg-purple-500/10' },
               { label: 'Unused', value: stats.unused, icon: FiXCircle, color: 'text-amber-400', bg: 'bg-amber-500/10' }
             ].map(stat => (
-              <div key={stat.label} className="bg-[#161D2E] border border-white/[0.07] p-5 rounded-2xl shadow-clay-admin">
+              <div key={stat.label} className="bg-admin-surface border border-admin-border p-5 rounded-2xl shadow-clay-admin">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-1">{stat.label}</p>
-                    <h3 className="text-2xl font-bold text-white">{stat.value}</h3>
+                    <p className="text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-1">{stat.label}</p>
+                    <h3 className="text-2xl font-bold text-admin-heading">{stat.value}</h3>
                   </div>
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${stat.bg} ${stat.color}`}>
                     <stat.icon size={20} />
@@ -142,26 +142,26 @@ const AdminDepartments = () => {
 
           {/* Search */}
           <div className="relative mb-5">
-            <FiSearch size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B] pointer-events-none" />
+            <FiSearch size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-admin-secondary pointer-events-none" />
             <input type="text" placeholder="Search departments by name or description..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-              className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-3 pl-12 pr-4 text-sm placeholder:text-[#64748B] focus:outline-none focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/15 transition-all" />
+              className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-3 pl-12 pr-4 text-sm placeholder:text-admin-secondary focus:outline-none focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/15 transition-all" />
           </div>
 
           {/* Table */}
-          <div className="bg-[#161D2E] border border-white/[0.07] rounded-2xl overflow-hidden shadow-clay-admin">
+          <div className="bg-admin-surface border border-admin-border rounded-2xl overflow-hidden shadow-clay-admin">
             <div className="overflow-x-auto dark-scroll">
               <table className="min-w-full divide-y divide-white/[0.04]">
-                <thead className="bg-[#0E1320]/50">
+                <thead className="bg-admin-bg">
                   <tr>
                     {['Department Name', 'Description', 'Employee Count', 'Status', 'Created Date', 'Updated Date', 'Actions'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-[#64748B] uppercase tracking-widest whitespace-nowrap">{h}</th>
+                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
                   {filteredDepartments.length > 0 ? filteredDepartments.map(dept => (
                     <tr key={dept.id} className="admin-table-row">
-                      <td className="px-4 py-3.5 text-sm font-semibold text-white whitespace-nowrap">{dept.name}</td>
+                      <td className="px-4 py-3.5 text-sm font-semibold text-admin-text whitespace-nowrap">{dept.name}</td>
                       <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap truncate max-w-[200px]">{dept.description || '—'}</td>
                       <td className="px-4 py-3.5 text-sm font-mono text-blue-400 whitespace-nowrap">{dept.employee_count || 0}</td>
                       <td className="px-4 py-3.5 whitespace-nowrap"><StatusBadge status={dept.status || 'Active'} dark /></td>
@@ -176,7 +176,7 @@ const AdminDepartments = () => {
                     </tr>
                   )) : (
                     <tr><td colSpan={7} className="px-4 py-16 text-center">
-                      <div className="flex flex-col items-center gap-3"><FiLayers size={28} className="text-[#475569]" /><p className="text-sm font-medium text-[#64748B]">{searchTerm ? 'No departments match your search' : 'No departments found'}</p></div>
+                      <div className="flex flex-col items-center gap-3"><FiLayers size={28} className="text-[#475569]" /><p className="text-sm font-medium text-admin-secondary">{searchTerm ? 'No departments match your search' : 'No departments found'}</p></div>
                     </td></tr>
                   )}
                 </tbody>
@@ -192,29 +192,29 @@ const AdminDepartments = () => {
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1C2540] border border-white/10 rounded-2xl shadow-clay-admin-modal w-full max-w-lg flex flex-col animate-scale-in">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
+        <div className="fixed inset-0 bg-admin-overlay backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-admin-elevated border border-admin-border rounded-2xl shadow-clay-admin-modal w-full max-w-lg flex flex-col animate-scale-in">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-admin-border">
               <div>
-                <h2 className="text-base font-bold text-white">{editMode ? 'Edit Department' : 'Add New Department'}</h2>
+                <h2 className="text-base font-bold text-admin-text">{editMode ? 'Edit Department' : 'Add New Department'}</h2>
                 <p className="text-xs text-slate-400 mt-0.5">{editMode ? 'Update department information' : 'Create a new department'}</p>
               </div>
-              <button onClick={closeModal} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#64748B] hover:bg-white/5 hover:text-[#64748B] transition-colors"><FiX size={18} /></button>
+              <button onClick={closeModal} className="w-8 h-8 rounded-lg flex items-center justify-center text-admin-secondary hover:bg-admin-elevated transition-colors"><FiX size={18} /></button>
             </div>
             <div className="px-6 py-5">
               <form onSubmit={handleSubmit} id="department-form" className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Department Name</label>
+                  <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Department Name</label>
                   <input type="text" name="name" value={formData.name} onChange={handleInputChange} required maxLength={100}
                     className="admin-input" placeholder="e.g. Human Resources" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Description (Optional)</label>
+                  <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Description (Optional)</label>
                   <textarea name="description" value={formData.description} onChange={handleInputChange} rows={3} maxLength={250}
                     className="admin-input resize-none py-3" placeholder="Brief description of the department..." />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Status</label>
+                  <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Status</label>
                   <select name="status" value={formData.status} onChange={handleInputChange} required className="admin-select">
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
@@ -222,8 +222,8 @@ const AdminDepartments = () => {
                 </div>
               </form>
             </div>
-            <div className="flex justify-end gap-3 px-6 py-4 border-t border-white/10 bg-[#0E1320]/60 rounded-b-2xl">
-              <button type="button" onClick={closeModal} className="px-4 py-2 text-sm font-semibold text-slate-300 border border-white/10 rounded-xl hover:bg-white/5 transition-colors">Cancel</button>
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-admin-border bg-admin-bg rounded-b-2xl">
+              <button type="button" onClick={closeModal} className="admin-btn-neutral rounded-xl px-4 py-2 text-sm font-semibold">Cancel</button>
               <button type="submit" form="department-form" className="px-5 py-2 text-sm font-semibold bg-[#3B82F6] hover:bg-blue-500 text-white rounded-xl shadow-glow-blue-sm transition-all duration-200">
                 {editMode ? 'Save Changes' : 'Add Department'}
               </button>

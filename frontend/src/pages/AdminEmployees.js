@@ -151,11 +151,11 @@ const AdminEmployees = () => {
   ).sort((a, b) => a.employee_id.localeCompare(b.employee_id));
 
   if (loading) return (
-    <div className="flex h-screen bg-[#0E1320]"><Sidebar /><div className="flex-1 flex items-center justify-center"><Spinner size={36} /></div></div>
+    <div className="flex h-screen bg-admin-bg"><Sidebar /><div className="flex-1 flex items-center justify-center"><Spinner size={36} /></div></div>
   );
 
   return (
-    <div className="flex h-screen bg-[#0E1320] dark-scroll">
+    <div className="flex h-screen bg-admin-bg dark-scroll">
       <Sidebar />
       <div className="flex-1 overflow-y-auto min-w-0 dark-scroll">
         <div className="px-5 py-6 lg:px-8 lg:py-8">
@@ -163,7 +163,7 @@ const AdminEmployees = () => {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pt-14 lg:pt-0">
             <div>
-              <h1 className="text-xl font-bold text-white">Employee Management</h1>
+              <h1 className="text-xl font-bold text-admin-heading">Employee Management</h1>
               <p className="text-sm text-slate-400 mt-0.5">{employees.length} total employees</p>
             </div>
             <button onClick={() => setShowModal(true)}
@@ -174,19 +174,19 @@ const AdminEmployees = () => {
 
           {/* Search */}
           <div className="relative mb-5">
-            <FiSearch size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B] pointer-events-none" />
+            <FiSearch size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-admin-secondary pointer-events-none" />
             <input type="text" placeholder="Search by name, ID, or email…" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-              className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-3 pl-12 pr-4 text-sm placeholder:text-[#64748B] focus:outline-none focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/15 transition-all" />
+              className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-3 pl-12 pr-4 text-sm placeholder:text-admin-secondary focus:outline-none focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/15 transition-all" />
           </div>
 
           {/* Table */}
-          <div className="bg-[#161D2E] border border-white/[0.07] rounded-2xl overflow-hidden shadow-clay-admin">
+          <div className="bg-admin-surface border border-admin-border rounded-2xl overflow-hidden shadow-clay-admin">
             <div className="overflow-x-auto dark-scroll">
               <table className="min-w-full divide-y divide-white/[0.04]">
-                <thead className="bg-[#0E1320]/50">
+                <thead className="bg-admin-bg">
                   <tr>
                     {['Emp ID','Name','Department','Job Role','Monthly Salary','Mobile','Email','Status','WFH','Early CO','Actions'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-[#64748B] uppercase tracking-widest whitespace-nowrap">{h}</th>
+                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -194,7 +194,7 @@ const AdminEmployees = () => {
                   {filteredEmployees.length > 0 ? filteredEmployees.map(emp => (
                     <tr key={emp.id} className="admin-table-row">
                       <td className="px-4 py-3.5 text-sm text-slate-400 font-mono whitespace-nowrap">{emp.employee_id}</td>
-                      <td className="px-4 py-3.5 text-sm font-semibold text-white whitespace-nowrap">{emp.name}</td>
+                      <td className="px-4 py-3.5 text-sm font-semibold text-admin-text whitespace-nowrap">{emp.name}</td>
                       <td className="hidden md:table-cell px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.department_name}</td>
                       <td className="hidden lg:table-cell px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.job_role}</td>
                       <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">
@@ -208,13 +208,13 @@ const AdminEmployees = () => {
                       <td className="px-4 py-3.5 whitespace-nowrap"><StatusBadge status={emp.status} dark /></td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         <button onClick={() => handleWFHToggle(emp)} title={emp.wfh_enabled ? 'WFH Enabled' : 'WFH Disabled'}
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${emp.wfh_enabled ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30' : 'bg-white/5 text-[#64748B] hover:bg-white/10'}`}>
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${emp.wfh_enabled ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30' : 'bg-white/5 text-admin-secondary hover:bg-white/10'}`}>
                           <FiHome size={14} />
                         </button>
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         <button onClick={() => handleEarlyCheckoutToggle(emp)} title={emp.early_checkout_enabled ? 'Early CO Enabled' : 'Early CO Disabled'}
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${emp.early_checkout_enabled ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-white/5 text-[#64748B] hover:bg-white/10'}`}>
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${emp.early_checkout_enabled ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-white/5 text-admin-secondary hover:bg-white/10'}`}>
                           <FiClock size={14} />
                         </button>
                       </td>
@@ -227,7 +227,7 @@ const AdminEmployees = () => {
                     </tr>
                   )) : (
                     <tr><td colSpan={10} className="px-4 py-16 text-center">
-                      <div className="flex flex-col items-center gap-3"><FiUsers size={28} className="text-[#475569]" /><p className="text-sm font-medium text-[#64748B]">{searchTerm ? 'No employees match your search' : 'No employees yet'}</p></div>
+                      <div className="flex flex-col items-center gap-3"><FiUsers size={28} className="text-[#475569]" /><p className="text-sm font-medium text-admin-secondary">{searchTerm ? 'No employees match your search' : 'No employees yet'}</p></div>
                     </td></tr>
                   )}
                 </tbody>
@@ -242,14 +242,14 @@ const AdminEmployees = () => {
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1C2540] border border-white/10 rounded-2xl shadow-clay-admin-modal w-full max-w-2xl max-h-[92vh] flex flex-col animate-scale-in">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
+        <div className="fixed inset-0 bg-admin-overlay backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-admin-elevated border border-admin-border rounded-2xl shadow-clay-admin-modal w-full max-w-2xl max-h-[92vh] flex flex-col animate-scale-in">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-admin-border">
               <div>
-                <h2 className="text-base font-bold text-white">{editMode ? 'Edit Employee' : 'Add New Employee'}</h2>
+                <h2 className="text-base font-bold text-admin-text">{editMode ? 'Edit Employee' : 'Add New Employee'}</h2>
                 <p className="text-xs text-slate-400 mt-0.5">{editMode ? 'Update employee information' : 'Fill in the details to create a new employee'}</p>
               </div>
-              <button onClick={closeModal} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#64748B] hover:bg-white/5 hover:text-[#64748B] transition-colors"><FiX size={18} /></button>
+              <button onClick={closeModal} className="w-8 h-8 rounded-lg flex items-center justify-center text-admin-secondary hover:bg-admin-elevated transition-colors"><FiX size={18} /></button>
             </div>
             <div className="overflow-y-auto flex-1 px-6 py-5 dark-scroll">
               <form onSubmit={handleSubmit} id="employee-form" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -262,40 +262,40 @@ const AdminEmployees = () => {
                   { label:'Email',       name:'email',       type:'email'},
                 ].map(({ label, name, type, disabled, ...rest }) => (
                   <div key={name}>
-                    <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">{label}</label>
+                    <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">{label}</label>
                     <input type={type} name={name} value={formData[name] || ''} onChange={handleInputChange} required disabled={disabled} max={rest.max}
                       className="admin-input" />
                   </div>
                 ))}
                 <div>
-                  <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Department</label>
+                  <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Department</label>
                   <select name="department_id" value={formData.department_id} onChange={handleInputChange} required className="admin-select">
                     <option value="">Select Department</option>
                     {departments.filter(d => d.status === 'Active').map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">
+                  <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">
                     Password {editMode && <span className="text-[#475569] font-normal normal-case">(leave blank to keep current)</span>}
                   </label>
                   <div className="relative">
                     <input type={showPassword ? 'text' : 'password'} name="password" value={formData.password} onChange={handleInputChange} required={!editMode}
                       className="admin-input pr-10" />
-                    <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B] hover:text-[#64748B]">
+                    <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-admin-secondary hover:text-admin-secondary">
                       {showPassword ? <FiEyeOff size={15} /> : <FiEye size={15} />}
                     </button>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Status</label>
+                  <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Status</label>
                   <select name="status" value={formData.status} onChange={handleInputChange} required className="admin-select">
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
                   </select>
                 </div>
 
-                <div className="sm:col-span-2 mt-4 pt-4 border-t border-white/10">
-                  <h3 className="text-sm font-bold text-white mb-4">Salary & Payroll Details</h3>
+                <div className="sm:col-span-2 mt-4 pt-4 border-t border-admin-border">
+                  <h3 className="text-sm font-bold text-admin-text mb-4">Salary & Payroll Details</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[
                       { label:'Monthly Salary (Gross)', name:'monthly_salary' },
@@ -307,7 +307,7 @@ const AdminEmployees = () => {
                       { label:'TDS', name:'tds' }
                     ].map(({ label, name }) => (
                       <div key={name}>
-                        <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">{label}</label>
+                        <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">{label}</label>
                         <input type="number" step="0.01" name={name} value={formData[name] || ''} onChange={handleInputChange}
                           className="admin-input" placeholder="0.00" />
                       </div>
@@ -316,8 +316,8 @@ const AdminEmployees = () => {
                 </div>
               </form>
             </div>
-            <div className="flex justify-end gap-3 px-6 py-4 border-t border-white/10 bg-[#0E1320]/60 rounded-b-2xl">
-              <button type="button" onClick={closeModal} className="px-4 py-2 text-sm font-semibold text-slate-300 border border-white/10 rounded-xl hover:bg-white/5 transition-colors">Cancel</button>
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-admin-border bg-admin-bg rounded-b-2xl">
+              <button type="button" onClick={closeModal} className="admin-btn-neutral rounded-xl px-4 py-2 text-sm font-semibold">Cancel</button>
               <button type="submit" form="employee-form" className="px-5 py-2 text-sm font-semibold bg-[#3B82F6] hover:bg-blue-500 text-white rounded-xl shadow-glow-blue-sm transition-all duration-200">
                 {editMode ? 'Save Changes' : 'Add Employee'}
               </button>

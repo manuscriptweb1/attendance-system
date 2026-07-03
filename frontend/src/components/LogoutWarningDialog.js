@@ -9,9 +9,9 @@ const LogoutWarningDialog = ({ isOpen, onClose, onLogout }) => {
   if (isAdmin) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-        <div className="relative bg-[#1E293B] border border-white/10 rounded-2xl shadow-clay-admin-modal w-full max-w-sm animate-scale-in">
-          <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-white/5 hover:text-white transition-colors">
+        <div className="fixed inset-0 admin-overlay backdrop-blur-sm" onClick={onClose} />
+        <div className="relative admin-modal rounded-2xl w-full max-w-sm animate-scale-in">
+          <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-admin-muted hover:bg-admin-elevated hover:text-admin-text transition-colors">
             <FiX size={17} />
           </button>
           <div className="flex justify-center pt-8 pb-4">
@@ -26,7 +26,7 @@ const LogoutWarningDialog = ({ isOpen, onClose, onLogout }) => {
               <button onClick={onLogout} className="w-full bg-red-600 hover:bg-red-500 text-white py-2.5 px-5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm">
                 <FiLogOut size={16} /> Sign Out Now
               </button>
-              <button onClick={onClose} className="w-full bg-white/5 hover:bg-white/10 border border-white/20 text-white py-2.5 px-5 rounded-xl text-sm font-semibold transition-colors">
+              <button onClick={onClose} className="w-full  hover:bg-white/10 border border-white/20 text-white py-2.5 px-5 rounded-xl text-sm font-semibold transition-colors">
                 Stay Logged In
               </button>
             </div>
@@ -38,7 +38,7 @@ const LogoutWarningDialog = ({ isOpen, onClose, onLogout }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 admin-overlay backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white border border-[#E2E8F0] rounded-2xl shadow-clay-modal w-full max-w-sm animate-scale-in">
         <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-[#64748B] hover:bg-[#F1F5F9] transition-colors">
           <FiX size={17} />

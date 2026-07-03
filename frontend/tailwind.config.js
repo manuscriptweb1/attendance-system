@@ -3,22 +3,32 @@ module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
       },
       colors: {
-        // Admin dark theme palette
+        // Admin theme palette mapped to CSS variables
         admin: {
-          bg:       '#0E1320',
-          surface:  '#161D2E',
-          elevated: '#1C2540',
-          accent:   '#3B82F6',
-          accent2:  '#60A5FA',
-          text:     '#FFFFFF',
-          secondary:'#CBD5E1',
-          muted:    '#94A3B8',
+          bg:       'var(--admin-bg)',
+          surface:  'var(--admin-surface)',
+          elevated: 'var(--admin-elevated)',
+          accent:   'var(--admin-accent)',
+          accent2:  'var(--admin-accent2)',
+          text:     'var(--admin-text)',
+          heading:  'var(--admin-heading)',
+          secondary:'var(--admin-secondary)',
+          muted:    'var(--admin-muted)',
+          subtle:   'var(--admin-subtle)',
+          border:   'var(--admin-border)',
+          'modal-bg': 'var(--admin-modal-bg)',
+          'modal-text': 'var(--admin-modal-text)',
+          'overlay': 'var(--admin-overlay)',
+          'dropdown-bg': 'var(--admin-dropdown-bg)',
+          'dropdown-text': 'var(--admin-dropdown-text)',
+          'dropdown-hover': 'var(--admin-dropdown-hover)',
         },
         // Employee light theme palette
         emp: {

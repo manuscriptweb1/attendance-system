@@ -109,12 +109,12 @@ const AdminActivityLogs = () => {
           {Object.entries(obj).map(([key, value]) => (
             <div key={key} className="flex flex-col sm:flex-row sm:gap-2">
               <span className="text-blue-400 font-bold shrink-0">{key}:</span>
-              <span className="text-[#CBD5E1] break-all">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+              <span className="text-admin-secondary break-all">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
             </div>
           ))}
         </div>
       );
-    } catch { return <span className="text-[#94A3B8] text-xs font-mono">{jsonString}</span>; }
+    } catch { return <span className="text-admin-muted text-xs font-mono">{jsonString}</span>; }
   };
 
   // Count metrics from current page logs (since stats API only gives basic counts)
@@ -126,15 +126,15 @@ const AdminActivityLogs = () => {
   };
 
   return (
-    <div className="flex h-screen bg-[#070B1A] dark-scroll selection:bg-blue-500/30">
+    <div className="flex h-screen bg-admin-bg dark-scroll selection:bg-blue-500/30">
       <Sidebar />
       <div className="flex-1 overflow-y-auto dark-scroll pb-24">
         <div className="px-5 py-6 lg:px-8 lg:py-8 max-w-[1600px] mx-auto pt-16 lg:pt-8 animate-fadeIn">
           
           <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight drop-shadow-md">Admin Activity Logs</h1>
-              <p className="text-sm text-[#94A3B8] mt-1.5 font-medium">Complete audit trail of all administrator actions.</p>
+              <h1 className="text-2xl lg:text-3xl font-extrabold text-admin-heading tracking-tight drop-shadow-md">Admin Activity Logs</h1>
+              <p className="text-sm text-admin-muted mt-1.5 font-medium">Complete audit trail of all administrator actions.</p>
             </div>
             <div className="flex gap-2">
               {logs.length > 0 && (
@@ -160,50 +160,50 @@ const AdminActivityLogs = () => {
               { label:'Failed Actions', value:currentPageMetrics.failed, color:'text-red-400', icon:FiAlertTriangle, isPageStat:true },
               { label:'Total Pages', value:pagination.totalPages, color:'text-indigo-400', icon:FiSearch },
             ].map((s, i) => (
-              <div key={i} className="bg-[#0B1120] border border-white/[0.05] rounded-2xl p-3 shadow-clay-admin flex flex-col justify-between group hover:-translate-y-1 transition-transform relative overflow-hidden">
-                <div className={`absolute top-0 right-0 w-16 h-16 rounded-bl-full bg-[#0B1120]/5 opacity-0 group-hover:opacity-100 transition-opacity`} />
+              <div key={i} className="bg-admin-elevated border border-admin-border rounded-2xl p-3 shadow-clay-admin flex flex-col justify-between group hover:-translate-y-1 transition-transform relative overflow-hidden">
+                <div className={`absolute top-0 right-0 w-16 h-16 rounded-bl-full bg-admin-elevated opacity-0 group-hover:opacity-100 transition-opacity`} />
                 <div className="flex items-center justify-between mb-2 relative z-10">
                   <s.icon size={12} className={s.color} />
                   {s.isPageStat && <span className="text-[8px] font-bold text-[#475569] uppercase" title="Current Page Only">PG</span>}
                 </div>
                 <div className="relative z-10">
                   <p className={`text-xl font-extrabold ${s.color} drop-shadow-sm`}>{s.value}</p>
-                  <p className="text-[9px] font-bold text-[#64748B] uppercase tracking-wider mt-0.5">{s.label}</p>
+                  <p className="text-[9px] font-bold text-admin-secondary uppercase tracking-wider mt-0.5">{s.label}</p>
                 </div>
               </div>
             ))}
           </div>
 
           {/* Filters Area */}
-          <div className="bg-[#0B1120] border border-white/[0.06] rounded-2xl p-5 mb-6 shadow-clay-admin">
+          <div className="bg-admin-elevated border border-admin-border rounded-2xl p-5 mb-6 shadow-clay-admin">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-white flex items-center gap-2"><FiFilter className="text-blue-400" /> Filter Activities</h2>
-              <button onClick={() => setShowFilters(!showFilters)} className="text-[10px] font-bold uppercase tracking-wider text-[#64748B] hover:text-[#94A3B8] transition-colors bg-[#0B1120]/5 px-3 py-1 rounded-full">
+              <h2 className="text-sm font-bold text-admin-text flex items-center gap-2"><FiFilter className="text-blue-400" /> Filter Activities</h2>
+              <button onClick={() => setShowFilters(!showFilters)} className="text-[10px] font-bold uppercase tracking-wider text-admin-secondary hover:text-admin-muted transition-colors bg-admin-elevated px-3 py-1 rounded-full">
                 {showFilters ? 'Hide Advanced' : 'Show Advanced'}
               </button>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <input type="text" value={filters.search} onChange={e => setFilters({ ...filters, search: e.target.value })} placeholder="Search admin, email, desc..." className="admin-input text-xs py-2.5" />
-              <select value={filters.actionType} onChange={e => setFilters({ ...filters, actionType: e.target.value })} className="admin-select text-xs py-2.5 text-[#94A3B8]">
+              <select value={filters.actionType} onChange={e => setFilters({ ...filters, actionType: e.target.value })} className="admin-select text-xs py-2.5 text-admin-muted">
                 <option value="">All Actions</option>
                 {actionTypes.map(type => <option key={type} value={type}>{type}</option>)}
               </select>
               <div className="flex gap-2">
                 <button onClick={handleSearch} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl py-2.5 shadow-[0_4px_12px_rgba(59,130,246,0.2)] transition-colors">Search</button>
-                <button onClick={handleClearFilters} className="px-4 bg-[#10192D] border border-white/10 hover:border-white/20 text-[#94A3B8] hover:text-white rounded-xl transition-colors"><FiX size={14} /></button>
+                <button onClick={handleClearFilters} className="px-4 bg-admin-surface border border-admin-border hover:border-admin-border text-admin-muted hover:text-admin-text rounded-xl transition-colors"><FiX size={14} /></button>
               </div>
             </div>
 
             {showFilters && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-white/[0.06] animate-fadeIn">
-                <select value={filters.moduleName} onChange={e => setFilters({ ...filters, moduleName: e.target.value })} className="admin-select text-xs py-2.5 text-[#94A3B8]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-admin-border animate-fadeIn">
+                <select value={filters.moduleName} onChange={e => setFilters({ ...filters, moduleName: e.target.value })} className="admin-select text-xs py-2.5 text-admin-muted">
                   <option value="">All Modules</option>
                   {moduleNames.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
                 <input type="date" value={filters.startDate} onChange={e => setFilters({ ...filters, startDate: e.target.value })} className="admin-input text-xs py-2.5" />
                 <input type="date" value={filters.endDate} onChange={e => setFilters({ ...filters, endDate: e.target.value })} className="admin-input text-xs py-2.5" />
-                <select value={filters.sortOrder} onChange={e => setFilters({ ...filters, sortOrder: e.target.value })} className="admin-select text-xs py-2.5 text-[#94A3B8]">
+                <select value={filters.sortOrder} onChange={e => setFilters({ ...filters, sortOrder: e.target.value })} className="admin-select text-xs py-2.5 text-admin-muted">
                   <option value="desc">Newest First</option>
                   <option value="asc">Oldest First</option>
                 </select>
@@ -212,15 +212,15 @@ const AdminActivityLogs = () => {
           </div>
 
           {/* Table */}
-          <div className="bg-[#0B1120] border border-white/[0.06] rounded-2xl overflow-hidden shadow-clay-admin min-h-[400px] flex flex-col">
+          <div className="bg-admin-elevated border border-admin-border rounded-2xl overflow-hidden shadow-clay-admin min-h-[400px] flex flex-col">
             {loading ? (
               <div className="flex-1 flex flex-col items-center justify-center p-12">
                 <Spinner size={36} color="blue" />
                 <p className="text-xs font-bold text-blue-400 mt-4 animate-pulse">Syncing Logs...</p>
               </div>
             ) : logs.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-12 text-[#64748B]">
-                <div className="w-16 h-16 rounded-2xl bg-[#0B1120]/[0.02] flex items-center justify-center mb-4">
+              <div className="flex-1 flex flex-col items-center justify-center p-12 text-admin-secondary">
+                <div className="w-16 h-16 rounded-2xl bg-admin-elevated/[0.02] flex items-center justify-center mb-4">
                   <FiActivity size={32} className="opacity-20" />
                 </div>
                 <p className="text-sm font-bold">No activity logs found</p>
@@ -232,20 +232,20 @@ const AdminActivityLogs = () => {
                   <thead>
                     <tr>
                       {['Time', 'Admin', 'Action', 'Module', 'Description', 'Actions'].map((h) => (
-                        <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-[#64748B] uppercase tracking-widest whitespace-nowrap bg-[#0E1320]/80 sticky top-0 backdrop-blur-md z-10">{h}</th>
+                        <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 backdrop-blur-md z-10">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {logs.map((log) => (
-                      <tr key={log.id} className="group border-b border-white/[0.04] hover:bg-[#0B1120]/[0.02] transition-colors">
+                      <tr key={log.id} className="group border-b border-admin-border hover:bg-admin-elevated/[0.02] transition-colors">
                         <td className="px-5 py-4 whitespace-nowrap">
-                          <span className="block text-xs font-semibold text-white">{formatDate(log.created_at)}</span>
-                          <span className="text-[10px] text-[#64748B] font-mono">{formatTime(log.created_at)}</span>
+                          <span className="block text-xs font-semibold text-admin-text">{formatDate(log.created_at)}</span>
+                          <span className="text-[10px] text-admin-secondary font-mono">{formatTime(log.created_at)}</span>
                         </td>
                         <td className="px-5 py-4 whitespace-nowrap">
-                          <span className="block text-sm font-bold text-white">{log.admin_name || 'N/A'}</span>
-                          <span className="text-[10px] text-[#94A3B8]">{log.admin_email || 'N/A'}</span>
+                          <span className="block text-sm font-bold text-admin-text">{log.admin_name || 'N/A'}</span>
+                          <span className="text-[10px] text-admin-muted">{log.admin_email || 'N/A'}</span>
                         </td>
                         <td className="px-5 py-4 whitespace-nowrap">
                           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">{log.action_type}</span>
@@ -254,10 +254,10 @@ const AdminActivityLogs = () => {
                           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20">{log.module_name}</span>
                         </td>
                         <td className="px-5 py-4">
-                          <span className="text-xs text-[#CBD5E1] line-clamp-2">{log.description}</span>
+                          <span className="text-xs text-admin-secondary line-clamp-2">{log.description}</span>
                         </td>
                         <td className="px-5 py-4 whitespace-nowrap text-right">
-                          <button onClick={() => setDetailsDialog({ isOpen: true, log })} className="w-8 h-8 rounded-lg bg-[#10192D] text-[#60A5FA] border border-white/5 hover:bg-blue-500/20 hover:border-blue-500/30 flex items-center justify-center transition-all shadow-sm">
+                          <button onClick={() => setDetailsDialog({ isOpen: true, log })} className="w-8 h-8 rounded-lg bg-admin-surface text-[#60A5FA] border border-admin-border hover:bg-blue-500/20 hover:border-blue-500/30 flex items-center justify-center transition-all shadow-sm">
                             <FiEye size={14} />
                           </button>
                         </td>
@@ -270,13 +270,13 @@ const AdminActivityLogs = () => {
             
             {/* Pagination Strip */}
             {!loading && logs.length > 0 && (
-              <div className="mt-auto px-5 py-3 bg-[#0B1120] border-t border-white/[0.06] flex items-center justify-between">
-                <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest">
+              <div className="mt-auto px-5 py-3 bg-admin-elevated border-t border-admin-border flex items-center justify-between">
+                <span className="text-[10px] font-bold text-admin-secondary uppercase tracking-widest">
                   Showing {((pagination.page - 1) * filters.limit) + 1} – {Math.min(pagination.page * filters.limit, pagination.total)} of {pagination.total}
                 </span>
                 <div className="flex gap-2">
-                  <button onClick={() => setFilters({ ...filters, page: filters.page - 1 })} disabled={filters.page === 1} className="px-3 py-1.5 bg-[#10192D] text-white text-xs font-bold rounded-lg disabled:opacity-50 border border-white/10 hover:bg-[#0B1120]/10 transition-colors">Prev</button>
-                  <button onClick={() => setFilters({ ...filters, page: filters.page + 1 })} disabled={filters.page >= pagination.totalPages} className="px-3 py-1.5 bg-[#10192D] text-white text-xs font-bold rounded-lg disabled:opacity-50 border border-white/10 hover:bg-[#0B1120]/10 transition-colors">Next</button>
+                  <button onClick={() => setFilters({ ...filters, page: filters.page - 1 })} disabled={filters.page === 1} className="px-3 py-1.5 bg-admin-surface text-admin-text text-xs font-bold rounded-lg disabled:opacity-50 border border-admin-border hover:bg-admin-elevated transition-colors">Prev</button>
+                  <button onClick={() => setFilters({ ...filters, page: filters.page + 1 })} disabled={filters.page >= pagination.totalPages} className="px-3 py-1.5 bg-admin-surface text-admin-text text-xs font-bold rounded-lg disabled:opacity-50 border border-admin-border hover:bg-admin-elevated transition-colors">Next</button>
                 </div>
               </div>
             )}
@@ -286,46 +286,46 @@ const AdminActivityLogs = () => {
 
       {/* Modern Details Dialog */}
       {detailsDialog.isOpen && detailsDialog.log && (
-        <div className="fixed inset-0 bg-[#070B1A]/80 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-[#0B1120] border border-white/[0.08] rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.4)] w-full max-w-3xl animate-scale-in flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.06] bg-[#10192D]/50 shrink-0">
-              <h2 className="text-sm font-bold text-white flex items-center gap-2"><FiActivity className="text-blue-400" /> Log Details</h2>
-              <button onClick={() => setDetailsDialog({ isOpen: false, log: null })} className="w-8 h-8 rounded-xl flex items-center justify-center text-[#64748B] hover:bg-[#0B1120]/5 hover:text-white transition-colors"><FiX size={16} /></button>
+        <div className="fixed inset-0 bg-admin-overlay backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-admin-elevated border border-admin-border rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.4)] w-full max-w-3xl animate-scale-in flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-admin-border bg-admin-surface shrink-0">
+              <h2 className="text-sm font-bold text-admin-text flex items-center gap-2"><FiActivity className="text-blue-400" /> Log Details</h2>
+              <button onClick={() => setDetailsDialog({ isOpen: false, log: null })} className="w-8 h-8 rounded-xl flex items-center justify-center text-admin-secondary hover:bg-admin-elevated hover:text-admin-text transition-colors"><FiX size={16} /></button>
             </div>
             
             <div className="p-6 overflow-y-auto dark-scroll space-y-6">
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-[#10192D] rounded-xl p-4 border border-white/[0.04]">
-                  <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-3">Admin Data</p>
-                  <p className="text-sm font-bold text-white">{detailsDialog.log.admin_name || 'N/A'}</p>
-                  <p className="text-xs text-[#94A3B8]">{detailsDialog.log.admin_email || 'N/A'}</p>
+                <div className="bg-admin-surface rounded-xl p-4 border border-admin-border">
+                  <p className="text-[10px] font-bold text-admin-secondary uppercase tracking-widest mb-3">Admin Data</p>
+                  <p className="text-sm font-bold text-admin-text">{detailsDialog.log.admin_name || 'N/A'}</p>
+                  <p className="text-xs text-admin-muted">{detailsDialog.log.admin_email || 'N/A'}</p>
                 </div>
-                <div className="bg-[#10192D] rounded-xl p-4 border border-white/[0.04]">
-                  <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-3">Action Info</p>
+                <div className="bg-admin-surface rounded-xl p-4 border border-admin-border">
+                  <p className="text-[10px] font-bold text-admin-secondary uppercase tracking-widest mb-3">Action Info</p>
                   <div className="flex gap-2">
                     <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400">{detailsDialog.log.action_type}</span>
                     <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400">{detailsDialog.log.module_name}</span>
                   </div>
-                  <p className="text-xs text-white font-mono mt-3">{formatDate(detailsDialog.log.created_at)} {formatTime(detailsDialog.log.created_at)}</p>
+                  <p className="text-xs text-admin-text font-mono mt-3">{formatDate(detailsDialog.log.created_at)} {formatTime(detailsDialog.log.created_at)}</p>
                 </div>
               </div>
 
-              <div className="bg-[#10192D] rounded-xl p-4 border border-white/[0.04]">
-                <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-2">Description</p>
-                <p className="text-sm font-medium text-white leading-relaxed">{detailsDialog.log.description}</p>
+              <div className="bg-admin-surface rounded-xl p-4 border border-admin-border">
+                <p className="text-[10px] font-bold text-admin-secondary uppercase tracking-widest mb-2">Description</p>
+                <p className="text-sm font-medium text-admin-text leading-relaxed">{detailsDialog.log.description}</p>
               </div>
 
-              <div className="bg-[#10192D] rounded-xl p-4 border border-white/[0.04] grid grid-cols-3 gap-4">
-                <div><p className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-1">IP Address</p><p className="text-xs font-mono text-[#CBD5E1]">{detailsDialog.log.ip_address || '—'}</p></div>
-                <div><p className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-1">Device</p><p className="text-xs text-[#CBD5E1]">{detailsDialog.log.device_info || '—'}</p></div>
-                <div><p className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-1">Browser</p><p className="text-xs text-[#CBD5E1]">{detailsDialog.log.browser_info || '—'}</p></div>
+              <div className="bg-admin-surface rounded-xl p-4 border border-admin-border grid grid-cols-3 gap-4">
+                <div><p className="text-[10px] font-bold text-admin-secondary uppercase tracking-widest mb-1">IP Address</p><p className="text-xs font-mono text-admin-secondary">{detailsDialog.log.ip_address || '—'}</p></div>
+                <div><p className="text-[10px] font-bold text-admin-secondary uppercase tracking-widest mb-1">Device</p><p className="text-xs text-admin-secondary">{detailsDialog.log.device_info || '—'}</p></div>
+                <div><p className="text-[10px] font-bold text-admin-secondary uppercase tracking-widest mb-1">Browser</p><p className="text-xs text-admin-secondary">{detailsDialog.log.browser_info || '—'}</p></div>
               </div>
 
               {(detailsDialog.log.old_data || detailsDialog.log.new_data) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {detailsDialog.log.old_data && (
-                    <div className="bg-[#10192D] rounded-xl p-4 border border-red-500/20 flex flex-col max-h-[300px]">
+                    <div className="bg-admin-surface rounded-xl p-4 border border-red-500/20 flex flex-col max-h-[300px]">
                       <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-3">Old Data (Removed)</p>
                       <div className="flex-1 overflow-y-auto dark-scroll bg-red-950/20 rounded-lg p-3 border border-red-500/10">
                         {formatJSON(detailsDialog.log.old_data)}
@@ -333,7 +333,7 @@ const AdminActivityLogs = () => {
                     </div>
                   )}
                   {detailsDialog.log.new_data && (
-                    <div className="bg-[#10192D] rounded-xl p-4 border border-emerald-500/20 flex flex-col max-h-[300px]">
+                    <div className="bg-admin-surface rounded-xl p-4 border border-emerald-500/20 flex flex-col max-h-[300px]">
                       <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-3">New Data (Added)</p>
                       <div className="flex-1 overflow-y-auto dark-scroll bg-emerald-950/20 rounded-lg p-3 border border-emerald-500/10">
                         {formatJSON(detailsDialog.log.new_data)}

@@ -56,7 +56,7 @@ const AdminReports = () => {
   };
 
   return (
-    <div className="flex h-screen bg-[#0E1320] dark-scroll">
+    <div className="flex h-screen bg-admin-bg dark-scroll">
       <Sidebar />
       <div className="flex-1 overflow-y-auto min-w-0 dark-scroll">
         <div className="px-5 py-6 lg:px-8 lg:py-8 max-w-[1600px] mx-auto pt-16 lg:pt-8">
@@ -64,28 +64,28 @@ const AdminReports = () => {
           {/* Header */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 mb-6 animate-fadeInUp stagger-1">
             <div>
-              <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">Reports Central</h1>
-              <p className="text-sm text-[#94A3B8] mt-1.5 font-medium">Generate and download comprehensive HR reports.</p>
+              <h1 className="text-2xl lg:text-3xl font-extrabold text-admin-heading tracking-tight">Reports Central</h1>
+              <p className="text-sm text-admin-muted mt-1.5 font-medium">Generate and download comprehensive HR reports.</p>
             </div>
           </div>
 
           {/* Report Generator Box */}
-          <div className="bg-[#161D2E] border border-white/[0.06] rounded-2xl p-6 mb-6 shadow-clay-admin animate-fadeInUp stagger-2 max-w-3xl">
-            <h2 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+          <div className="bg-admin-modal text-admin-modal-text border border-admin-border rounded-2xl p-6 mb-6 shadow-clay-admin animate-fadeInUp stagger-2 max-w-3xl">
+            <h2 className="text-sm font-bold text-admin-text mb-4 flex items-center gap-2">
               <FiFileText className="text-blue-400" /> Monthly Attendance Report
             </h2>
             <div className="flex flex-col sm:flex-row gap-4 items-end">
               <div className="flex-1">
-                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Month</label>
-                <select value={month} onChange={e => setMonth(parseInt(e.target.value))} className="admin-select py-2.5 text-sm text-[#94A3B8]">
+                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Month</label>
+                <select value={month} onChange={e => setMonth(parseInt(e.target.value))} className="admin-select py-2.5 text-sm text-admin-muted">
                   {[...Array(12).keys()].map(m => (
                     <option key={m+1} value={m+1}>{new Date(0, m).toLocaleString('default', { month: 'long' })}</option>
                   ))}
                 </select>
               </div>
               <div className="flex-1">
-                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Year</label>
-                <select value={year} onChange={e => setYear(parseInt(e.target.value))} className="admin-select py-2.5 text-sm text-[#94A3B8]">
+                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Year</label>
+                <select value={year} onChange={e => setYear(parseInt(e.target.value))} className="admin-select py-2.5 text-sm text-admin-muted">
                   {[...Array(5).keys()].map(y => {
                     const yearVal = new Date().getFullYear() - 2 + y;
                     return <option key={yearVal} value={yearVal}>{yearVal}</option>
@@ -93,7 +93,7 @@ const AdminReports = () => {
                 </select>
               </div>
               <div className="flex gap-2">
-                <button onClick={handleGenerateReport} disabled={loading} className="flex items-center gap-2 bg-[#1C2540] hover:bg-white/10 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border border-white/10 shadow-sm disabled:opacity-50">
+                <button onClick={handleGenerateReport} disabled={loading} className="flex items-center gap-2 bg-admin-elevated hover:bg-white/10 text-admin-text px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border border-admin-border shadow-sm disabled:opacity-50">
                   <FiRefreshCw size={16} className={loading ? 'animate-spin' : ''} /> {loading ? 'Generating...' : 'Generate'}
                 </button>
                 <button onClick={handleExport} className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(16,185,129,0.2)]">
@@ -105,30 +105,30 @@ const AdminReports = () => {
 
           {/* Preview Table */}
           {reportData && (
-            <div className="bg-[#161D2E] border border-white/[0.06] rounded-2xl overflow-hidden shadow-clay-admin animate-fadeInUp stagger-3">
-              <div className="p-4 border-b border-white/10 bg-[#1C2540]/50 flex justify-between items-center">
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider">Preview: {new Date(0, month-1).toLocaleString('default', { month: 'long' })} {year}</h3>
-                <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest">{reportData.length} Records</span>
+            <div className="bg-admin-surface border border-admin-border rounded-2xl overflow-hidden shadow-clay-admin animate-fadeInUp stagger-3">
+              <div className="p-4 border-b border-admin-border bg-admin-elevated flex justify-between items-center">
+                <h3 className="text-xs font-bold text-admin-text uppercase tracking-wider">Preview: {new Date(0, month-1).toLocaleString('default', { month: 'long' })} {year}</h3>
+                <span className="text-[10px] font-bold text-admin-secondary uppercase tracking-widest">{reportData.length} Records</span>
               </div>
               <div className="overflow-x-auto dark-scroll">
                 <table className="min-w-full divide-y divide-white/[0.04]">
-                  <thead className="bg-[#0E1320]/80">
+                  <thead className="bg-admin-bg">
                     <tr>{['Emp ID','Name','Department','Present','Absent','Half Day','Holiday','Late Count','Total Hours'].map(h => (
-                      <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-[#64748B] uppercase tracking-widest whitespace-nowrap">{h}</th>
+                      <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
                     {reportData.map(r => (
-                      <tr key={r.employeeCode} className="admin-table-row hover:bg-[#0B1120]/[0.02] transition-colors">
-                        <td className="px-5 py-3.5 text-xs text-[#94A3B8] font-mono whitespace-nowrap">{r.employeeCode}</td>
-                        <td className="px-5 py-3.5 text-sm font-bold text-white whitespace-nowrap">{r.employeeName}</td>
-                        <td className="px-5 py-3.5 text-xs text-[#CBD5E1] whitespace-nowrap">{r.department}</td>
+                      <tr key={r.employeeCode} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors">
+                        <td className="px-5 py-3.5 text-xs text-admin-muted font-mono whitespace-nowrap">{r.employeeCode}</td>
+                        <td className="px-5 py-3.5 text-sm font-bold text-admin-text whitespace-nowrap">{r.employeeName}</td>
+                        <td className="px-5 py-3.5 text-xs text-admin-secondary whitespace-nowrap">{r.department}</td>
                         <td className="px-5 py-3.5 text-xs font-bold text-emerald-400 whitespace-nowrap">{r.present}</td>
                         <td className="px-5 py-3.5 text-xs font-bold text-red-400 whitespace-nowrap">{r.absent}</td>
                         <td className="px-5 py-3.5 text-xs font-bold text-yellow-500 whitespace-nowrap">{r.halfDay}</td>
                         <td className="px-5 py-3.5 text-xs font-bold text-blue-400 whitespace-nowrap">{r.holiday}</td>
                         <td className="px-5 py-3.5 text-xs font-bold text-amber-500 whitespace-nowrap">{r.lateCount}</td>
-                        <td className="px-5 py-3.5 text-xs text-white whitespace-nowrap">
+                        <td className="px-5 py-3.5 text-xs text-admin-text whitespace-nowrap">
                           {(() => {
                             const rawTotalHours = r.totalHours ?? r.total_hours ?? r.totalWorkingHours ?? r.total_working_hours ?? r.workingHours ?? r.working_hours ?? 0;
                             const displayTotalHours = Number(rawTotalHours || 0);

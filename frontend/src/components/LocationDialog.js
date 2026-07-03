@@ -12,9 +12,9 @@ const LocationDialog = ({ isOpen, onClose, onAllow, title, message, type = 'perm
   const cfg = TYPE_CONFIG[type] || TYPE_CONFIG.permission;
   const { Icon } = cfg;
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+    <div className="fixed inset-0 admin-overlay backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
       <div className="bg-white rounded-2xl shadow-clay-modal w-full max-w-md animate-scale-in border border-[#E2E8F0]">
-        <div className="flex items-start justify-between px-6 py-5 border-b border-[#E2E8F0]">
+        <div className="admin-modal-header flex items-start justify-between px-6 py-5 border-b">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.iconBg}`}>
               <Icon size={20} className={cfg.iconColor} />

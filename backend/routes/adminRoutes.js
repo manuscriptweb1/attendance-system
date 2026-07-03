@@ -8,7 +8,9 @@ const {
   deleteAdmin,
   changePassword,
   getLoginLogs,
-  getSystemHealth
+  getSystemHealth,
+  getAdminTheme,
+  updateAdminTheme
 } = require('../controllers/adminController');
 
 // All routes require authentication and admin role
@@ -29,5 +31,9 @@ router.get('/login-logs', getLoginLogs);
 
 // System health
 router.get('/health', getSystemHealth);
+
+// Theme preference
+router.get('/theme', getAdminTheme);
+router.patch('/theme', updateAdminTheme);
 
 module.exports = router;

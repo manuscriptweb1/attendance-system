@@ -110,7 +110,7 @@ const AdminPayroll = () => {
   const totalNetPayable = records.reduce((sum, r) => sum + (parseFloat(r.netPayable) || 0), 0);
 
   return (
-    <div className="flex h-screen bg-[#0E1320] dark-scroll">
+    <div className="flex h-screen bg-admin-bg dark-scroll">
       <Sidebar />
       <div className="flex-1 overflow-y-auto min-w-0 dark-scroll">
         <div className="px-5 py-6 lg:px-8 lg:py-8 max-w-[1600px] mx-auto pt-16 lg:pt-8">
@@ -118,18 +118,18 @@ const AdminPayroll = () => {
           {/* Header */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 mb-6 animate-fadeInUp stagger-1">
             <div>
-              <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">Payroll Management</h1>
-              <p className="text-sm text-[#94A3B8] mt-1.5 font-medium">Calculate and process monthly employee salaries.</p>
+              <h1 className="text-2xl lg:text-3xl font-extrabold text-admin-heading tracking-tight">Payroll Management</h1>
+              <p className="text-sm text-admin-muted mt-1.5 font-medium">Calculate and process monthly employee salaries.</p>
             </div>
             
             <div className="flex flex-col sm:flex-row items-center gap-4">
               <div className="flex items-center gap-2">
-                <select value={month} onChange={e => setMonth(parseInt(e.target.value))} className="admin-select py-2 text-sm text-[#94A3B8]">
+                <select value={month} onChange={e => setMonth(parseInt(e.target.value))} className="admin-select py-2 text-sm text-admin-muted">
                   {[...Array(12).keys()].map(m => (
                     <option key={m+1} value={m+1}>{new Date(0, m).toLocaleString('default', { month: 'long' })}</option>
                   ))}
                 </select>
-                <select value={year} onChange={e => setYear(parseInt(e.target.value))} className="admin-select py-2 text-sm text-[#94A3B8]">
+                <select value={year} onChange={e => setYear(parseInt(e.target.value))} className="admin-select py-2 text-sm text-admin-muted">
                   {[...Array(5).keys()].map(y => {
                     const yearVal = new Date().getFullYear() - 2 + y;
                     return <option key={yearVal} value={yearVal}>{yearVal}</option>
@@ -156,18 +156,18 @@ const AdminPayroll = () => {
           </div>
 
           {/* Stats Card */}
-          <div className="bg-[#161D2E] border border-white/[0.06] rounded-2xl p-5 mb-6 shadow-clay-admin animate-fadeInUp stagger-2 flex items-center justify-between">
+          <div className="bg-admin-surface border border-admin-border rounded-2xl p-5 mb-6 shadow-clay-admin animate-fadeInUp stagger-2 flex items-center justify-between">
              <div className="flex items-center gap-3">
                <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
                  <FiDollarSign size={20} className="text-emerald-400" />
                </div>
-               <span className="text-sm font-bold text-[#64748B] uppercase tracking-wider">Total Net Payable</span>
+               <span className="text-sm font-bold text-admin-secondary uppercase tracking-wider">Total Net Payable</span>
              </div>
-             <span className="text-2xl font-extrabold text-white">{formatCurrency(totalNetPayable)}</span>
+             <span className="text-2xl font-extrabold text-admin-heading">{formatCurrency(totalNetPayable)}</span>
           </div>
 
           {/* Table */}
-          <div className="bg-[#161D2E] border border-white/[0.06] rounded-2xl overflow-hidden shadow-clay-admin animate-fadeInUp stagger-3">
+          <div className="bg-admin-surface border border-admin-border rounded-2xl overflow-hidden shadow-clay-admin animate-fadeInUp stagger-3">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-24">
                 <Spinner size={36} color="blue" />
@@ -177,32 +177,32 @@ const AdminPayroll = () => {
                 <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-4">
                   <FiDollarSign size={28} className="text-blue-400" />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-1">Payroll Not Calculated</h3>
-                <p className="text-sm text-[#64748B] max-w-md text-center">Click "Calculate All" to generate salary records for {new Date(0, month-1).toLocaleString('default', { month: 'long' })} {year}.</p>
+                <h3 className="text-lg font-bold text-admin-heading mb-1">Payroll Not Calculated</h3>
+                <p className="text-sm text-admin-secondary max-w-md text-center">Click "Calculate All" to generate salary records for {new Date(0, month-1).toLocaleString('default', { month: 'long' })} {year}.</p>
               </div>
             ) : (
               <div className="overflow-x-auto dark-scroll">
                 <table className="min-w-full divide-y divide-white/[0.04]">
-                  <thead className="bg-[#0E1320]/80">
+                  <thead className="bg-admin-bg">
                     <tr>
                       {[
                         'Employee', 'Total Days', 'Working Days', 'Paid Days', 'Half Days', 
                         'Monthly Earning', 'Per Day Salary', 'LOP Days', 'Net Earning', 
                         'Basic', 'HRA', 'Special Allowance', 'Staff Advance', 'PT', 'TDS', 'Net Payable', 'Status'
                       ].map(h => (
-                        <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-[#64748B] uppercase tracking-widest whitespace-nowrap">{h}</th>
+                        <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
                     {records.map(r => (
-                      <tr key={r.id} className="admin-table-row hover:bg-[#0B1120]/[0.02] transition-colors">
+                      <tr key={r.id} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors">
                         <td className="px-5 py-4 whitespace-nowrap">
-                          <div className="text-sm font-bold text-white">{r.employeeName}</div>
-                          <div className="text-xs text-[#94A3B8] font-mono">{r.employeeCode}</div>
+                          <div className="text-sm font-bold text-admin-text">{r.employeeName}</div>
+                          <div className="text-xs text-admin-muted font-mono">{r.employeeCode}</div>
                         </td>
-                        <td className="px-5 py-4 text-xs font-bold text-white whitespace-nowrap">{r.totalDays}</td>
-                        <td className="px-5 py-4 text-xs text-[#CBD5E1] whitespace-nowrap">{r.workingDays}</td>
+                        <td className="px-5 py-4 text-xs font-bold text-admin-text whitespace-nowrap">{r.totalDays}</td>
+                        <td className="px-5 py-4 text-xs text-admin-secondary whitespace-nowrap">{r.workingDays}</td>
                         <td className="px-5 py-4 text-xs font-bold text-emerald-400 whitespace-nowrap">{parseFloat(r.paidDays).toFixed(1)}</td>
                         <td className="px-5 py-4 whitespace-nowrap">
                           {parseFloat(r.halfDays) > 0 ? (
@@ -211,11 +211,11 @@ const AdminPayroll = () => {
                               <span className="text-[10px] text-red-400/80">{formatCurrency(r.halfDayLossAmount ?? r.half_day_loss_amount ?? 0)}</span>
                             </div>
                           ) : (
-                            <span className="text-xs text-[#64748B]">-</span>
+                            <span className="text-xs text-admin-secondary">-</span>
                           )}
                         </td>
-                        <td className="px-5 py-4 text-xs text-white whitespace-nowrap">{formatCurrency(r.monthlyEarning)}</td>
-                        <td className="px-5 py-4 text-xs text-[#94A3B8] whitespace-nowrap">₹{parseFloat(r.perDaySalary).toFixed(0)}</td>
+                        <td className="px-5 py-4 text-xs text-admin-text whitespace-nowrap">{formatCurrency(r.monthlyEarning)}</td>
+                        <td className="px-5 py-4 text-xs text-admin-muted whitespace-nowrap">₹{parseFloat(r.perDaySalary).toFixed(0)}</td>
                         <td className="px-5 py-4 whitespace-nowrap">
                           {parseFloat(r.lopDays) > 0 ? (
                             <div className="flex flex-col">
@@ -223,13 +223,13 @@ const AdminPayroll = () => {
                               <span className="text-[10px] text-red-400/80">{formatCurrency(r.lopAmount)}</span>
                             </div>
                           ) : (
-                            <span className="text-xs text-[#64748B]">-</span>
+                            <span className="text-xs text-admin-secondary">-</span>
                           )}
                         </td>
-                        <td className="px-5 py-4 text-xs text-white whitespace-nowrap">{formatCurrency(r.netEarning)}</td>
-                        <td className="px-5 py-4 text-xs text-[#94A3B8] whitespace-nowrap">{formatCurrency(r.basicSalary)}</td>
-                        <td className="px-5 py-4 text-xs text-[#94A3B8] whitespace-nowrap">{formatCurrency(r.hra)}</td>
-                        <td className="px-5 py-4 text-xs text-[#94A3B8] whitespace-nowrap">{formatCurrency(r.specialAllowance)}</td>
+                        <td className="px-5 py-4 text-xs text-admin-text whitespace-nowrap">{formatCurrency(r.netEarning)}</td>
+                        <td className="px-5 py-4 text-xs text-admin-muted whitespace-nowrap">{formatCurrency(r.basicSalary)}</td>
+                        <td className="px-5 py-4 text-xs text-admin-muted whitespace-nowrap">{formatCurrency(r.hra)}</td>
+                        <td className="px-5 py-4 text-xs text-admin-muted whitespace-nowrap">{formatCurrency(r.specialAllowance)}</td>
                         <td className="px-5 py-4 text-xs text-red-400 whitespace-nowrap">{formatCurrency(r.staffAdvance)}</td>
                         <td className="px-5 py-4 text-xs text-red-400 whitespace-nowrap">{formatCurrency(r.professionalTax)}</td>
                         <td className="px-5 py-4 text-xs text-red-400 whitespace-nowrap">{formatCurrency(r.tds)}</td>
@@ -244,9 +244,9 @@ const AdminPayroll = () => {
                               'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
                             }`}
                           >
-                            <option value="pending" className="bg-[#1C2540] text-white">Pending</option>
-                            <option value="hold" className="bg-[#1C2540] text-white">Hold</option>
-                            <option value="paid" className="bg-[#1C2540] text-white">Paid</option>
+                            <option value="pending" className="admin-dropdown-option bg-admin-dropdown text-admin-dropdown-text">Pending</option>
+                            <option value="hold" className="admin-dropdown-option bg-admin-dropdown text-admin-dropdown-text">Hold</option>
+                            <option value="paid" className="admin-dropdown-option bg-admin-dropdown text-admin-dropdown-text">Paid</option>
                           </select>
                         </td>
                       </tr>

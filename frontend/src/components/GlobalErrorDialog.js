@@ -93,7 +93,7 @@ const GlobalErrorDialog = () => {
         return 'px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-xl transition-colors shadow-sm';
       case ERROR_ACTIONS.CANCEL:
       default:
-        return 'px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors';
+        return 'admin-btn-neutral rounded-xl px-4 py-2 text-sm font-medium';
     }
   };
 
@@ -108,23 +108,23 @@ const GlobalErrorDialog = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-scaleIn border border-slate-100">
-        <div className="p-6">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 admin-overlay backdrop-blur-sm animate-fadeIn">
+      <div className="admin-modal rounded-2xl w-full max-w-md overflow-hidden animate-scaleIn">
+        <div className="admin-modal-body p-6">
           <div className="flex items-center gap-4 mb-4">
             <div className={`w-12 h-12 rounded-full ${iconBg} flex items-center justify-center flex-shrink-0`}>
               <IconComponent className={`${iconColor} text-xl`} />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-slate-800">{config.title}</h3>
+              <h3 className="text-xl font-bold text-admin-heading">{config.title}</h3>
             </div>
           </div>
           
-          <div className="text-slate-600 mb-6 text-sm leading-relaxed whitespace-pre-line">
+          <div className="text-admin-text mb-6 text-sm leading-relaxed whitespace-pre-line">
             {config.message}
           </div>
           
-          <div className="flex gap-3 justify-end">
+          <div className="admin-modal-footer flex gap-3 justify-end mt-6">
             {config.buttons && config.buttons.map((action, idx) => (
               <button
                 key={idx}

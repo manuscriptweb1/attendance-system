@@ -9,6 +9,109 @@
   html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
   body { font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background-color: #F8FAFC; color: #0f172a; }
   code { font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace; }
+
+  :root {
+    /* Admin Dark Theme Variables (Default) */
+    --admin-bg: #0E1320;
+    --admin-surface: #161D2E;
+    --admin-elevated: #1C2540;
+    --admin-accent: #3B82F6;
+    --admin-accent2: #60A5FA;
+    --admin-text: #FFFFFF;
+    --admin-heading: #FFFFFF;
+    --admin-secondary: #CBD5E1;
+    --admin-muted: #94A3B8;
+    --admin-subtle: #475569;
+    --admin-border: rgba(255, 255, 255, 0.06);
+
+    /* Inputs, Selects, Dropdowns */
+    --admin-input-bg: rgba(255, 255, 255, 0.05);
+    --admin-input-text: #FFFFFF;
+    --admin-input-placeholder: #64748B;
+    --admin-select-bg: #1C2540; /* Elevated bg for options */
+    --admin-select-text: #FFFFFF;
+    --admin-dropdown-bg: #1C2540;
+    --admin-dropdown-text: #FFFFFF;
+    --admin-dropdown-hover: rgba(255, 255, 255, 0.1);
+
+    /* Modals & Overlays */
+    --admin-modal-bg: #161D2E;
+    --admin-modal-text: #FFFFFF;
+    --admin-overlay: rgba(0, 0, 0, 0.7);
+
+    /* Neutral Buttons */
+    --admin-neutral-btn-bg: rgba(255, 255, 255, 0.05);
+    --admin-neutral-btn-text: #CBD5E1;
+    --admin-neutral-btn-border: rgba(255, 255, 255, 0.1);
+  }
+
+  .admin-theme-light {
+    --admin-bg: #F5F7FB;      /* Matching clay-bg */
+    --admin-surface: #FFFFFF;
+    --admin-elevated: #F8FAFC;
+    --admin-accent: #4F6CE1;  /* Matching clay-blue */
+    --admin-accent2: #7B93F5; /* Matching clay-blueLt */
+    --admin-text: #0F172A;
+    --admin-heading: #090E17; /* Near black */
+    --admin-secondary: #475569;
+    --admin-muted: #64748B;
+    --admin-subtle: #94A3B8;
+    --admin-border: #E7EBF2;  /* Matching clay-border */
+
+    /* Inputs, Selects, Dropdowns */
+    --admin-input-bg: #FFFFFF;
+    --admin-input-text: #0F172A;
+    --admin-input-placeholder: #64748B;
+    --admin-select-bg: #FFFFFF;
+    --admin-select-text: #0F172A;
+    --admin-dropdown-bg: #FFFFFF;
+    --admin-dropdown-text: #0F172A;
+    --admin-dropdown-hover: #EFF6FF;
+
+    /* Modals & Overlays */
+    --admin-modal-bg: #FFFFFF;
+    --admin-modal-text: #0F172A;
+    --admin-overlay: rgba(15, 23, 42, 0.45);
+
+    /* Neutral Buttons */
+    --admin-neutral-btn-bg: #F8FAFC;
+    --admin-neutral-btn-text: #0F172A;
+    --admin-neutral-btn-border: #CBD5E1;
+  }
+
+  .admin-theme-dark {
+    --admin-bg: #0E1320;
+    --admin-surface: #161D2E;
+    --admin-elevated: #1C2540;
+    --admin-accent: #3B82F6;
+    --admin-accent2: #60A5FA;
+    --admin-text: #FFFFFF;
+    --admin-heading: #FFFFFF;
+    --admin-secondary: #CBD5E1;
+    --admin-muted: #94A3B8;
+    --admin-subtle: #475569;
+    --admin-border: rgba(255, 255, 255, 0.06);
+
+    /* Inputs, Selects, Dropdowns */
+    --admin-input-bg: rgba(255, 255, 255, 0.05);
+    --admin-input-text: #FFFFFF;
+    --admin-input-placeholder: #64748B;
+    --admin-select-bg: #1C2540;
+    --admin-select-text: #FFFFFF;
+    --admin-dropdown-bg: #1C2540;
+    --admin-dropdown-text: #FFFFFF;
+    --admin-dropdown-hover: rgba(255, 255, 255, 0.1);
+
+    /* Modals & Overlays */
+    --admin-modal-bg: #161D2E;
+    --admin-modal-text: #FFFFFF;
+    --admin-overlay: rgba(0, 0, 0, 0.7);
+
+    /* Neutral Buttons */
+    --admin-neutral-btn-bg: rgba(255, 255, 255, 0.05);
+    --admin-neutral-btn-text: #CBD5E1;
+    --admin-neutral-btn-border: rgba(255, 255, 255, 0.1);
+  }
 }
 
 /* ─── Custom Scrollbar ─── */
@@ -53,27 +156,141 @@ button, a, input, select, textarea {
 .clay-card-hover { transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease; }
 .clay-card-hover:hover { transform: translateY(-2px); }
 
-/* ─── Admin dark inputs ─── */
-.admin-input {
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-  color: #ffffff; border-radius: 10px; padding: 10px 12px; font-size: 0.875rem;
-  width: 100%; transition: border-color 0.2s, box-shadow 0.2s;
+/* ─── Admin Standard Components ─── */
+.admin-modal {
+  background: var(--admin-modal-bg) !important;
+  color: var(--admin-modal-text) !important;
+  border: 1px solid var(--admin-border) !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
 }
-.admin-input::placeholder { color: #64748b; }
-.admin-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
-.admin-input:disabled { background: rgba(255,255,255,0.02); color: #475569; cursor: not-allowed; }
 
-/* ─── Admin select ─── */
+/* ─── Light Theme Dialog Overrides ─── */
+body.admin-theme-light .admin-modal,
+html.admin-theme-light .admin-modal,
+.admin-theme-light .admin-modal {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25) !important;
+  backdrop-filter: none !important;
+}
+
+body.admin-theme-light .admin-modal-header,
+body.admin-theme-light .admin-modal-body,
+body.admin-theme-light .admin-modal-footer,
+html.admin-theme-light .admin-modal-header,
+html.admin-theme-light .admin-modal-body,
+html.admin-theme-light .admin-modal-footer,
+.admin-theme-light .admin-modal-header,
+.admin-theme-light .admin-modal-body,
+.admin-theme-light .admin-modal-footer {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+  backdrop-filter: none !important;
+}
+
+body.admin-theme-light .admin-modal h1,
+body.admin-theme-light .admin-modal h2,
+body.admin-theme-light .admin-modal h3,
+body.admin-theme-light .admin-modal .modal-title {
+  color: #0f172a !important;
+}
+
+body.admin-theme-light .admin-modal p,
+body.admin-theme-light .admin-modal label,
+body.admin-theme-light .admin-modal span:not(.colored-badge):not(.icon-badge) {
+  color: #334155;
+}
+
+body.admin-theme-light .admin-modal input,
+body.admin-theme-light .admin-modal select,
+body.admin-theme-light .admin-modal textarea {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+body.admin-theme-light .admin-modal input::placeholder,
+body.admin-theme-light .admin-modal textarea::placeholder {
+  color: #64748b !important;
+}
+
+body.admin-theme-light .admin-modal .admin-modal-warning {
+  background: #fef2f2 !important;
+  color: #991b1b !important;
+  border: 1px solid #fecaca !important;
+}
+
+body.admin-theme-light .admin-btn-neutral {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+body.admin-theme-light .admin-btn-neutral:hover {
+  background: #f1f5f9 !important;
+}
+
+.admin-overlay {
+  background-color: var(--admin-overlay) !important;
+}
+
+.admin-input {
+  background: var(--admin-input-bg) !important; 
+  border: 1px solid var(--admin-border) !important;
+  color: var(--admin-input-text) !important;
+  border-radius: 0.75rem !important; /* rounded-xl */
+  padding-top: 0.625rem !important; /* py-2.5 */
+  padding-bottom: 0.625rem !important;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  font-size: 0.875rem !important; /* text-sm */
+  width: 100%; 
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.admin-input::placeholder { color: var(--admin-input-placeholder) !important; }
+.admin-input:focus { outline: none; border-color: rgba(59,130,246,0.5) !important; box-shadow: 0 0 0 1px rgba(59,130,246,0.5) !important; }
+.admin-input:disabled { opacity: 0.6; cursor: not-allowed; }
+
 .admin-select {
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-  color: #ffffff; border-radius: 10px; padding: 10px 12px; font-size: 0.875rem;
-  width: 100%; cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s;
+  background: var(--admin-input-bg) !important; 
+  border: 1px solid var(--admin-border) !important;
+  color: var(--admin-input-text) !important;
+  border-radius: 0.75rem !important;
+  padding-top: 0.625rem !important;
+  padding-bottom: 0.625rem !important;
+  padding-left: 1rem;
+  padding-right: 2rem;
+  font-size: 0.875rem !important;
+  width: 100%; cursor: pointer; 
+  transition: border-color 0.2s, box-shadow 0.2s;
   -webkit-appearance: none; appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right 12px center; background-size: 16px; padding-right: 40px;
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;
 }
-.admin-select option { background: #1C2540; color: #ffffff; }
-.admin-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+.admin-select option { background: var(--admin-select-bg) !important; color: var(--admin-select-text) !important; }
+.admin-select:focus { outline: none; border-color: rgba(59,130,246,0.5) !important; box-shadow: 0 0 0 1px rgba(59,130,246,0.5) !important; }
+
+.admin-dropdown-menu { background: var(--admin-dropdown-bg) !important; color: var(--admin-dropdown-text) !important; border: 1px solid var(--admin-border) !important; }
+.admin-dropdown-option:hover { background: var(--admin-dropdown-hover) !important; }
+
+.admin-btn-neutral {
+  background: var(--admin-neutral-btn-bg) !important;
+  color: var(--admin-neutral-btn-text) !important;
+  border: 1px solid var(--admin-neutral-btn-border) !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+}
+.admin-btn-neutral:hover {
+  filter: brightness(0.95);
+}
+.admin-theme-dark .admin-btn-neutral:hover {
+  filter: brightness(1.2);
+}
 
 /* ─── Employee light inputs ─── */
 .emp-input {

@@ -242,61 +242,61 @@ const AdminManualAttendance = () => {
   );
 
   return (
-    <div className="flex h-screen bg-[#0E1320] dark-scroll">
+    <div className="flex h-screen bg-admin-bg dark-scroll">
       <Sidebar />
       <div className="flex-1 overflow-y-auto min-w-0 dark-scroll">
         <div className="px-5 py-6 lg:px-8 lg:py-8">
           
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pt-14 lg:pt-0">
             <div>
-              <h1 className="text-xl font-bold text-white">Manual Attendance</h1>
+              <h1 className="text-xl font-bold text-admin-heading">Manual Attendance</h1>
               <p className="text-sm text-slate-400 mt-0.5">Emergency Attendance Management</p>
             </div>
             <button onClick={openBulkModal} disabled={selectedIds.length === 0 || isSunday}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${selectedIds.length > 0 && !isSunday ? 'bg-amber-500 hover:bg-amber-400 text-white shadow-glow-amber-sm' : 'bg-white/5 text-slate-500 cursor-not-allowed'}`}>
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${selectedIds.length > 0 && !isSunday ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-admin-elevated border border-admin-border text-admin-muted cursor-not-allowed'}`}>
               <FiEdit size={16} /> Add for Selected ({selectedIds.length})
             </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className="relative">
-              <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Date</label>
+              <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Date</label>
               <div className="relative">
-                <FiCalendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B] pointer-events-none" />
+                <FiCalendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-admin-secondary pointer-events-none" />
                 <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                  className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-[#3B82F6]" />
+                  className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-[#3B82F6]" />
               </div>
             </div>
             <div className="relative">
-              <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Department</label>
+              <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Department</label>
               <div className="relative">
-                <FiFilter size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B] pointer-events-none" />
+                <FiFilter size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-admin-secondary pointer-events-none" />
                 <select value={departmentId} onChange={e => setDepartmentId(e.target.value)}
-                  className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-[#3B82F6] appearance-none">
-                  <option value="" className="bg-[#1C2540]">All Departments</option>
-                  {departments.map(d => <option key={d.id} value={d.id} className="bg-[#1C2540]">{d.name}</option>)}
+                  className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-[#3B82F6] appearance-none">
+                  <option value="" className="bg-admin-elevated">All Departments</option>
+                  {departments.map(d => <option key={d.id} value={d.id} className="bg-admin-elevated">{d.name}</option>)}
                 </select>
               </div>
             </div>
             <div className="relative">
-              <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Status</label>
+              <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Status</label>
               <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-                className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6] appearance-none">
-                <option value="All" className="bg-[#1C2540]">All</option>
-                <option value="Present" className="bg-[#1C2540]">Present</option>
-                <option value="Late" className="bg-[#1C2540]">Late</option>
-                <option value="Half Day" className="bg-[#1C2540]">Half Day</option>
-                <option value="Absent" className="bg-[#1C2540]">Absent</option>
-                <option value="Not Mention" className="bg-[#1C2540]">Not Mention</option>
-                <option value="No Record" className="bg-[#1C2540]">No Record</option>
+                className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6] appearance-none">
+                <option value="All" className="bg-admin-elevated">All</option>
+                <option value="Present" className="bg-admin-elevated">Present</option>
+                <option value="Late" className="bg-admin-elevated">Late</option>
+                <option value="Half Day" className="bg-admin-elevated">Half Day</option>
+                <option value="Absent" className="bg-admin-elevated">Absent</option>
+                <option value="Not Mention" className="bg-admin-elevated">Not Mention</option>
+                <option value="No Record" className="bg-admin-elevated">No Record</option>
               </select>
             </div>
             <div className="relative">
-              <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Search</label>
+              <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Search</label>
               <div className="relative">
-                <FiSearch size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B] pointer-events-none" />
+                <FiSearch size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-admin-secondary pointer-events-none" />
                 <input type="text" placeholder="Name or ID..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-[#3B82F6]" />
+                  className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-[#3B82F6]" />
               </div>
             </div>
           </div>
@@ -310,18 +310,18 @@ const AdminManualAttendance = () => {
             </div>
           )}
 
-          <div className="bg-[#161D2E] border border-white/[0.07] rounded-2xl overflow-hidden shadow-clay-admin">
+          <div className="bg-admin-surface border border-admin-border rounded-2xl overflow-hidden shadow-clay-admin">
             <div className="overflow-x-auto dark-scroll">
               <table className="min-w-full divide-y divide-white/[0.04]">
-                <thead className="bg-[#0E1320]/50">
+                <thead className="bg-admin-bg">
                   <tr>
                     <th className="px-4 py-3 text-left w-12">
-                      <button onClick={toggleAll} className="text-slate-400 hover:text-white">
+                      <button onClick={toggleAll} className="text-slate-400 hover:text-admin-text">
                         {selectedIds.length > 0 && selectedIds.length === filteredEmployees.length ? <FiCheckSquare size={18} className="text-blue-400" /> : <FiSquare size={18} />}
                       </button>
                     </th>
                     {['Emp ID', 'Name', 'Department', 'In Status', 'Out Status', 'Total Hours', 'Status', 'Reason', 'Actions'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-[#64748B] uppercase tracking-widest whitespace-nowrap">{h}</th>
+                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -331,18 +331,18 @@ const AdminManualAttendance = () => {
                   ) : filteredEmployees.length > 0 ? filteredEmployees.map(emp => (
                     <tr key={emp.employee_id} className={`admin-table-row ${selectedIds.includes(emp.employee_id) ? 'bg-blue-500/5' : ''}`}>
                       <td className="px-4 py-3.5">
-                        <button onClick={() => toggleSelection(emp.employee_id)} disabled={isFinalStatus(emp.attendance_status) || isSunday} className={`transition-colors ${isFinalStatus(emp.attendance_status) || isSunday ? 'text-slate-600 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-white'}`}>
+                        <button onClick={() => toggleSelection(emp.employee_id)} disabled={isFinalStatus(emp.attendance_status) || isSunday} className={`transition-colors ${isFinalStatus(emp.attendance_status) || isSunday ? 'text-slate-600 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-admin-text'}`}>
                           {selectedIds.includes(emp.employee_id) ? <FiCheckSquare size={18} className="text-blue-400" /> : <FiSquare size={18} />}
                         </button>
                       </td>
                       <td className="px-4 py-3.5 text-sm text-slate-400 font-mono whitespace-nowrap">{emp.employee_id}</td>
-                      <td className="px-4 py-3.5 text-sm font-semibold text-white whitespace-nowrap">{emp.name}</td>
+                      <td className="px-4 py-3.5 text-sm font-semibold text-admin-text whitespace-nowrap">{emp.name}</td>
                       <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.department_name || '-'}</td>
                       
                       <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">
                         {emp.login_time ? (
                           <div>
-                            <span className="block font-medium text-white">{formatTime(emp.login_time)}</span>
+                            <span className="block font-medium text-admin-text">{formatTime(emp.login_time)}</span>
                             {emp.checkin_status && (
                               <span className={`block text-[10px] font-bold mt-0.5 ${emp.checkin_status === 'late' ? 'text-amber-500' : emp.checkin_status === 'early' ? 'text-purple-400' : 'text-emerald-400'}`}>
                                 {emp.checkin_status === 'late' ? `Late ${Number(emp.late_minutes || 0)}m` : emp.checkin_status === 'early' ? 'Early Check-In' : 'On Time'}
@@ -354,7 +354,7 @@ const AdminManualAttendance = () => {
                       <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">
                         {emp.logout_time ? (
                           <div>
-                            <span className="block font-medium text-white">{formatTime(emp.logout_time)}</span>
+                            <span className="block font-medium text-admin-text">{formatTime(emp.logout_time)}</span>
                             {emp.checkout_status && (
                               <span className={`block text-[10px] font-bold mt-0.5 ${emp.checkout_status === 'late' ? 'text-amber-500' : emp.checkout_status === 'early' ? 'text-purple-400' : 'text-emerald-400'}`}>
                                 {emp.checkout_status === 'late' ? `Late Check-Out` : emp.checkout_status === 'early' ? `Early Check-Out ${Number(emp.early_minutes || 0)}m` : 'On Time'}
@@ -367,7 +367,7 @@ const AdminManualAttendance = () => {
                         {emp.total_hours && emp.total_hours > 0 ? `${emp.total_hours} hrs` : '-'}
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
-                        {emp.attendance_status ? <StatusBadge status={emp.attendance_status} dark /> : <span className="text-xs text-slate-500 font-medium px-2.5 py-1 bg-white/5 rounded-full border border-white/10">No Record</span>}
+                        {emp.attendance_status ? <StatusBadge status={emp.attendance_status} dark /> : <span className="text-xs text-slate-500 font-medium px-2.5 py-1 bg-white/5 rounded-full border border-admin-border">No Record</span>}
                       </td>
                       <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">
                         {emp.absent_reason || '-'}
@@ -409,18 +409,18 @@ const AdminManualAttendance = () => {
                           };
 
                           const checkInBtn = (
-                            <button onClick={() => handleRowAction(emp, 'checkin')} disabled={isSunday} className={`transition-colors text-sm font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${isSunday ? 'bg-white/5 text-slate-500 border-white/5 cursor-not-allowed' : 'bg-emerald-500/10 text-emerald-400 hover:text-emerald-300 border-emerald-500/20'}`}>
+                            <button onClick={() => handleRowAction(emp, 'checkin')} disabled={isSunday} className={`transition-colors text-sm font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${isSunday ? 'bg-white/5 text-slate-500 border-admin-border cursor-not-allowed' : 'bg-emerald-500/10 text-emerald-400 hover:text-emerald-300 border-emerald-500/20'}`}>
                               Check-In
                             </button>
                           );
 
                           const checkOutBtn = (
-                            <button onClick={() => handleRowAction(emp, 'checkout')} disabled={isSunday} className={`transition-colors text-sm font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${isSunday ? 'bg-white/5 text-slate-500 border-white/5 cursor-not-allowed' : 'bg-blue-500/10 text-blue-400 hover:text-blue-300 border-blue-500/20'}`}>
+                            <button onClick={() => handleRowAction(emp, 'checkout')} disabled={isSunday} className={`transition-colors text-sm font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${isSunday ? 'bg-white/5 text-slate-500 border-admin-border cursor-not-allowed' : 'bg-blue-500/10 text-blue-400 hover:text-blue-300 border-blue-500/20'}`}>
                               Check-Out
                             </button>
                           );
 
-                          const completedBadge = <span className="text-xs text-slate-500 font-medium px-2 py-1 bg-white/5 rounded-md border border-white/5">Already Marked</span>;
+                          const completedBadge = <span className="text-xs text-slate-500 font-medium px-2 py-1 bg-white/5 rounded-md border border-admin-border">Already Marked</span>;
 
                           let actions = [];
 
@@ -449,7 +449,7 @@ const AdminManualAttendance = () => {
                     </tr>
                   )) : (
                     <tr><td colSpan={8} className="px-4 py-16 text-center">
-                      <div className="flex flex-col items-center gap-3"><FiLayers size={28} className="text-[#475569]" /><p className="text-sm font-medium text-[#64748B]">No employees found</p></div>
+                      <div className="flex flex-col items-center gap-3"><FiLayers size={28} className="text-[#475569]" /><p className="text-sm font-medium text-admin-secondary">No employees found</p></div>
                     </td></tr>
                   )}
                 </tbody>
@@ -475,44 +475,44 @@ const AdminManualAttendance = () => {
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fade-in">
-          <div className="bg-[#1C2540] border border-white/10 rounded-2xl shadow-clay-admin-modal w-full max-w-xl flex flex-col animate-scale-in max-h-[90vh]">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 shrink-0">
+        <div className="fixed inset-0 bg-admin-overlay backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fade-in">
+          <div className="bg-admin-elevated border border-admin-border rounded-2xl shadow-clay-admin-modal w-full max-w-xl flex flex-col animate-scale-in max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-admin-border shrink-0">
               <div>
-                <h2 className="text-base font-bold text-white">{editMode ? 'Edit Manual Attendance' : 'Add Manual Attendance'}</h2>
+                <h2 className="text-base font-bold text-admin-text">{editMode ? 'Edit Manual Attendance' : 'Add Manual Attendance'}</h2>
                 <p className="text-xs text-slate-400 mt-0.5">{editMode ? 'Modify emergency entry' : `Creating entry for ${selectedIds.length} employee(s) on ${date}`}</p>
               </div>
-              <button onClick={() => setShowModal(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#64748B] hover:bg-white/5 transition-colors"><FiX size={18} /></button>
+              <button onClick={() => setShowModal(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-admin-secondary hover:bg-admin-elevated transition-colors"><FiX size={18} /></button>
             </div>
             
             <div className="px-6 py-5 overflow-y-auto dark-scroll space-y-4">
               <form id="manual-form" onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Check-In Time</label>
-                    <input type="time" name="login_time" value={formData.login_time} onChange={handleInputChange} disabled={formData.attendance_status === 'Absent'} className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6] disabled:opacity-50" />
+                    <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Check-In Time</label>
+                    <input type="time" name="login_time" value={formData.login_time} onChange={handleInputChange} disabled={formData.attendance_status === 'Absent'} className="w-full admin-input border border-admin-border text-admin-text rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6] disabled:opacity-50" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Check-Out Time</label>
-                    <input type="time" name="logout_time" value={formData.logout_time} onChange={handleInputChange} disabled={formData.attendance_status === 'Absent'} className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6] disabled:opacity-50" />
+                    <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Check-Out Time</label>
+                    <input type="time" name="logout_time" value={formData.logout_time} onChange={handleInputChange} disabled={formData.attendance_status === 'Absent'} className="w-full admin-input border border-admin-border text-admin-text rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6] disabled:opacity-50" />
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Status *</label>
-                    <select name="attendance_status" value={formData.attendance_status} onChange={handleInputChange} required className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6] appearance-none">
-                      <option value="Present" className="bg-[#1C2540]">Present</option>
-                      <option value="Absent" className="bg-[#1C2540]">Absent</option>
-                      <option value="Late" className="bg-[#1C2540]">Late</option>
-                      <option value="Half Day" className="bg-[#1C2540]">Half Day</option>
+                    <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Status *</label>
+                    <select name="attendance_status" value={formData.attendance_status} onChange={handleInputChange} required className="w-full admin-select border border-admin-border text-admin-text rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6] appearance-none">
+                      <option value="Present" className="bg-admin-elevated">Present</option>
+                      <option value="Absent" className="bg-admin-elevated">Absent</option>
+                      <option value="Late" className="bg-admin-elevated">Late</option>
+                      <option value="Half Day" className="bg-admin-elevated">Half Day</option>
                     </select>
                   </div>
                   <div className="flex items-center mt-6">
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input type="checkbox" name="is_wfh" checked={formData.is_wfh} onChange={handleInputChange} className="hidden" />
                       <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${formData.is_wfh ? 'bg-blue-500 border-blue-500' : 'border-slate-500 bg-transparent'}`}>
-                        {formData.is_wfh && <FiCheckSquare size={12} className="text-white" />}
+                        {formData.is_wfh && <FiCheckSquare size={12} className="text-admin-text" />}
                       </div>
                       <span className="text-sm font-medium text-slate-300">Work From Home</span>
                     </label>
@@ -522,27 +522,27 @@ const AdminManualAttendance = () => {
                 {formData.attendance_status === 'Absent' && (
                   <div>
                     <label className="block text-xs font-semibold text-red-400 uppercase tracking-wider mb-2">Absent Reason *</label>
-                    <input type="text" name="remarks" value={formData.remarks} onChange={handleInputChange} required placeholder="Reason for absence" className="w-full bg-red-500/10 border border-red-500/30 text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 placeholder:text-red-500/50" />
+                    <input type="text" name="remarks" value={formData.remarks} onChange={handleInputChange} required placeholder="Reason for absence" className="w-full bg-red-500/10 border border-red-500/30 text-admin-text rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 placeholder:text-red-500/50" />
                   </div>
                 )}
 
                 {!editMode && formData.attendance_status !== 'Absent' && (
                   <div>
-                    <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Remarks (Optional)</label>
-                    <input type="text" name="remarks" value={formData.remarks} onChange={handleInputChange} placeholder="e.g. Field work" className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6]" />
+                    <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Remarks (Optional)</label>
+                    <input type="text" name="remarks" value={formData.remarks} onChange={handleInputChange} placeholder="e.g. Field work" className="w-full admin-input border border-admin-border text-admin-text rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6]" />
                   </div>
                 )}
                 
                 <div>
                   <label className="block text-xs font-bold text-amber-500 uppercase tracking-wider mb-2">Admin Reason *</label>
                   <p className="text-xs text-slate-400 mb-2">Required for audit logging (e.g. Server Down, Biometric Failure, Management Approval)</p>
-                  <input type="text" name="reason" value={formData.reason} onChange={handleInputChange} required placeholder="Why is this being added manually?" className="w-full bg-amber-500/10 border border-amber-500/30 text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 placeholder:text-amber-500/50" />
+                  <input type="text" name="reason" value={formData.reason} onChange={handleInputChange} required placeholder="Why is this being added manually?" className="w-full bg-amber-500/10 border border-amber-500/30 text-admin-text rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 placeholder:text-amber-500/50" />
                 </div>
               </form>
             </div>
             
-            <div className="flex justify-end gap-3 px-6 py-4 border-t border-white/10 bg-[#0E1320]/60 shrink-0 rounded-b-2xl">
-              <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-300 border border-white/10 rounded-xl hover:bg-white/5 transition-colors">Cancel</button>
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-admin-border bg-admin-bg shrink-0 rounded-b-2xl">
+              <button type="button" onClick={() => setShowModal(false)} className="admin-btn-neutral rounded-xl px-4 py-2 text-sm font-semibold">Cancel</button>
               <button type="submit" form="manual-form" className="px-5 py-2 text-sm font-semibold bg-amber-500 hover:bg-amber-400 text-white rounded-xl shadow-glow-amber-sm transition-all duration-200 flex items-center gap-2">
                 <FiSave size={16} /> {editMode ? 'Save Changes' : 'Create Entry'}
               </button>

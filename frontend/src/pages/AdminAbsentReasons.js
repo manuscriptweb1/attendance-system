@@ -140,45 +140,45 @@ const AdminAbsentReasons = () => {
   );
 
   return (
-    <div className="flex h-screen bg-[#0E1320] dark-scroll">
+    <div className="flex h-screen bg-admin-bg dark-scroll">
       <Sidebar />
       <div className="flex-1 overflow-y-auto min-w-0 dark-scroll">
         <div className="px-5 py-6 lg:px-8 lg:py-8">
           
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pt-14 lg:pt-0">
             <div>
-              <h1 className="text-xl font-bold text-white">Absent Reason Management</h1>
+              <h1 className="text-xl font-bold text-admin-heading">Absent Reason Management</h1>
               <p className="text-sm text-slate-400 mt-0.5">Record and track reasons for employee absences</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             <div className="relative">
-              <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Date</label>
+              <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Date</label>
               <div className="relative">
-                <FiCalendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B] pointer-events-none" />
+                <FiCalendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-admin-secondary pointer-events-none" />
                 <input type="date" value={date} onChange={e => setDate(e.target.value)} max={new Date().toISOString().split('T')[0]}
-                  className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-[#3B82F6]" />
+                  className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-[#3B82F6]" />
               </div>
             </div>
             <div className="relative">
-              <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Department</label>
+              <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Department</label>
               <div className="relative">
-                <FiFilter size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B] pointer-events-none" />
+                <FiFilter size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-admin-secondary pointer-events-none" />
                 <select value={departmentId} onChange={e => setDepartmentId(e.target.value)}
-                  className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-[#3B82F6] appearance-none">
-                  <option value="" className="bg-[#1C2540]">All Departments</option>
-                  {departments.map(d => <option key={d.id} value={d.id} className="bg-[#1C2540]">{d.name}</option>)}
+                  className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-[#3B82F6] appearance-none">
+                  <option value="" className="bg-admin-elevated">All Departments</option>
+                  {departments.map(d => <option key={d.id} value={d.id} className="bg-admin-elevated">{d.name}</option>)}
                 </select>
               </div>
             </div>
             <div className="relative">
-              <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Search</label>
+              <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Search</label>
               <div className="relative flex items-center gap-2">
                 <div className="relative flex-1">
-                  <FiSearch size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B] pointer-events-none" />
+                  <FiSearch size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-admin-secondary pointer-events-none" />
                   <input type="text" placeholder="Name or ID..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                    className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-[#3B82F6]" />
+                    className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-[#3B82F6]" />
                 </div>
                 <button onClick={fetchData} className="bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200">
                   Search
@@ -187,13 +187,13 @@ const AdminAbsentReasons = () => {
             </div>
           </div>
 
-          <div className="bg-[#161D2E] border border-white/[0.07] rounded-2xl overflow-hidden shadow-clay-admin">
+          <div className="bg-admin-surface border border-admin-border rounded-2xl overflow-hidden shadow-clay-admin">
             <div className="overflow-x-auto dark-scroll">
               <table className="min-w-full divide-y divide-white/[0.04]">
-                <thead className="bg-[#0E1320]/50">
+                <thead className="bg-admin-bg">
                   <tr>
                     {['Emp ID', 'Name', 'Department', 'Date', 'Status', 'Absent Reason', 'Actions'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-[#64748B] uppercase tracking-widest whitespace-nowrap">{h}</th>
+                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -203,7 +203,7 @@ const AdminAbsentReasons = () => {
                   ) : filteredEmployees.length > 0 ? filteredEmployees.map(emp => (
                     <tr key={emp.employee_id} className="admin-table-row">
                       <td className="px-4 py-3.5 text-sm text-slate-400 font-mono whitespace-nowrap">{emp.employee_id}</td>
-                      <td className="px-4 py-3.5 text-sm font-semibold text-white whitespace-nowrap">{emp.name}</td>
+                      <td className="px-4 py-3.5 text-sm font-semibold text-admin-text whitespace-nowrap">{emp.name}</td>
                       <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.department_name || '-'}</td>
                       <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{new Date(emp.attendance_date).toLocaleDateString()}</td>
                       <td className="px-4 py-3.5 whitespace-nowrap"><StatusBadge status={emp.attendance_status} dark /></td>
@@ -221,7 +221,7 @@ const AdminAbsentReasons = () => {
                     </tr>
                   )) : (
                     <tr><td colSpan={7} className="px-4 py-16 text-center">
-                      <div className="flex flex-col items-center gap-3"><FiLayers size={28} className="text-[#475569]" /><p className="text-sm font-medium text-[#64748B]">No absent employees found</p></div>
+                      <div className="flex flex-col items-center gap-3"><FiLayers size={28} className="text-[#475569]" /><p className="text-sm font-medium text-admin-secondary">No absent employees found</p></div>
                     </td></tr>
                   )}
                 </tbody>
@@ -235,24 +235,24 @@ const AdminAbsentReasons = () => {
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fade-in">
-          <div className="bg-[#1C2540] border border-white/10 rounded-2xl shadow-clay-admin-modal w-full max-w-lg flex flex-col animate-scale-in">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 shrink-0">
+        <div className="fixed inset-0 bg-admin-overlay backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fade-in">
+          <div className="bg-admin-elevated border border-admin-border rounded-2xl shadow-clay-admin-modal w-full max-w-lg flex flex-col animate-scale-in">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-admin-border shrink-0">
               <div>
-                <h2 className="text-base font-bold text-white">Absent Reason</h2>
+                <h2 className="text-base font-bold text-admin-text">Absent Reason</h2>
                 <p className="text-xs text-slate-400 mt-0.5">For {targetName}</p>
               </div>
-              <button onClick={() => setShowModal(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#64748B] hover:bg-white/5 transition-colors"><FiX size={18} /></button>
+              <button onClick={() => setShowModal(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-admin-secondary hover:bg-admin-elevated transition-colors"><FiX size={18} /></button>
             </div>
             
             <div className="px-6 py-5 overflow-y-auto dark-scroll space-y-4">
               <form id="reason-form" onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Quick Select</label>
+                  <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Quick Select</label>
                   <div className="flex flex-wrap gap-2 mb-4">
                     {predefinedReasons.map(pr => (
                       <button type="button" key={pr} onClick={() => setReason(pr)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${reason === pr ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}>
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${reason === pr ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-white/5 text-slate-300 border border-admin-border hover:bg-white/10'}`}>
                         {pr}
                       </button>
                     ))}
@@ -260,8 +260,8 @@ const AdminAbsentReasons = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Reason (Custom or Selected)</label>
-                  <textarea name="reason" value={reason} onChange={e => setReason(e.target.value)} required rows={4} maxLength={500} placeholder="Type reason here..." className="w-full bg-white/5 border border-white/[0.06] text-white rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 resize-none" />
+                  <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Reason (Custom or Selected)</label>
+                  <textarea name="reason" value={reason} onChange={e => setReason(e.target.value)} required rows={4} maxLength={500} placeholder="Type reason here..." className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 resize-none" />
                   <div className="flex justify-end mt-1">
                     <span className={`text-[10px] ${reason.length > 450 ? 'text-amber-500' : 'text-slate-500'}`}>{reason.length}/500</span>
                   </div>
@@ -269,8 +269,8 @@ const AdminAbsentReasons = () => {
               </form>
             </div>
             
-            <div className="flex justify-end gap-3 px-6 py-4 border-t border-white/10 bg-[#0E1320]/60 shrink-0 rounded-b-2xl">
-              <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-300 border border-white/10 rounded-xl hover:bg-white/5 transition-colors">Cancel</button>
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-admin-border bg-admin-bg shrink-0 rounded-b-2xl">
+              <button type="button" onClick={() => setShowModal(false)} className="admin-btn-neutral rounded-xl px-4 py-2 text-sm font-semibold">Cancel</button>
               <button type="submit" form="reason-form" className="px-5 py-2 text-sm font-semibold bg-amber-500 hover:bg-amber-400 text-white rounded-xl shadow-glow-amber-sm transition-all duration-200 flex items-center gap-2">
                 <FiSave size={16} /> Save Reason
               </button>

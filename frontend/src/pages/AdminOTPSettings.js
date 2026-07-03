@@ -7,9 +7,9 @@ import { FiSave, FiRefreshCw, FiClock, FiShield, FiAlertCircle, FiInfo, FiActivi
 
 const Field = ({ label, hint, error, icon: Icon, children }) => (
   <div>
-    <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">{label}</label>
+    <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">{label}</label>
     <div className="relative group">
-      {Icon && <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none transition-colors group-focus-within:text-blue-400"><Icon size={16} className="text-[#64748B] group-focus-within:text-blue-400 transition-colors" /></div>}
+      {Icon && <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none transition-colors group-focus-within:text-blue-400"><Icon size={16} className="text-admin-secondary group-focus-within:text-blue-400 transition-colors" /></div>}
       <div className={Icon ? 'pl-11' : ''}>{children}</div>
     </div>
     {error && <p className="mt-2 text-[10px] font-bold text-red-400 uppercase tracking-widest">{error}</p>}
@@ -81,7 +81,7 @@ const AdminOTPSettings = () => {
   ];
 
   return (
-    <div className="flex h-screen bg-[#070B1A] dark-scroll selection:bg-blue-500/30">
+    <div className="flex h-screen bg-admin-bg dark-scroll selection:bg-blue-500/30">
       <Sidebar />
       <div className="flex-1 overflow-y-auto dark-scroll relative pb-24">
         
@@ -90,8 +90,8 @@ const AdminOTPSettings = () => {
 
         <div className="px-5 py-6 lg:px-8 lg:py-8 max-w-[1600px] mx-auto pt-16 lg:pt-8 animate-fadeIn relative z-10">
           <div className="mb-8">
-            <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight drop-shadow-md">OTP Security Configuration</h1>
-            <p className="text-sm text-[#94A3B8] mt-1.5 font-medium">Fine-tune OTP security parameters and monitor live verification metrics.</p>
+            <h1 className="text-2xl lg:text-3xl font-extrabold text-admin-heading tracking-tight drop-shadow-md">OTP Security Configuration</h1>
+            <p className="text-sm text-admin-muted mt-1.5 font-medium">Fine-tune OTP security parameters and monitor live verification metrics.</p>
           </div>
 
           {/* ─── Top Statistics Cards ─── */}
@@ -102,10 +102,10 @@ const AdminOTPSettings = () => {
               { label: 'Max Attempts', value: settings.otp_max_attempts, color: 'text-amber-400', border: 'border-amber-500/20', bg: 'from-amber-500/10', icon: FiShield },
               { label: 'Req / Hour', value: settings.otp_requests_per_hour, color: 'text-rose-400', border: 'border-rose-500/20', bg: 'from-rose-500/10', icon: FiAlertCircle },
             ].map((s, i) => (
-              <div key={i} className={`bg-[#0B1120] border ${s.border} rounded-2xl p-4 shadow-clay-admin overflow-hidden relative group hover:-translate-y-1 transition-transform duration-300`}>
+              <div key={i} className={`bg-admin-elevated border ${s.border} rounded-2xl p-4 shadow-clay-admin overflow-hidden relative group hover:-translate-y-1 transition-transform duration-300`}>
                 <div className={`absolute inset-0 bg-gradient-to-br ${s.bg} to-transparent opacity-50 group-hover:opacity-100 transition-opacity`} />
                 <div className="relative z-10 flex items-center justify-between mb-2">
-                  <p className="text-[9px] font-bold text-[#64748B] uppercase tracking-widest">{s.label}</p>
+                  <p className="text-[9px] font-bold text-admin-secondary uppercase tracking-widest">{s.label}</p>
                   <s.icon size={12} className={`${s.color} opacity-70`} />
                 </div>
                 <div className="relative z-10">
@@ -126,14 +126,14 @@ const AdminOTPSettings = () => {
             <form onSubmit={handleSave} className="space-y-6">
               
               {/* Info banner */}
-              <div className="flex items-center gap-4 p-4 bg-[#0B1120] border border-amber-500/30 rounded-2xl shadow-[0_4px_16px_rgba(245,158,11,0.1)] relative overflow-hidden">
+              <div className="flex items-center gap-4 p-4 bg-admin-elevated border border-amber-500/30 rounded-2xl shadow-[0_4px_16px_rgba(245,158,11,0.1)] relative overflow-hidden">
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
                 <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
                   <FiInfo size={18} className="text-amber-400" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white mb-0.5">Live Configuration</h3>
-                  <p className="text-xs text-[#94A3B8]">Changes apply immediately. Active OTPs continue using old settings until they expire.</p>
+                  <h3 className="text-sm font-bold text-admin-text mb-0.5">Live Configuration</h3>
+                  <p className="text-xs text-admin-muted">Changes apply immediately. Active OTPs continue using old settings until they expire.</p>
                 </div>
               </div>
 
@@ -141,12 +141,12 @@ const AdminOTPSettings = () => {
                 
                 {/* ─── Editor ─── */}
                 <div className="lg:col-span-2 space-y-6">
-                  <div className="bg-[#0B1120] border border-white/[0.06] rounded-3xl overflow-hidden shadow-clay-admin">
-                    <div className="flex items-center gap-3 px-6 py-5 border-b border-white/[0.06] bg-[#10192D]/50 backdrop-blur-md">
+                  <div className="bg-admin-elevated border border-admin-border rounded-3xl overflow-hidden shadow-clay-admin">
+                    <div className="flex items-center gap-3 px-6 py-5 border-b border-admin-border bg-admin-surface backdrop-blur-md">
                       <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 text-blue-400 flex items-center justify-center shadow-inner"><FiShield size={18} /></div>
                       <div>
-                        <h2 className="text-sm font-bold text-white">Security Configuration</h2>
-                        <p className="text-[10px] text-[#64748B] uppercase tracking-widest font-bold mt-0.5">Modify System Guardrails</p>
+                        <h2 className="text-sm font-bold text-admin-text">Security Configuration</h2>
+                        <p className="text-[10px] text-admin-secondary uppercase tracking-widest font-bold mt-0.5">Modify System Guardrails</p>
                       </div>
                     </div>
                     
@@ -156,7 +156,7 @@ const AdminOTPSettings = () => {
                           <input
                             type="number" name={name} value={settings[name]} onChange={handleChange}
                             min={min} max={max} required
-                            className={`w-full bg-[#050816] border border-white/[0.05] text-white text-sm rounded-xl py-3.5 pr-4 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all shadow-inner ${errors[name] ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/50' : ''}`}
+                            className={`w-full bg-admin-bg border border-admin-border text-admin-text text-sm rounded-xl py-3.5 pr-4 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all shadow-inner ${errors[name] ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/50' : ''}`}
                             style={{ paddingLeft: '2.75rem' }}
                           />
                         </Field>
@@ -167,9 +167,9 @@ const AdminOTPSettings = () => {
 
                 {/* ─── Guidelines Sidebar ─── */}
                 <div className="space-y-6">
-                  <div className="bg-[#0B1120] border border-white/[0.06] rounded-3xl overflow-hidden shadow-clay-admin">
-                    <div className="px-6 py-5 border-b border-white/[0.06] bg-[#10192D]/50 backdrop-blur-md">
-                      <h2 className="text-sm font-bold text-white">Security Guidelines</h2>
+                  <div className="bg-admin-elevated border border-admin-border rounded-3xl overflow-hidden shadow-clay-admin">
+                    <div className="px-6 py-5 border-b border-admin-border bg-admin-surface backdrop-blur-md">
+                      <h2 className="text-sm font-bold text-admin-text">Security Guidelines</h2>
                     </div>
                     <div className="p-6 space-y-4">
                       {[
@@ -178,11 +178,11 @@ const AdminOTPSettings = () => {
                         ['Lower attempts', 'Stronger lockouts, more lockouts.'],
                         ['Stricter rate', 'Prevents abuse, controls API load.'],
                       ].map(([bold, rest]) => (
-                        <div key={bold} className="flex items-start gap-3 bg-[#0B1120]/[0.02] border border-white/[0.05] p-3 rounded-xl">
+                        <div key={bold} className="flex items-start gap-3 bg-admin-elevated/[0.02] border border-admin-border p-3 rounded-xl">
                           <span className="text-emerald-400 font-bold mt-0.5 text-xs">✓</span>
                           <div>
-                            <p className="font-bold text-[#CBD5E1] text-xs">{bold}</p>
-                            <p className="text-[10px] text-[#94A3B8] uppercase tracking-widest mt-1">{rest}</p>
+                            <p className="font-bold text-admin-secondary text-xs">{bold}</p>
+                            <p className="text-[10px] text-admin-muted uppercase tracking-widest mt-1">{rest}</p>
                           </div>
                         </div>
                       ))}
@@ -193,12 +193,12 @@ const AdminOTPSettings = () => {
                         <div className="absolute top-0 right-0 w-24 h-24 bg-blue-400/10 rounded-full blur-xl" />
                         <div className="flex items-center gap-2 mb-4 relative z-10">
                           <FiShield size={16} className="text-blue-400" />
-                          <p className="text-xs font-bold text-white uppercase tracking-widest">Recommended Defaults</p>
+                          <p className="text-xs font-bold text-admin-text uppercase tracking-widest">Recommended Defaults</p>
                         </div>
                         <div className="grid grid-cols-2 gap-3 relative z-10">
                           {RECOMMENDED.map(({ label, value }) => (
-                            <div key={label} className="bg-[#070B1A]/50 border border-white/[0.05] rounded-xl p-2 text-center">
-                              <p className="text-[9px] font-bold text-[#64748B] uppercase tracking-widest">{label}</p>
+                            <div key={label} className="bg-admin-bg border border-admin-border rounded-xl p-2 text-center">
+                              <p className="text-[9px] font-bold text-admin-secondary uppercase tracking-widest">{label}</p>
                               <p className="text-xs font-black text-blue-400 mt-0.5">{value}</p>
                             </div>
                           ))}
@@ -210,21 +210,21 @@ const AdminOTPSettings = () => {
               </div>
 
               {/* Action Bar */}
-              <div className="bg-[#0B1120] border border-white/[0.06] rounded-2xl p-4 shadow-clay-admin flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="bg-admin-elevated border border-admin-border rounded-2xl p-4 shadow-clay-admin flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex-1">
                   {hasChanges() ? (
                     <p className="text-xs font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2 animate-pulse">
                       <span className="w-2 h-2 rounded-full bg-amber-400" /> Unsaved changes detected
                     </p>
                   ) : (
-                    <p className="text-xs font-bold text-[#64748B] uppercase tracking-widest flex items-center gap-2">
+                    <p className="text-xs font-bold text-admin-secondary uppercase tracking-widest flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-[#64748B]" /> Configuration synced
                     </p>
                   )}
                 </div>
                 <div className="flex gap-3 w-full sm:w-auto">
                   <button type="button" onClick={handleReset} disabled={!hasChanges() || saving}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 text-xs font-bold text-[#94A3B8] border border-white/10 rounded-xl hover:bg-[#0B1120]/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 text-xs font-bold text-admin-muted border border-admin-border rounded-xl hover:bg-admin-elevated disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                     <FiRefreshCw size={14} /> Revert
                   </button>
                   <button type="submit" disabled={!hasChanges() || saving}

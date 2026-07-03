@@ -410,6 +410,68 @@ const getSystemHealth = async (req, res) => {
   }
 };
 
+// Get admin theme preference
+const getAdminTheme = async (req, res) => {
+  try {
+    const adminId = req.user.id;
+
+    const result = await pool.query(
+      'SELECT theme_preference FROM admins WHERE id = $1',
+      [adminId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      theme: result.rows[0].theme_preference || 'dark'
+    });
+  } catch (error) {
+    console.error('Error fetching admin theme:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch theme preference'
+    });
+  }
+};
+
+// Update admin theme preference
+const updateAdminTheme = async (req, res) => {
+  try {
+    const adminId = req.user.id; // From JWT
+    const { theme } = req.body;
+
+    if (!theme || !['dark', 'light'].includes(theme)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid theme preference. Must be "dark" or "light"'
+      });
+    }
+
+    await pool.query(
+      'UPDATE admins SET theme_preference = $1 WHERE id = $2',
+      [theme, adminId]
+    );
+
+    res.json({
+      success: true,
+      theme: theme,
+      message: 'Theme preference updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating admin theme:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update theme preference'
+    });
+  }
+};
+
 module.exports = {
   getAllAdmins,
   addAdmin,
@@ -417,5 +479,7 @@ module.exports = {
   deleteAdmin,
   changePassword,
   getLoginLogs,
-  getSystemHealth
+  getSystemHealth,
+  getAdminTheme,
+  updateAdminTheme
 };

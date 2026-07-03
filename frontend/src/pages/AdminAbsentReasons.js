@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
+import AdminToast from '../components/AdminToast';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
 import { getAbsentEmployees, updateAbsentReason, clearAbsentReason, getAllDepartments } from '../services/api';
@@ -32,6 +33,7 @@ const AdminAbsentReasons = () => {
   const [reason, setReason] = useState('');
   
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
+  const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
   const [clearingId, setClearingId] = useState(null);
 
   const predefinedReasons = [
@@ -232,6 +234,14 @@ const AdminAbsentReasons = () => {
       </div>
 
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog(d => ({ ...d, isOpen: false }))} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
+
+      {toastConfig.message && (
+        <AdminToast 
+          message={toastConfig.message} 
+          type={toastConfig.type} 
+          onClose={() => setToastConfig({ message: '', type: 'success' })} 
+        />
+      )}
 
       {/* Add/Edit Modal */}
       {showModal && (

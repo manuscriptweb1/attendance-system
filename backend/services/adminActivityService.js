@@ -233,7 +233,10 @@ const ADMIN_ACTION_TYPES = {
   GRANT_WFH_PERMISSION: 'Grant WFH Permission',
   REVOKE_WFH_PERMISSION: 'Revoke WFH Permission',
   GRANT_EARLY_CHECKOUT: 'Grant Early Checkout Permission',
-  REVOKE_EARLY_CHECKOUT: 'Revoke Early Checkout Permission'
+  REVOKE_EARLY_CHECKOUT: 'Revoke Early Checkout Permission',
+  
+  // Data Clearing
+  CLEAR_RANGE: 'CLEAR_RANGE'
 };
 
 /**
@@ -246,9 +249,14 @@ const MODULE_NAMES = {
   HOLIDAY: 'Holiday',
   SETTINGS: 'Settings',
   DEVICE: 'Device',
-  SECURITY: 'Security',
+  SECURITY: 'Security Logs',
   REPORTS: 'Reports',
-  PERMISSIONS: 'Permissions'
+  PERMISSIONS: 'Permissions',
+  MANUAL_ATTENDANCE: 'Manual Attendance',
+  ABSENT_REASONS: 'Absent Reasons',
+  PAYROLL: 'Payroll',
+  EXPENSES: 'Expenses',
+  ACTIVITY_LOGS: 'Activity Logs'
 };
 
 module.exports = {

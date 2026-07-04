@@ -1706,6 +1706,207 @@ const toggleEarlyCheckout = async (req, res) => {
   }
 };
 
+// Helper function for checking out (used by cron job and manual checkout)
+const processCheckout = async (attendance, checkoutTimeStr, userReq = null, checkoutLocation = null) => {
+  try {
+    const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
+
+    let checkoutTime;
+    let lateMinutes = attendance.late_minutes || 0;
+    let earlyMinutes = 0;
+    
+    if (checkoutTimeStr) {
+      checkoutTime = new Date(checkoutTimeStr);
+    } else {
+      checkoutTime = new Date(); // Current time
+    }
+
+    // Get employee details and shift info
+    const employee = await pool.query('SELECT * FROM employees WHERE id = $1', [attendance.employee_id]);
+    const empData = employee.rows[0];
+
+    const shiftResult = await pool.query('SELECT * FROM settings WHERE setting_key IN ($1, $2)', ['shift_start_time', 'shift_end_time']);
+    const shiftSettings = {};
+    shiftResult.rows.forEach(s => shiftSettings[s.setting_key] = s.setting_value);
+    
+    // Parse shift end time
+    const [endHour, endMinute] = (shiftSettings.shift_end_time || '18:00').split(':');
+    const shiftEndTime = new Date(checkoutTime);
+    shiftEndTime.setHours(parseInt(endHour), parseInt(endMinute), 0, 0);
+    
+    // Calculate early minutes
+    if (checkoutTime < shiftEndTime) {
+      earlyMinutes = Math.floor((shiftEndTime - checkoutTime) / (1000 * 60));
+    }
+
+    // Get login time to calculate working hours
+    const loginTime = new Date(attendance.login_time);
+    const totalMinutes = Math.floor((checkoutTime - loginTime) / (1000 * 60));
+    const totalWorkingHours = (totalMinutes / 60).toFixed(2);
+
+    // Get total working hours setting (default 9 hours)
+    const hoursResult = await pool.query("SELECT setting_value FROM settings WHERE setting_key = 'total_working_hours'");
+    const expectedHours = hoursResult.rows.length > 0 ? parseFloat(hoursResult.rows[0].setting_value) : 9;
+
+    let attendanceStatus = attendance.attendance_status;
+    let finalCheckoutStatus = 'On Time';
+    
+    // Handle Early Checkout status logic
+    if (attendance.has_early_checkout_permission) {
+      // With permission, they get Present status, and no early minutes penalty
+      earlyMinutes = 0;
+      finalCheckoutStatus = 'Early (Permitted)';
+      
+      // Upgrade Half Day back to Present if they had early checkout permission
+      if (attendanceStatus === 'Half Day') {
+         // Only upgrade if they weren't Late (which also causes Half Day)
+         const lateResult = await pool.query("SELECT setting_value FROM settings WHERE setting_key = 'late_threshold_minutes'");
+         const lateThreshold = lateResult.rows.length > 0 ? parseInt(lateResult.rows[0].setting_value) : 15;
+         
+         if (lateMinutes <= lateThreshold) {
+           attendanceStatus = 'Present';
+         }
+      }
+    } else {
+      // Normal logic
+      if (earlyMinutes > 0) {
+        finalCheckoutStatus = 'Early';
+        
+        // If they checkout early without permission, it's a Half Day
+        // Or if they worked less than expected minus 1 hour grace
+        if (totalWorkingHours < (expectedHours - 1)) {
+          attendanceStatus = 'Half Day';
+        }
+      }
+    }
+
+    // Capture location and device details if provided by user request
+    let locationUpdate = '';
+    let locationValues = [];
+    let queryParamIndex = 11;
+    
+    if (userReq && checkoutLocation) {
+      locationUpdate = `, latitude_logout = $${queryParamIndex}, longitude_logout = $${queryParamIndex+1}, address_logout = $${queryParamIndex+2}`;
+      locationValues = [
+        checkoutLocation.latitude || null,
+        checkoutLocation.longitude || null,
+        checkoutLocation.address || null
+      ];
+      queryParamIndex += 3;
+    }
+
+    const updateQuery = `
+      UPDATE attendance 
+      SET logout_time = $1, 
+          total_working_hours = $2, 
+          total_minutes = $3,
+          early_minutes = $4,
+          attendance_status = $5,
+          checkout_status = $6,
+          updated_at = CURRENT_TIMESTAMP
+          ${locationUpdate}
+      WHERE id = $7 
+      RETURNING *
+    `;
+    
+    const updateValues = [
+      checkoutTime,
+      totalWorkingHours,
+      totalMinutes,
+      earlyMinutes,
+      attendanceStatus,
+      finalCheckoutStatus,
+      attendance.id,
+      ...locationValues
+    ];
+    
+    const result = await pool.query(updateQuery, updateValues);
+    const updatedAttendance = result.rows[0];
+    
+    // Check if payroll needs to be updated for this month/year
+    const attDate = new Date(updatedAttendance.attendance_date);
+    const month = attDate.getMonth() + 1;
+    const year = attDate.getFullYear();
+    
+    const payrollCheck = await pool.query(
+      'SELECT id FROM payroll_records WHERE employee_id = $1 AND payroll_month = $2 AND payroll_year = $3',
+      [attendance.employee_id, month, year]
+    );
+    
+    if (payrollCheck.rows.length > 0) {
+      await logAdminActivity({
+        adminId: null,
+        adminName: 'System',
+        actionType: 'Update Required',
+        moduleName: MODULE_NAMES.PAYROLL,
+        description: `Payroll for ${empData.name} (${month}/${year}) may need recalculation due to late checkout.`,
+        oldData: null,
+        newData: { employee_id: attendance.employee_id, month, year }
+      });
+    }
+
+    return { 
+      success: true, 
+      data: updatedAttendance 
+    };
+  } catch (error) {
+    console.error('Process checkout error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * @desc    Clear attendance records for a date range
+ * @route   DELETE /api/attendance/clear-range
+ * @access  Private/Admin
+ */
+const clearAttendanceRange = async (req, res) => {
+  try {
+    const { fromDate, toDate, confirmText } = req.body;
+    
+    if (!fromDate || !toDate) {
+      return res.status(400).json({ success: false, message: 'From Date and To Date are required' });
+    }
+    
+    if (confirmText !== 'DELETE') {
+      return res.status(400).json({ success: false, message: 'Invalid confirmation text' });
+    }
+    
+    if (new Date(fromDate) > new Date(toDate)) {
+      return res.status(400).json({ success: false, message: 'From Date cannot be after To Date' });
+    }
+
+    const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
+    const adminId = req.user.id;
+    const adminName = req.user.name;
+
+    const result = await pool.query(
+      'DELETE FROM attendance WHERE attendance_date BETWEEN $1 AND $2 RETURNING id',
+      [fromDate, toDate]
+    );
+
+    // Log the action
+    await logAdminActivity({
+      adminId,
+      adminName,
+      actionType: ADMIN_ACTION_TYPES.CLEAR_RANGE,
+      moduleName: MODULE_NAMES.ATTENDANCE,
+      description: `Cleared attendance records from ${fromDate} to ${toDate}. Count: ${result.rowCount}`,
+      ipAddress: req.ip
+    });
+
+    res.json({
+      success: true,
+      message: 'Records cleared successfully',
+      deletedCount: result.rowCount
+    });
+
+  } catch (error) {
+    console.error('Clear attendance range error:', error);
+    res.status(500).json({ success: false, message: 'Server error while clearing records' });
+  }
+};
+
 module.exports = {
   checkIn,
   checkOut,
@@ -1717,5 +1918,7 @@ module.exports = {
   resetAttendance,
   deleteAttendance,
   toggleEarlyCheckout,
-  ensureDailyAttendanceRecords
+  ensureDailyAttendanceRecords,
+  processCheckout,
+  clearAttendanceRange
 };

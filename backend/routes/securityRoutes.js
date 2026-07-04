@@ -7,7 +7,8 @@ const {
   getRateLimits,
   getSecurityStats,
   clearRateLimit,
-  updateDeviceAlias
+  updateDeviceAlias,
+  clearSecurityLogRange
 } = require('../controllers/securityController');
 
 // All routes require admin authentication
@@ -15,6 +16,7 @@ router.use(verifyToken, isAdmin);
 
 // Get audit logs
 router.get('/audit-logs', getAuditLogs);
+router.delete('/clear-range', clearSecurityLogRange);
 
 // Get device fingerprints
 router.get('/device-fingerprints', getDeviceFingerprints);

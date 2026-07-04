@@ -239,9 +239,65 @@ const clearAbsentReason = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Clear absent reasons for a date range
+ * @route   PUT /api/absent-reasons/clear-range
+ * @access  Private/Admin
+ */
+const clearAbsentReasonRange = async (req, res) => {
+  try {
+    const { fromDate, toDate, confirmText } = req.body;
+    
+    if (!fromDate || !toDate) {
+      return res.status(400).json({ success: false, message: 'From Date and To Date are required' });
+    }
+    
+    if (confirmText !== 'DELETE') {
+      return res.status(400).json({ success: false, message: 'Invalid confirmation text' });
+    }
+    
+    if (new Date(fromDate) > new Date(toDate)) {
+      return res.status(400).json({ success: false, message: 'From Date cannot be after To Date' });
+    }
+
+    const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
+    const adminId = req.user.id;
+    const adminName = req.user.name;
+
+    const result = await pool.query(
+      `UPDATE attendance 
+       SET absent_reason = NULL, attendance_status = 'Not Mention', updated_at = CURRENT_TIMESTAMP 
+       WHERE attendance_date BETWEEN $1 AND $2 AND absent_reason IS NOT NULL 
+       RETURNING id`,
+      [fromDate, toDate]
+    );
+
+    // Log the action
+    await logAdminActivity({
+      adminId,
+      adminName,
+      actionType: ADMIN_ACTION_TYPES.CLEAR_RANGE,
+      moduleName: MODULE_NAMES.ABSENT_REASONS,
+      description: `Cleared absent reasons from ${fromDate} to ${toDate}. Count: ${result.rowCount}`,
+      ipAddress: req.ip
+    });
+
+    res.json({
+      success: true,
+      message: 'Absent reasons cleared successfully',
+      deletedCount: result.rowCount
+    });
+
+  } catch (error) {
+    console.error('Clear absent reason range error:', error);
+    res.status(500).json({ success: false, message: 'Server error while clearing records' });
+  }
+};
+
 module.exports = {
   getAbsentEmployees,
   updateAbsentReason,
-  clearAbsentReason
+  clearAbsentReason,
+  clearAbsentReasonRange
 };
 

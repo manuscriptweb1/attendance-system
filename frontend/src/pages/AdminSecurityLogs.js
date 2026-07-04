@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import DetailsDialog from '../components/DetailsDialog';
-import ClearDataDialog from '../components/ClearDataDialog';
+import ClearRangeDialog from '../components/ClearRangeDialog';
 import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
 import { Spinner } from '../components/Loader';
 import { FiShield, FiEye, FiEdit2, FiSave, FiX, FiRefreshCw, FiMonitor, FiList, FiAlertCircle, FiTrash2, FiSearch, FiCalendar } from 'react-icons/fi';
 import axios from 'axios';
-import { updateDeviceAlias, clearEmployeeAuditLogs } from '../services/api';
+import { updateDeviceAlias, clearSecurityLogRange } from '../services/api';
 import { formatDate } from '../utils/formatTime';
 
 const TABS = [
@@ -73,7 +73,7 @@ const AdminSecurityLogs = () => {
 
   // Dialogs
   const [detailsDialog, setDetailsDialog] = useState({ isOpen:false, title:'', details:null });
-  const [clearDialog, setClearDialog] = useState({ isOpen: false });
+  const [clearDialog, setClearDialog] = useState({ isOpen: false, isLoading: false });
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'info' });
   const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
 
@@ -140,14 +140,22 @@ const AdminSecurityLogs = () => {
     finally { setSavingAlias(false); }
   };
 
-  const handleClearLogs = async () => {
+  const handleClearRange = async (data) => {
     try {
-      const response = await clearEmployeeAuditLogs();
+      setClearDialog(prev => ({ ...prev, isLoading: true }));
+      const response = await clearSecurityLogRange(data);
       if (response.data.success) {
-        setToastConfig({ message: 'Logs cleared successfully', type: 'success' });
+        setClearDialog({ isOpen: false, isLoading: false });
+        setToastConfig({ message: response.data.message || 'Logs cleared successfully', type: 'success' });
         fetchData();
+      } else {
+        setClearDialog(prev => ({ ...prev, isLoading: false }));
+        setAlertDialog({ isOpen: true, title: 'Error', message: response.data.message || 'Failed to clear logs', type: 'error' });
       }
-    } catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to clear logs', type: 'error' }); }
+    } catch (error) {
+      setClearDialog(prev => ({ ...prev, isLoading: false }));
+      setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to clear logs', type: 'error' });
+    }
   };
 
   /* ─── FILTERING ─── */
@@ -371,7 +379,14 @@ const AdminSecurityLogs = () => {
       </div>
 
       <DetailsDialog isOpen={detailsDialog.isOpen} onClose={() => setDetailsDialog({ isOpen:false, title:'', details:null })} title={detailsDialog.title} details={detailsDialog.details} />
-      <ClearDataDialog isOpen={clearDialog.isOpen} onClose={() => setClearDialog({ isOpen: false })} onConfirm={handleClearLogs} title="Clear Audit Logs" message="Permanently delete ALL audit log records? This cannot be undone." confirmText="delete" type="danger" />
+      <ClearRangeDialog 
+        isOpen={clearDialog.isOpen} 
+        onClose={() => setClearDialog({ isOpen: false })} 
+        onConfirm={handleClearRange} 
+        title="Clear Security Logs Range" 
+        message="⚠️ WARNING: This will permanently delete ALL security logs for the selected date range. This action cannot be undone." 
+        isLoading={clearDialog.isLoading}
+      />
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
       <AdminToast 
         message={toastConfig.message} 

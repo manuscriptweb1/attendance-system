@@ -112,7 +112,6 @@ const calculatePayroll = async (req, res) => {
           professional_tax = EXCLUDED.professional_tax,
           tds = EXCLUDED.tds,
           net_payable = EXCLUDED.net_payable,
-          is_manual_edited = EXCLUDED.is_manual_edited,
           updated_at = CURRENT_TIMESTAMP`,
         [
           pr.employeeCode, pr.employeeCode, month, year,
@@ -343,7 +342,6 @@ const calculateSinglePayroll = async (req, res) => {
         professional_tax = EXCLUDED.professional_tax,
         tds = EXCLUDED.tds,
         net_payable = EXCLUDED.net_payable,
-        is_manual_edited = EXCLUDED.is_manual_edited,
         updated_at = CURRENT_TIMESTAMP
       RETURNING *`,
       [
@@ -451,6 +449,78 @@ const getPaySlipData = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Clear payroll records for a date range (clears entire months that overlap the range)
+ * @route   DELETE /api/payroll/clear-range
+ * @access  Private/Admin
+ */
+const clearPayrollRange = async (req, res) => {
+  try {
+    const { fromDate, toDate, confirmText } = req.body;
+    
+    if (!fromDate || !toDate) {
+      return res.status(400).json({ success: false, message: 'From Date and To Date are required' });
+    }
+    
+    if (confirmText !== 'DELETE') {
+      return res.status(400).json({ success: false, message: 'Invalid confirmation text' });
+    }
+    
+    if (new Date(fromDate) > new Date(toDate)) {
+      return res.status(400).json({ success: false, message: 'From Date cannot be after To Date' });
+    }
+
+    const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
+    const adminId = req.user.id;
+    const adminName = req.user.name;
+
+    const start = new Date(fromDate);
+    const end = new Date(toDate);
+    
+    // Collect all month/year combinations
+    let conditions = [];
+    let params = [];
+    let paramIndex = 1;
+
+    let current = new Date(start.getFullYear(), start.getMonth(), 1);
+    const endLimit = new Date(end.getFullYear(), end.getMonth(), 1);
+
+    while (current <= endLimit) {
+      conditions.push(`(payroll_month = $${paramIndex} AND payroll_year = $${paramIndex + 1})`);
+      params.push(current.getMonth() + 1, current.getFullYear());
+      paramIndex += 2;
+      current.setMonth(current.getMonth() + 1);
+    }
+
+    if (conditions.length === 0) {
+      return res.json({ success: true, message: 'No matching months found', deletedCount: 0 });
+    }
+
+    const deleteQuery = `DELETE FROM payroll_records WHERE ${conditions.join(' OR ')} RETURNING id`;
+    const result = await pool.query(deleteQuery, params);
+
+    // Log the action
+    await logAdminActivity({
+      adminId,
+      adminName,
+      actionType: ADMIN_ACTION_TYPES.CLEAR_RANGE,
+      moduleName: MODULE_NAMES.PAYROLL,
+      description: `Cleared payroll records from ${fromDate} to ${toDate}. Count: ${result.rowCount}`,
+      ipAddress: req.ip
+    });
+
+    res.json({
+      success: true,
+      message: 'Payroll records cleared successfully',
+      deletedCount: result.rowCount
+    });
+
+  } catch (error) {
+    console.error('Clear payroll range error:', error);
+    res.status(500).json({ success: false, message: 'Server error while clearing records' });
+  }
+};
+
 module.exports = {
   getPayrollRecords,
   calculatePayroll,
@@ -458,5 +528,6 @@ module.exports = {
   exportPayroll,
   updatePayrollRecord,
   calculateSinglePayroll,
-  getPaySlipData
+  getPaySlipData,
+  clearPayrollRange
 };

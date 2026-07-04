@@ -4,7 +4,8 @@ import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
-import { getAbsentEmployees, updateAbsentReason, clearAbsentReason, getAllDepartments } from '../services/api';
+import { getAbsentEmployees, updateAbsentReason, clearAbsentReason, getAllDepartments, clearAbsentReasonRange } from '../services/api';
+import ClearRangeDialog from '../components/ClearRangeDialog';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateDateString } from '../utils/dateValidation';
 import { FiEdit, FiSearch, FiCalendar, FiFilter, FiSave, FiX, FiLayers, FiTrash2 } from 'react-icons/fi';
@@ -37,6 +38,7 @@ const AdminAbsentReasons = () => {
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
   const [clearingId, setClearingId] = useState(null);
+  const [clearDialog, setClearDialog] = useState({ isOpen: false, isLoading: false });
 
   const predefinedReasons = [
     'Medical Leave', 'Family Emergency', 'Personal Work', 
@@ -91,8 +93,22 @@ const AdminAbsentReasons = () => {
     setShowModal(true);
   };
 
-  const handleClearComingSoon = () => {
-    setToastConfig({ message: 'Clear feature will be implemented later.', type: 'info' });
+  const handleClearRange = async (data) => {
+    try {
+      setClearDialog(prev => ({ ...prev, isLoading: true }));
+      const response = await clearAbsentReasonRange(data);
+      if (response.data.success) {
+        setClearDialog({ isOpen: false, isLoading: false });
+        setToastConfig({ message: response.data.message || 'Records cleared successfully.', type: 'success' });
+        fetchData();
+      } else {
+        setClearDialog(prev => ({ ...prev, isLoading: false }));
+        setAlertDialog({ isOpen: true, title: 'Error', message: response.data.message || 'Failed to clear absent reasons', type: 'error' });
+      }
+    } catch (error) {
+      setClearDialog(prev => ({ ...prev, isLoading: false }));
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -162,7 +178,7 @@ const AdminAbsentReasons = () => {
               <p className="text-sm text-slate-400 mt-0.5">Record and track reasons for employee absences</p>
             </div>
             <div className="flex items-center">
-              <button onClick={handleClearComingSoon} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+              <button onClick={() => setClearDialog({ isOpen: true })} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
                 <FiTrash2 size={16} /> Clear Month
               </button>
             </div>
@@ -259,6 +275,14 @@ const AdminAbsentReasons = () => {
       </div>
 
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog(d => ({ ...d, isOpen: false }))} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
+      <ClearRangeDialog 
+        isOpen={clearDialog.isOpen} 
+        onClose={() => setClearDialog({ isOpen: false })} 
+        onConfirm={handleClearRange} 
+        title="Clear Absent Reasons Range" 
+        message="⚠️ WARNING: This will permanently clear absent reasons for the selected date range. This action cannot be undone." 
+        isLoading={clearDialog.isLoading}
+      />
 
       {toastConfig.message && (
         <AdminToast 

@@ -1054,3 +1054,181 @@ body.admin-theme-dark .payment-method-badge,
   color: color-mix(in srgb, var(--badge-text) 80%, white);
   border-color: color-mix(in srgb, var(--badge-border) 40%, transparent);
 }
+
+/* Clear Range Dialog Styles */
+.clear-range-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.clear-range-dialog {
+  width: 520px;
+  max-width: 95vw;
+  background: var(--admin-surface, #ffffff);
+  color: var(--admin-text, #0f172a);
+  border: 1px solid var(--admin-border, #e2e8f0);
+  border-radius: 16px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.clear-range-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--admin-border, #e2e8f0);
+}
+
+.clear-range-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.clear-range-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.clear-range-close {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clear-range-close:hover {
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.clear-range-body {
+  padding: 22px 24px;
+}
+
+.clear-range-warning {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fed7aa;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+
+.clear-range-field {
+  margin-bottom: 16px;
+}
+
+.clear-range-field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--admin-secondary, #475569);
+  margin-bottom: 7px;
+}
+
+.clear-range-input {
+  width: 100%;
+  height: 44px;
+  border: 1px solid var(--admin-border, #cbd5e1);
+  border-radius: 10px;
+  padding: 0 12px;
+  background: var(--admin-bg, #ffffff);
+  color: var(--admin-text, #0f172a);
+  font-size: 14px;
+  outline: none;
+}
+
+.clear-range-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.clear-range-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 18px 24px;
+  border-top: 1px solid var(--admin-border, #e2e8f0);
+  background: var(--admin-elevated, #f8fafc);
+}
+
+.clear-range-cancel-btn,
+.clear-range-confirm-btn {
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.clear-range-cancel-btn {
+  background: var(--admin-surface, #ffffff);
+  color: var(--admin-secondary, #334155);
+  border: 1px solid var(--admin-border, #cbd5e1);
+}
+
+.clear-range-confirm-btn {
+  background: #dc2626;
+  color: #ffffff;
+  border: 1px solid #dc2626;
+}
+
+.clear-range-confirm-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+body.admin-theme-dark .clear-range-dialog,
+.admin-theme-dark .clear-range-dialog {
+  background: #161D2E;
+  color: #FFFFFF;
+  border-color: #334155;
+}
+
+body.admin-theme-dark .clear-range-warning,
+.admin-theme-dark .clear-range-warning {
+  background: rgba(251, 146, 60, 0.12);
+  color: #fdba74;
+  border-color: rgba(251, 146, 60, 0.35);
+}
+
+body.admin-theme-dark .clear-range-input,
+.admin-theme-dark .clear-range-input {
+  background: #0E1320;
+  color: #FFFFFF;
+  border-color: #334155;
+}
+
+body.admin-theme-dark .clear-range-footer,
+.admin-theme-dark .clear-range-footer {
+  background: #0E1320;
+  border-color: #334155;
+}
+
+body.admin-theme-dark .clear-range-cancel-btn,
+.admin-theme-dark .clear-range-cancel-btn {
+  background: #1C2540;
+  color: #94A3B8;
+  border-color: #334155;
+}

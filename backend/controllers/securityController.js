@@ -310,11 +310,64 @@ const updateDeviceAlias = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Clear security audit logs for a date range
+ * @route   DELETE /api/security/clear-range
+ * @access  Private/Admin
+ */
+const clearSecurityLogRange = async (req, res) => {
+  try {
+    const { fromDate, toDate, confirmText } = req.body;
+    
+    if (!fromDate || !toDate) {
+      return res.status(400).json({ success: false, message: 'From Date and To Date are required' });
+    }
+    
+    if (confirmText !== 'DELETE') {
+      return res.status(400).json({ success: false, message: 'Invalid confirmation text' });
+    }
+    
+    if (new Date(fromDate) > new Date(toDate)) {
+      return res.status(400).json({ success: false, message: 'From Date cannot be after To Date' });
+    }
+
+    const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
+    const adminId = req.user.id;
+    const adminName = req.user.name;
+
+    const result = await pool.query(
+      'DELETE FROM audit_logs WHERE DATE(created_at) BETWEEN $1 AND $2 RETURNING id',
+      [fromDate, toDate]
+    );
+
+    // Log the action
+    await logAdminActivity({
+      adminId,
+      adminName,
+      actionType: ADMIN_ACTION_TYPES.CLEAR_RANGE,
+      moduleName: MODULE_NAMES.SECURITY,
+      description: `Cleared security audit logs from ${fromDate} to ${toDate}. Count: ${result.rowCount}`,
+      ipAddress: req.ip
+    });
+
+    res.json({
+      success: true,
+      message: 'Security logs cleared successfully',
+      deletedCount: result.rowCount
+    });
+
+  } catch (error) {
+    console.error('Clear security log range error:', error);
+    res.status(500).json({ success: false, message: 'Server error while clearing records' });
+  }
+};
+
 module.exports = {
   getAuditLogs,
   getDeviceFingerprints,
   getRateLimits,
   getSecurityStats,
   clearRateLimit,
-  updateDeviceAlias
+  updateDeviceAlias,
+  clearSecurityLogRange
 };

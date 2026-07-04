@@ -28,9 +28,19 @@ const getActivityLogs = async (req, res) => {
       });
     }
 
+    const safeLogs = result.logs.map(log => {
+      let dateObj = log.created_at;
+      if (dateObj instanceof Date) {
+        dateObj = dateObj.toISOString();
+      } else if (typeof dateObj === 'string' && !dateObj.endsWith('Z')) {
+        dateObj = dateObj + 'Z';
+      }
+      return { ...log, created_at: dateObj };
+    });
+
     res.json({
       success: true,
-      logs: result.logs,
+      logs: safeLogs,
       pagination: result.pagination
     });
   } catch (error) {
@@ -56,9 +66,22 @@ const getStats = async (req, res) => {
       });
     }
 
+    let safeStats = result.stats;
+    if (safeStats.recent) {
+      safeStats.recent = safeStats.recent.map(log => {
+        let dateObj = log.created_at;
+        if (dateObj instanceof Date) {
+          dateObj = dateObj.toISOString();
+        } else if (typeof dateObj === 'string' && !dateObj.endsWith('Z')) {
+          dateObj = dateObj + 'Z';
+        }
+        return { ...log, created_at: dateObj };
+      });
+    }
+
     res.json({
       success: true,
-      stats: result.stats
+      stats: safeStats
     });
   } catch (error) {
     console.error('Get activity stats error:', error);
@@ -88,9 +111,18 @@ const getActivityById = async (req, res) => {
       });
     }
 
+    let safeLog = result.rows[0];
+    let dateObj = safeLog.created_at;
+    if (dateObj instanceof Date) {
+      dateObj = dateObj.toISOString();
+    } else if (typeof dateObj === 'string' && !dateObj.endsWith('Z')) {
+      dateObj = dateObj + 'Z';
+    }
+    safeLog.created_at = dateObj;
+
     res.json({
       success: true,
-      log: result.rows[0]
+      log: safeLog
     });
   } catch (error) {
     console.error('Get activity by ID error:', error);
@@ -288,11 +320,62 @@ const getModuleNames = async (req, res) => {
   }
 };
 
+/**
+ * Clear activity logs for a date range
+ */
+const clearActivityLogRange = async (req, res) => {
+  try {
+    const { fromDate, toDate, confirmText } = req.body;
+    
+    if (!fromDate || !toDate) {
+      return res.status(400).json({ success: false, message: 'From Date and To Date are required' });
+    }
+    
+    if (confirmText !== 'DELETE') {
+      return res.status(400).json({ success: false, message: 'Invalid confirmation text' });
+    }
+    
+    if (new Date(fromDate) > new Date(toDate)) {
+      return res.status(400).json({ success: false, message: 'From Date cannot be after To Date' });
+    }
+
+    const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
+    const adminId = req.user.id;
+    const adminName = req.user.name;
+
+    const result = await pool.query(
+      'DELETE FROM admin_activity_logs WHERE DATE(created_at) BETWEEN $1 AND $2 RETURNING id',
+      [fromDate, toDate]
+    );
+
+    // Log the action AFTER the deletion so this log entry itself isn't deleted
+    await logAdminActivity({
+      adminId,
+      adminName,
+      actionType: ADMIN_ACTION_TYPES.CLEAR_RANGE,
+      moduleName: MODULE_NAMES.ACTIVITY_LOGS,
+      description: `Cleared activity logs from ${fromDate} to ${toDate}. Count: ${result.rowCount}`,
+      ipAddress: req.ip
+    });
+
+    res.json({
+      success: true,
+      message: 'Activity logs cleared successfully',
+      deletedCount: result.rowCount
+    });
+
+  } catch (error) {
+    console.error('Clear activity logs range error:', error);
+    res.status(500).json({ success: false, message: 'Server error while clearing logs' });
+  }
+};
+
 module.exports = {
   getActivityLogs,
   getStats,
   getActivityById,
   exportActivityLogs,
   getActionTypes,
-  getModuleNames
+  getModuleNames,
+  clearActivityLogRange
 };

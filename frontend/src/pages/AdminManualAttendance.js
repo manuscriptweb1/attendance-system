@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
 import ConfirmDialog from '../components/ConfirmDialog';
+import ClearRangeDialog from '../components/ClearRangeDialog';
 import AdminToast from '../components/AdminToast';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
-import { getAllDepartments, getEmployeesForManualAttendance, createManualAttendance, updateManualAttendance, deleteManualAttendance, checkInRowManualAttendance, checkOutRowManualAttendance } from '../services/api';
+import { getAllDepartments, getEmployeesForManualAttendance, createManualAttendance, updateManualAttendance, deleteManualAttendance, checkInRowManualAttendance, checkOutRowManualAttendance, clearManualAttendanceRange } from '../services/api';
 import { formatTime } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateDateString } from '../utils/dateValidation';
@@ -41,6 +42,7 @@ const AdminManualAttendance = () => {
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', type: 'warning', confirmText: 'Confirm', onConfirm: null });
+  const [clearDialog, setClearDialog] = useState({ isOpen: false, isLoading: false });
 
   useEffect(() => {
     fetchDepartments();
@@ -251,8 +253,22 @@ const AdminManualAttendance = () => {
     }
   };
 
-  const handleClearComingSoon = () => {
-    setAlertDialog({ isOpen: true, title: 'Notice', message: 'Clear feature will be implemented later.', type: 'info' });
+  const handleClearRange = async (data) => {
+    try {
+      setClearDialog(prev => ({ ...prev, isLoading: true }));
+      const response = await clearManualAttendanceRange(data);
+      if (response.data.success) {
+        setClearDialog({ isOpen: false, isLoading: false });
+        setToastConfig({ message: response.data.message || 'Records cleared successfully', type: 'success' });
+        fetchData();
+      } else {
+        setClearDialog(prev => ({ ...prev, isLoading: false }));
+        setAlertDialog({ isOpen: true, title: 'Error', message: response.data.message || 'Failed to clear records', type: 'error' });
+      }
+    } catch (error) {
+      setClearDialog(prev => ({ ...prev, isLoading: false }));
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' });
+    }
   };
 
   const filteredEmployeesRaw = employees.filter(emp =>
@@ -274,7 +290,7 @@ const AdminManualAttendance = () => {
               <p className="text-sm text-slate-400 mt-0.5">Emergency Attendance Management</p>
             </div>
             <div className="flex flex-wrap gap-2.5">
-              <button onClick={handleClearComingSoon} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+              <button onClick={() => setClearDialog({ isOpen: true })} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
                 <FiTrash2 size={16} /> Clear Month
               </button>
               <button onClick={openBulkModal} disabled={selectedIds.length === 0 || isSunday}
@@ -513,6 +529,14 @@ const AdminManualAttendance = () => {
         confirmText={confirmDialog.confirmText || 'Confirm'}
       />
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog(d => ({ ...d, isOpen: false }))} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
+      <ClearRangeDialog 
+        isOpen={clearDialog.isOpen} 
+        onClose={() => setClearDialog({ isOpen: false })} 
+        onConfirm={handleClearRange} 
+        title="Clear Manual Attendance Range" 
+        message="⚠️ WARNING: This will permanently delete ALL manual attendance records for the selected date range. This action cannot be undone." 
+        isLoading={clearDialog.isLoading}
+      />
 
       {/* Add/Edit Modal */}
       {showModal && (

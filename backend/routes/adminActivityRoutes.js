@@ -6,7 +6,8 @@ const {
   getActivityById,
   exportActivityLogs,
   getActionTypes,
-  getModuleNames
+  getModuleNames,
+  clearActivityLogRange
 } = require('../controllers/adminActivityController');
 const { verifyToken, isAdmin } = require('../middleware/auth');
 
@@ -16,6 +17,9 @@ router.use(isAdmin);
 
 // Get activity logs with filters
 router.get('/logs', getActivityLogs);
+
+// Clear activity logs for date range
+router.delete('/clear-range', clearActivityLogRange);
 
 // Get activity statistics
 router.get('/stats', getStats);

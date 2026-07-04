@@ -3,9 +3,10 @@ import Sidebar from '../components/Sidebar';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
+import ClearRangeDialog from '../components/ClearRangeDialog';
 import { Spinner } from '../components/Loader';
 import { FiUmbrella, FiPlus, FiEdit2, FiTrash2, FiCalendar, FiSun, FiMap, FiCheckCircle } from 'react-icons/fi';
-import { getAllHolidays, addHoliday, updateHoliday, deleteHoliday, toggleHolidayStatus } from '../services/api';
+import { getAllHolidays, addHoliday, updateHoliday, deleteHoliday, toggleHolidayStatus, clearHolidayRange } from '../services/api';
 import { formatDate } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateDateString } from '../utils/dateValidation';
@@ -77,6 +78,7 @@ const AdminHolidays = () => {
   const [confirmDialog, setConfirmDialog] = useState({ isOpen:false, title:'', message:'', onConfirm:null, type:'danger' });
   const [alertDialog, setAlertDialog] = useState({ isOpen:false, title:'', message:'', type:'success' });
   const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
+  const [clearDialog, setClearDialog] = useState({ isOpen: false, isLoading: false });
 
   useEffect(() => { fetchHolidays(); }, []);
 
@@ -116,8 +118,22 @@ const AdminHolidays = () => {
   });
   const openEdit = holiday => { setSelectedHoliday(holiday); setFormData({ holiday_date: holiday.holiday_date.split('T')[0], holiday_type: holiday.holiday_type, holiday_title: holiday.holiday_title, holiday_note: holiday.holiday_note || '', is_enabled: holiday.is_enabled }); setShowEditModal(true); };
 
-  const handleClearComingSoon = () => {
-    setToastConfig({ message: 'Clear feature will be implemented later.', type: 'info' });
+  const handleClearRange = async (data) => {
+    try {
+      setClearDialog(prev => ({ ...prev, isLoading: true }));
+      const response = await clearHolidayRange(data);
+      if (response.data.success) {
+        setClearDialog({ isOpen: false, isLoading: false });
+        setToastConfig({ message: response.data.message || 'Records cleared successfully.', type: 'success' });
+        fetchHolidays();
+      } else {
+        setClearDialog(prev => ({ ...prev, isLoading: false }));
+        setAlertDialog({ isOpen: true, title: 'Error', message: response.data.message || 'Failed to clear holidays', type: 'error' });
+      }
+    } catch (error) {
+      setClearDialog(prev => ({ ...prev, isLoading: false }));
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' });
+    }
   };
 
   /* ─── STATS ─── */
@@ -149,9 +165,9 @@ const AdminHolidays = () => {
               <p className="text-sm text-admin-muted mt-1.5 font-medium">Configure organization-wide holidays and non-working days.</p>
             </div>
             {/* Floating Add Button for Mobile */}
-            <div className="fixed bottom-6 right-6 z-40 md:relative md:bottom-0 md:right-0 flex flex-col md:flex-row gap-3">
-              <button onClick={handleClearComingSoon} className="w-14 h-14 md:w-auto md:h-auto flex items-center justify-center md:px-5 md:py-2.5 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 md:text-xs md:font-bold rounded-full md:rounded-xl transition-all hover:-translate-y-1 shadow-sm">
-                <FiTrash2 size={24} className="md:w-4 md:h-4 md:mr-2" />
+            <div className="fixed bottom-6 right-6 z-40 md:relative md:bottom-0 md:right-0 flex items-center gap-3">
+              <button onClick={() => setClearDialog({ isOpen: true })} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                <FiTrash2 size={16} />
                 <span className="hidden md:inline">Clear Holidays</span>
               </button>
               <button onClick={() => { resetForm(); setShowAddModal(true); }} className="w-14 h-14 md:w-auto md:h-auto flex items-center justify-center md:px-5 md:py-2.5 bg-blue-600 hover:bg-blue-500 text-white md:text-xs md:font-bold rounded-full md:rounded-xl shadow-[0_8px_24px_rgba(59,130,246,0.4)] hover:shadow-[0_12px_28px_rgba(59,130,246,0.5)] transition-all hover:-translate-y-1">
@@ -258,6 +274,16 @@ const AdminHolidays = () => {
       
       <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(d => ({ ...d, isOpen:false }))} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText="Delete" />
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog(d => ({ ...d, isOpen:false }))} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
+      
+      <ClearRangeDialog 
+        isOpen={clearDialog.isOpen} 
+        onClose={() => setClearDialog({ isOpen: false })} 
+        onConfirm={handleClearRange} 
+        title="Clear Holidays Range" 
+        message="⚠️ WARNING: This will permanently delete ALL holidays for the selected date range. This action cannot be undone." 
+        isLoading={clearDialog.isLoading}
+      />
+
       <AdminToast 
         message={toastConfig.message} 
         type={toastConfig.type} 

@@ -13,7 +13,8 @@ const {
   resetAttendance,
   deleteAttendance,
   toggleEarlyCheckout,
-  ensureDailyAttendanceRecords
+  ensureDailyAttendanceRecords,
+  clearAttendanceRange
 } = require('../controllers/attendanceController');
 const { autoCheckoutEmployees } = require('../jobs/autoCheckout');
 
@@ -28,6 +29,7 @@ router.get('/all', verifyToken, isAdmin, getAllAttendance);
 router.get('/stats', verifyToken, isAdmin, getDashboardStats);
 router.get('/absent', verifyToken, isAdmin, getAbsentEmployees);
 router.post('/reset', verifyToken, isAdmin, resetAttendance);
+router.delete('/clear-range', verifyToken, isAdmin, clearAttendanceRange);
 router.delete('/:id', verifyToken, isAdmin, deleteAttendance);
 router.post('/early-checkout', verifyToken, isAdmin, toggleEarlyCheckout);
 

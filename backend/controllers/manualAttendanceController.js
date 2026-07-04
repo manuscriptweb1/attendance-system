@@ -723,6 +723,72 @@ const checkOutRow = async (req, res) => {
     client.release();
   }
 };
+/**
+ * @desc    Clear manual attendance records for a date range
+ * @route   DELETE /api/manual-attendance/clear-range
+ * @access  Private/Admin
+ */
+const clearManualAttendanceRange = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { fromDate, toDate, confirmText } = req.body;
+    
+    if (!fromDate || !toDate) {
+      return res.status(400).json({ success: false, message: 'From Date and To Date are required' });
+    }
+    
+    if (confirmText !== 'DELETE') {
+      return res.status(400).json({ success: false, message: 'Invalid confirmation text' });
+    }
+    
+    if (new Date(fromDate) > new Date(toDate)) {
+      return res.status(400).json({ success: false, message: 'From Date cannot be after To Date' });
+    }
+
+    const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
+    const adminId = req.user.id;
+    const adminName = req.user.name;
+
+    await client.query('BEGIN');
+
+    // Delete manual logs
+    const logsResult = await client.query(
+      'DELETE FROM manual_attendance_logs WHERE attendance_date BETWEEN $1 AND $2 RETURNING id',
+      [fromDate, toDate]
+    );
+
+    // Delete manual-created attendance rows
+    const attendanceResult = await client.query(
+      "DELETE FROM attendance WHERE validation_method = 'Manual' AND attendance_date BETWEEN $1 AND $2 RETURNING id",
+      [fromDate, toDate]
+    );
+
+    await client.query('COMMIT');
+
+    // Log the action
+    await logAdminActivity({
+      adminId,
+      adminName,
+      actionType: ADMIN_ACTION_TYPES.CLEAR_RANGE,
+      moduleName: MODULE_NAMES.MANUAL_ATTENDANCE,
+      description: `Cleared manual attendance records from ${fromDate} to ${toDate}. Count: logs(${logsResult.rowCount}), attendance(${attendanceResult.rowCount})`,
+      ipAddress: req.ip
+    });
+
+    res.json({
+      success: true,
+      message: 'Manual records cleared successfully',
+      deletedCount: attendanceResult.rowCount
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Clear manual attendance range error:', error);
+    res.status(500).json({ success: false, message: 'Server error while clearing manual records' });
+  } finally {
+    client.release();
+  }
+};
 
 module.exports = {
   getEmployeesForManualAttendance,
@@ -730,6 +796,6 @@ module.exports = {
   updateManualAttendance,
   deleteManualAttendance,
   checkInRow,
-  checkOutRow
+  checkOutRow,
+  clearManualAttendanceRange
 };
-

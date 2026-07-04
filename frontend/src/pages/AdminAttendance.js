@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
-import ClearDataDialog from '../components/ClearDataDialog';
+import ClearRangeDialog from '../components/ClearRangeDialog';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
-import { getAllAttendance, downloadMonthlyMatrixPDF, downloadMonthlyMatrixExcel, downloadMonthlyExcel, resetAttendance, deleteAttendance, clearMonthlyAttendance } from '../services/api';
+import { getAllAttendance, downloadMonthlyMatrixPDF, downloadMonthlyMatrixExcel, downloadMonthlyExcel, resetAttendance, deleteAttendance, clearAttendanceRange } from '../services/api';
 import { formatTime, formatDate, formatWorkingHours } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateDateString, validateMonthYear } from '../utils/dateValidation';
@@ -95,15 +95,20 @@ const AdminAttendance = () => {
     },
   });
 
-  const handleClearMonthlyAttendance = async (year, month) => {
+  const handleClearRange = async (data) => {
     try {
-      const response = await clearMonthlyAttendance(year, month);
+      setClearDialog(prev => ({ ...prev, isLoading: true }));
+      const response = await clearAttendanceRange(data);
       if (response.data.success) {
+        setClearDialog({ isOpen: false, isLoading: false });
+        setAlertDialog({ isOpen: true, title: 'Success', message: response.data.message || 'Records cleared successfully.', type: 'success' });
         fetchAttendance();
       } else {
+        setClearDialog(prev => ({ ...prev, isLoading: false }));
         setAlertDialog({ isOpen: true, title: 'Error', message: response.data.message || 'Failed to clear attendance', type: 'error' });
       }
     } catch (error) {
+      setClearDialog(prev => ({ ...prev, isLoading: false }));
       setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' });
     }
   };
@@ -352,7 +357,14 @@ const AdminAttendance = () => {
 
       <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(d => ({ ...d, isOpen:false }))} onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(d => ({ ...d, isOpen:false })); }} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText={confirmDialog.type === 'danger' ? 'Delete' : 'Confirm'} />
       <AlertDialog   isOpen={alertDialog.isOpen}   onClose={() => setAlertDialog(d => ({ ...d, isOpen:false }))}   title={alertDialog.title}   message={alertDialog.message}   type={alertDialog.type} />
-      <ClearDataDialog isOpen={clearDialog.isOpen} onClose={() => setClearDialog({ isOpen: false })} onConfirm={handleClearMonthlyAttendance} title="Clear Monthly Attendance" message="⚠️ WARNING: This will permanently delete ALL attendance records for the selected month and year. This action cannot be undone." confirmText="delete this month attendance" type="attendance" />
+      <ClearRangeDialog 
+        isOpen={clearDialog.isOpen} 
+        onClose={() => setClearDialog({ isOpen: false })} 
+        onConfirm={handleClearRange} 
+        title="Clear Attendance Range" 
+        message="⚠️ WARNING: This will permanently delete ALL attendance records for the selected date range. This action cannot be undone." 
+        isLoading={clearDialog.isLoading}
+      />
     </div>
   );
 };

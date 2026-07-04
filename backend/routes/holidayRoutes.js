@@ -8,13 +8,15 @@ const {
   updateHoliday,
   toggleHolidayStatus,
   deleteHoliday,
-  checkHolidayStatus
+  checkHolidayStatus,
+  clearHolidayRange
 } = require('../controllers/holidayController');
 
 // Admin routes
 router.get('/', verifyToken, isAdmin, getAllHolidays);
 router.get('/date/:date', verifyToken, isAdmin, getHolidayByDate);
 router.post('/', verifyToken, isAdmin, addHoliday);
+router.delete('/clear-range', verifyToken, isAdmin, clearHolidayRange);
 router.put('/:id', verifyToken, isAdmin, updateHoliday);
 router.patch('/:id/toggle', verifyToken, isAdmin, toggleHolidayStatus);
 router.delete('/:id', verifyToken, isAdmin, deleteHoliday);

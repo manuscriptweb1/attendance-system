@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { 
   getExpenseTypes, getActiveExpenseTypes, addExpenseType, updateExpenseType, deleteExpenseType,
-  getExpenses, getExpenseSummary, addExpense, updateExpense, deleteExpense, exportExpenses 
+  getExpenses, getExpenseSummary, addExpense, updateExpense, deleteExpense, exportExpenses, clearExpenseRange 
 } = require('../controllers/expenseController');
 const { verifyToken, isAdmin } = require('../middleware/auth');
 
@@ -18,6 +18,7 @@ router.get('/summary', verifyToken, isAdmin, getExpenseSummary);
 router.get('/export', verifyToken, isAdmin, exportExpenses);
 router.get('/', verifyToken, isAdmin, getExpenses);
 router.post('/', verifyToken, isAdmin, addExpense);
+router.delete('/clear-range', verifyToken, isAdmin, clearExpenseRange);
 router.put('/:id', verifyToken, isAdmin, updateExpense);
 router.delete('/:id', verifyToken, isAdmin, deleteExpense);
 

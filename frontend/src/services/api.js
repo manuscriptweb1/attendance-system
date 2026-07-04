@@ -146,8 +146,8 @@ export const addHoliday = (data) =>
 export const updateHoliday = (id, data) => 
   api.put(`/holidays/${id}`, data);
 
-export const deleteHoliday = (id) => 
-  api.delete(`/holidays/${id}`);
+export const deleteHoliday = (id) => api.delete(`/holidays/${id}`);
+export const clearHolidayRange = (data) => api.delete('/holidays/clear-range', { data });
 
 export const toggleHolidayStatus = (id, is_enabled) => 
   api.patch(`/holidays/${id}/toggle`, { is_enabled });
@@ -170,6 +170,9 @@ export const resetAttendance = (attendanceId, resetType) =>
 
 export const deleteAttendance = (id) => 
   api.delete(`/attendance/${id}`);
+
+export const clearAttendanceRange = (data) =>
+  api.delete('/attendance/clear-range', { data });
 
 // Password Management APIs
 export const requestPasswordChange = (currentPassword) => 
@@ -200,6 +203,9 @@ export const updateOTPSettings = (data) =>
 // Security APIs (Admin only)
 export const getAuditLogs = (params) => 
   api.get('/security/audit-logs', { params });
+
+export const clearSecurityLogRange = (data) =>
+  api.delete('/security/clear-range', { data });
 
 export const getDeviceFingerprints = (params) => 
   api.get('/security/device-fingerprints', { params });
@@ -264,10 +270,10 @@ export const getPayrollRecords = (month, year) =>
   api.get('/payroll', { params: { month, year } });
 export const calculatePayroll = (month, year) => 
   api.post('/payroll/calculate', { month, year });
-export const updatePayrollStatus = (id, status) => 
-  api.patch(`/payroll/${id}/status`, { status });
+export const updatePayrollRecord = (id, data) => api.put(`/payroll/${id}`, data);
 export const exportPayroll = (month, year) => 
   api.get('/payroll/export', { params: { month, year }, responseType: 'blob' });
+export const clearPayrollRange = (data) => api.delete('/payroll/clear-range', { data });
 
 // --- Expenses ---
 export const getExpenseTypes = () => api.get('/expenses/expense-types');
@@ -280,6 +286,7 @@ export const getExpenseSummary = (month, year) => api.get('/expenses/summary', {
 export const addExpense = (data) => api.post('/expenses', data);
 export const updateExpense = (id, data) => api.put(`/expenses/${id}`, data);
 export const deleteExpense = (id) => api.delete(`/expenses/${id}`);
+export const clearExpenseRange = (data) => api.delete('/expenses/clear-range', { data });
 export const exportExpenses = (month, year) => api.get('/expenses/export', { params: { month, year }, responseType: 'blob' });
 
 // --- Manual Attendance ---
@@ -289,17 +296,22 @@ export const updateManualAttendance = (id, data) => api.put(`/manual-attendance/
 export const deleteManualAttendance = (id) => api.delete(`/manual-attendance/${id}`);
 export const checkInRowManualAttendance = (data) => api.post('/manual-attendance/check-in', data);
 export const checkOutRowManualAttendance = (data) => api.post('/manual-attendance/check-out', data);
+export const clearManualAttendanceRange = (data) => api.delete('/manual-attendance/clear-range', { data });
 
 // --- Absent Reason ---
 export const getAbsentEmployees = (params) => api.get('/absent-reasons', { params });
 export const updateAbsentReason = (id, data) => api.put(`/absent-reasons/${id}`, data);
 export const clearAbsentReason = (id) => api.delete(`/absent-reasons/${id}/clear`);
+export const clearAbsentReasonRange = (data) => api.put('/absent-reasons/clear-range', data);
 
 export default api;
 
 // Admin Activity APIs
 export const getAdminActivityLogs = (params) => 
   api.get('/admin-activity/logs', { params });
+
+export const clearAdminActivityLogRange = (data) =>
+  api.delete('/admin-activity/clear-range', { data });
 
 export const getAdminActivityStats = () => 
   api.get('/admin-activity/stats');

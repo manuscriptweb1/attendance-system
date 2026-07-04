@@ -7,7 +7,8 @@ const {
   updateManualAttendance,
   deleteManualAttendance,
   checkInRow,
-  checkOutRow
+  checkOutRow,
+  clearManualAttendanceRange
 } = require('../controllers/manualAttendanceController');
 
 // All routes are admin-only
@@ -17,6 +18,7 @@ router.get('/employees', getEmployeesForManualAttendance);
 router.post('/check-in', checkInRow);
 router.post('/check-out', checkOutRow);
 router.post('/', createManualAttendance);
+router.delete('/clear-range', clearManualAttendanceRange);
 router.put('/:id', updateManualAttendance);
 router.delete('/:id', deleteManualAttendance);
 

@@ -3,8 +3,9 @@ import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
 import ConfirmDialog from '../components/ConfirmDialog';
+import ClearRangeDialog from '../components/ClearRangeDialog';
 import { Spinner } from '../components/Loader';
-import api from '../services/api';
+import api, { clearExpenseRange } from '../services/api';
 import { formatDate } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateMonthYear } from '../utils/dateValidation';
@@ -82,6 +83,7 @@ const AdminExpenses = () => {
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'danger' });
+  const [clearDialog, setClearDialog] = useState({ isOpen: false, isLoading: false });
 
   // Sorting
   const [sortConfig, setSortConfig] = useState({ key: 'expense_date', direction: 'desc' });
@@ -300,8 +302,22 @@ const AdminExpenses = () => {
     return 0;
   });
 
-  const handleClearComingSoon = () => {
-    setAlertDialog({ isOpen: true, title: 'Notice', message: 'Clear feature will be implemented later.', type: 'info' });
+  const handleClearRange = async (data) => {
+    try {
+      setClearDialog(prev => ({ ...prev, isLoading: true }));
+      const response = await clearExpenseRange(data);
+      if (response.data.success) {
+        setClearDialog({ isOpen: false, isLoading: false });
+        setToastConfig({ message: response.data.message || 'Records cleared successfully.', type: 'success' });
+        fetchData();
+      } else {
+        setClearDialog(prev => ({ ...prev, isLoading: false }));
+        setAlertDialog({ isOpen: true, title: 'Error', message: response.data.message || 'Failed to clear expenses', type: 'error' });
+      }
+    } catch (error) {
+      setClearDialog(prev => ({ ...prev, isLoading: false }));
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' });
+    }
   };
 
   return (
@@ -317,7 +333,7 @@ const AdminExpenses = () => {
               <p className="text-sm text-admin-muted mt-1.5 font-medium">Track and manage company expenses.</p>
             </div>
             <div className="flex flex-wrap gap-2.5">
-              <button onClick={handleClearComingSoon} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+              <button onClick={() => setClearDialog({ isOpen: true })} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
                 <FiTrash2 size={16} /> Clear Month
               </button>
               <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-glow-blue-sm">
@@ -475,6 +491,14 @@ const AdminExpenses = () => {
 
       <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(d => ({ ...d, isOpen: false }))} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} />
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog(d => ({ ...d, isOpen: false }))} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
+      <ClearRangeDialog 
+        isOpen={clearDialog.isOpen} 
+        onClose={() => setClearDialog({ isOpen: false })} 
+        onConfirm={handleClearRange} 
+        title="Clear Expenses Range" 
+        message="⚠️ WARNING: This will permanently delete ALL expenses for the selected date range. This action cannot be undone." 
+        isLoading={clearDialog.isLoading}
+      />
 
       {/* Add/Edit Modal */}
       {showModal && (

@@ -7,7 +7,7 @@ import { Spinner } from '../components/Loader';
 import api from '../services/api';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateMonthYear } from '../utils/dateValidation';
-import { FiDownload, FiRefreshCw, FiDollarSign, FiEdit2, FiFileText, FiX, FiCheckCircle } from 'react-icons/fi';
+import { FiDownload, FiRefreshCw, FiDollarSign, FiEdit2, FiFileText, FiX, FiCheckCircle, FiTrash2 } from 'react-icons/fi';
 import { sortEmployeeRows } from '../utils/sorting';
 
 const formatCurrency = (value) => {
@@ -207,6 +207,10 @@ const AdminPayroll = () => {
     }
   };
 
+  const handleClearComingSoon = () => {
+    setAlertDialog({ isOpen: true, title: 'Notice', message: 'Clear feature will be implemented later.', type: 'info' });
+  };
+
   const totalNetPayable = records.reduce((sum, r) => sum + (parseFloat(r.netPayable) || 0), 0);
 
   return (
@@ -238,11 +242,15 @@ const AdminPayroll = () => {
                 <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="admin-select py-2 text-sm text-admin-muted cursor-pointer max-w-[160px]">
                   <option value="name_asc">Name A-Z</option>
                   <option value="name_desc">Name Z-A</option>
-
                 </select>
               </div>
 
               <div className="flex flex-wrap gap-2.5">
+                <button
+                  onClick={handleClearComingSoon}
+                  className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                  <FiTrash2 size={16} /> Clear Month
+                </button>
                 <button
                   onClick={handleCalculate}
                   disabled={calculating}

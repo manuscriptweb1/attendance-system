@@ -143,7 +143,7 @@ const createManualAttendance = async (req, res) => {
 
       // Check if attendance already exists
       const checkResult = await client.query(
-        'SELECT id, attendance_status FROM attendance WHERE employee_id = $1 AND attendance_date = $2',
+        'SELECT id, attendance_status FROM attendance WHERE employee_id = $1 AND attendance_date = $2::DATE',
         [employee_id, attendance_date]
       );
 
@@ -228,14 +228,31 @@ const createManualAttendance = async (req, res) => {
         );
         newAttendance = updateResult.rows[0];
       } else {
-        // Insert new attendance
+        // Insert new attendance with Upsert fallback
         const insertResult = await client.query(
           `INSERT INTO attendance (
             employee_id, attendance_date, login_time, logout_time, 
             total_working_hours, attendance_status, is_wfh, 
             validation_method, device_info,
             total_minutes, total_hours, checkin_status, checkout_status, late_minutes, early_minutes, absent_reason
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *`,
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+          ON CONFLICT (employee_id, attendance_date) DO UPDATE SET
+            login_time = EXCLUDED.login_time,
+            logout_time = EXCLUDED.logout_time,
+            total_working_hours = EXCLUDED.total_working_hours,
+            attendance_status = EXCLUDED.attendance_status,
+            is_wfh = EXCLUDED.is_wfh,
+            validation_method = EXCLUDED.validation_method,
+            device_info = EXCLUDED.device_info,
+            total_minutes = EXCLUDED.total_minutes,
+            total_hours = EXCLUDED.total_hours,
+            checkin_status = EXCLUDED.checkin_status,
+            checkout_status = EXCLUDED.checkout_status,
+            late_minutes = EXCLUDED.late_minutes,
+            early_minutes = EXCLUDED.early_minutes,
+            absent_reason = EXCLUDED.absent_reason,
+            updated_at = CURRENT_TIMESTAMP
+          RETURNING *`,
           [
             employee_id, attendance_date, login_time || null, logout_time || null,
             workingHours, finalResolvedStatus, is_wfh || false,

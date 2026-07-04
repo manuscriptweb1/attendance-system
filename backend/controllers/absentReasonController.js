@@ -100,7 +100,7 @@ const updateAbsentReason = async (req, res) => {
 
       // Check if attendance already exists just in case
       const existing = await pool.query(
-        'SELECT id, attendance_status FROM attendance WHERE employee_id = $1 AND attendance_date = $2',
+        'SELECT id, attendance_status FROM attendance WHERE employee_id = $1 AND attendance_date = $2::DATE',
         [employee_id, date]
       );
 
@@ -117,12 +117,18 @@ const updateAbsentReason = async (req, res) => {
         );
         attendanceRecord = updateResult.rows[0];
       } else {
-        // Insert new Absent record
+        // Insert new Absent record with Upsert fallback
         const insertResult = await pool.query(
           `INSERT INTO attendance (
              employee_id, attendance_date, attendance_status, 
              absent_reason, validation_method, created_at, updated_at
-           ) VALUES ($1, $2, 'Absent', $3, 'Manual', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING *`,
+           ) VALUES ($1, $2, 'Absent', $3, 'Manual', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+           ON CONFLICT (employee_id, attendance_date) DO UPDATE SET
+             attendance_status = 'Absent',
+             absent_reason = EXCLUDED.absent_reason,
+             validation_method = 'Manual',
+             updated_at = CURRENT_TIMESTAMP
+           RETURNING *`,
           [employee_id, date, reason]
         );
         attendanceRecord = insertResult.rows[0];

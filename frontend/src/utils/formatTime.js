@@ -14,20 +14,45 @@ export const formatWorkingHours = (decimalHours) => {
   }
 };
 
+const normalizeTimestamp = (value) => {
+  if (!value) return null;
+
+  // If timestamp has no timezone, treat it safely as UTC
+  if (
+    typeof value === "string" &&
+    !value.endsWith("Z") &&
+    !value.includes("+") &&
+    !value.includes("T")
+  ) {
+    return `${value.replace(" ", "T")}Z`;
+  }
+
+  if (
+    typeof value === "string" &&
+    !value.endsWith("Z") &&
+    !value.includes("+")
+  ) {
+    return `${value}Z`;
+  }
+
+  return value;
+};
+
 // Format time from timestamp safely in Asia/Kolkata timezone
 export const formatTime = (timestamp) => {
-  if (!timestamp) return '-';
+  const normalized = normalizeTimestamp(timestamp);
+  if (!normalized) return '-';
   try {
-    const d = new Date(timestamp);
+    const d = new Date(normalized);
     if (isNaN(d.getTime())) return '-';
     
     // Explicitly use IST to prevent browser local timezone shifting
-    return new Intl.DateTimeFormat('en-US', {
+    return d.toLocaleTimeString('en-IN', {
       timeZone: 'Asia/Kolkata',
       hour: '2-digit',
       minute: '2-digit',
       hour12: true
-    }).format(d);
+    });
   } catch (err) {
     return '-';
   }
@@ -35,12 +60,21 @@ export const formatTime = (timestamp) => {
 
 // Format date
 export const formatDate = (date) => {
-  if (!date) return '-';
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
+  const normalized = normalizeTimestamp(date);
+  if (!normalized) return '-';
+  try {
+    const d = new Date(normalized);
+    if (isNaN(d.getTime())) return '-';
+
+    return d.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  } catch (err) {
+    return '-';
+  }
 };
 
 // Convert 24-hour time format (HH:MM) to 12-hour format (hh:MM AM/PM)

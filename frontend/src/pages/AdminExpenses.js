@@ -10,6 +10,54 @@ import { getErrorMessage } from '../utils/errorHandler';
 import { validateMonthYear } from '../utils/dateValidation';
 import { FiDownload, FiPlus, FiEdit, FiTrash2, FiTrendingUp, FiCreditCard, FiDollarSign, FiArchive, FiX, FiSettings, FiCheckCircle, FiMinusCircle } from 'react-icons/fi';
 
+const getBadgePalette = (str) => {
+  if (!str) return { bg: "#f1f5f9", text: "#475569", border: "#cbd5e1" };
+  const palettes = [
+    { bg: "#fee2e2", text: "#991b1b", border: "#fca5a5" },
+    { bg: "#ffedd5", text: "#9a3412", border: "#fdba74" },
+    { bg: "#fef3c7", text: "#b45309", border: "#fcd34d" },
+    { bg: "#dcfce7", text: "#15803d", border: "#86efac" },
+    { bg: "#e0f2fe", text: "#0369a1", border: "#7dd3fc" },
+    { bg: "#ede9fe", text: "#6d28d9", border: "#c4b5fd" },
+    { bg: "#fae8ff", text: "#a21caf", border: "#f0abfc" },
+    { bg: "#ffe4e6", text: "#be123c", border: "#fda4af" },
+  ];
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return palettes[Math.abs(hash) % palettes.length];
+};
+
+const expenseTypeColors = {
+  "Editorial Expenses": { bg: "#e0f2fe", text: "#0369a1", border: "#7dd3fc" },
+  "Freelancer": { bg: "#ede9fe", text: "#6d28d9", border: "#c4b5fd" },
+  "Office Staff": { bg: "#dcfce7", text: "#15803d", border: "#86efac" },
+  "Rent": { bg: "#fef3c7", text: "#b45309", border: "#fcd34d" },
+  "Reviewer Expenses": { bg: "#fae8ff", text: "#a21caf", border: "#f0abfc" },
+  "Other": { bg: "#f1f5f9", text: "#475569", border: "#cbd5e1" }
+};
+
+const paymentMethodColors = {
+  "Bank": { bg: "#dbeafe", text: "#1d4ed8", border: "#93c5fd" },
+  "Petty Cash": { bg: "#fef9c3", text: "#a16207", border: "#fde047" },
+  "Cash": { bg: "#dcfce7", text: "#15803d", border: "#86efac" },
+  "UPI": { bg: "#f3e8ff", text: "#7e22ce", border: "#d8b4fe" },
+  "Other": { bg: "#f1f5f9", text: "#475569", border: "#cbd5e1" }
+};
+
+const getExpenseTypeBadgeStyle = (typeName) => {
+  if (!typeName) return getBadgePalette("Other");
+  if (expenseTypeColors[typeName]) return expenseTypeColors[typeName];
+  return getBadgePalette(typeName);
+};
+
+const getPaymentMethodBadgeStyle = (methodName) => {
+  if (!methodName) return getBadgePalette("Other");
+  if (paymentMethodColors[methodName]) return paymentMethodColors[methodName];
+  return getBadgePalette(methodName);
+};
+
 const AdminExpenses = () => {
   const [expenses, setExpenses] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -252,6 +300,10 @@ const AdminExpenses = () => {
     return 0;
   });
 
+  const handleClearComingSoon = () => {
+    setAlertDialog({ isOpen: true, title: 'Notice', message: 'Clear feature will be implemented later.', type: 'info' });
+  };
+
   return (
     <div className="flex h-screen bg-admin-bg dark-scroll">
       <Sidebar />
@@ -265,6 +317,9 @@ const AdminExpenses = () => {
               <p className="text-sm text-admin-muted mt-1.5 font-medium">Track and manage company expenses.</p>
             </div>
             <div className="flex flex-wrap gap-2.5">
+              <button onClick={handleClearComingSoon} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                <FiTrash2 size={16} /> Clear Month
+              </button>
               <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-glow-blue-sm">
                 <FiPlus size={16} /> Add Expense
               </button>
@@ -363,7 +418,14 @@ const AdminExpenses = () => {
                     {sortedExpenses.length > 0 ? sortedExpenses.map(r => (
                       <tr key={r.id} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors">
                         <td className="px-5 py-4 whitespace-nowrap">
-                          <span className="px-2 py-1 rounded bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-400 font-medium">
+                          <span 
+                            className="expense-type-badge"
+                            style={{
+                              '--badge-bg': getExpenseTypeBadgeStyle(r.expense_type_name).bg,
+                              '--badge-text': getExpenseTypeBadgeStyle(r.expense_type_name).text,
+                              '--badge-border': getExpenseTypeBadgeStyle(r.expense_type_name).border
+                            }}
+                          >
                             {r.expense_type_name || 'N/A'}
                           </span>
                         </td>
@@ -379,7 +441,14 @@ const AdminExpenses = () => {
                           )}
                         </td>
                         <td className="px-5 py-4 whitespace-nowrap">
-                          <span className="text-xs text-admin-muted capitalize px-2 py-1 bg-admin-bg rounded-md border border-admin-border">
+                          <span 
+                            className="payment-method-badge"
+                            style={{
+                              '--badge-bg': getPaymentMethodBadgeStyle(r.payment_method || r.payment_mode).bg,
+                              '--badge-text': getPaymentMethodBadgeStyle(r.payment_method || r.payment_mode).text,
+                              '--badge-border': getPaymentMethodBadgeStyle(r.payment_method || r.payment_mode).border
+                            }}
+                          >
                             {r.payment_method || r.payment_mode || '—'}
                           </span>
                         </td>

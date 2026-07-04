@@ -116,6 +116,10 @@ const AdminHolidays = () => {
   });
   const openEdit = holiday => { setSelectedHoliday(holiday); setFormData({ holiday_date: holiday.holiday_date.split('T')[0], holiday_type: holiday.holiday_type, holiday_title: holiday.holiday_title, holiday_note: holiday.holiday_note || '', is_enabled: holiday.is_enabled }); setShowEditModal(true); };
 
+  const handleClearComingSoon = () => {
+    setToastConfig({ message: 'Clear feature will be implemented later.', type: 'info' });
+  };
+
   /* ─── STATS ─── */
   const stats = useMemo(() => {
     const today = new Date();
@@ -145,7 +149,11 @@ const AdminHolidays = () => {
               <p className="text-sm text-admin-muted mt-1.5 font-medium">Configure organization-wide holidays and non-working days.</p>
             </div>
             {/* Floating Add Button for Mobile */}
-            <div className="fixed bottom-6 right-6 z-40 md:relative md:bottom-0 md:right-0">
+            <div className="fixed bottom-6 right-6 z-40 md:relative md:bottom-0 md:right-0 flex flex-col md:flex-row gap-3">
+              <button onClick={handleClearComingSoon} className="w-14 h-14 md:w-auto md:h-auto flex items-center justify-center md:px-5 md:py-2.5 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 md:text-xs md:font-bold rounded-full md:rounded-xl transition-all hover:-translate-y-1 shadow-sm">
+                <FiTrash2 size={24} className="md:w-4 md:h-4 md:mr-2" />
+                <span className="hidden md:inline">Clear Holidays</span>
+              </button>
               <button onClick={() => { resetForm(); setShowAddModal(true); }} className="w-14 h-14 md:w-auto md:h-auto flex items-center justify-center md:px-5 md:py-2.5 bg-blue-600 hover:bg-blue-500 text-white md:text-xs md:font-bold rounded-full md:rounded-xl shadow-[0_8px_24px_rgba(59,130,246,0.4)] hover:shadow-[0_12px_28px_rgba(59,130,246,0.5)] transition-all hover:-translate-y-1">
                 <FiPlus size={24} className="md:w-4 md:h-4 md:mr-2" />
                 <span className="hidden md:inline">Add Holiday</span>

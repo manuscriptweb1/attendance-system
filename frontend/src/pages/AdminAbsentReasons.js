@@ -91,6 +91,10 @@ const AdminAbsentReasons = () => {
     setShowModal(true);
   };
 
+  const handleClearComingSoon = () => {
+    setToastConfig({ message: 'Clear feature will be implemented later.', type: 'info' });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -156,6 +160,11 @@ const AdminAbsentReasons = () => {
             <div>
               <h1 className="text-xl font-bold text-admin-heading">Absent Reason Management</h1>
               <p className="text-sm text-slate-400 mt-0.5">Record and track reasons for employee absences</p>
+            </div>
+            <div className="flex items-center">
+              <button onClick={handleClearComingSoon} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                <FiTrash2 size={16} /> Clear Month
+              </button>
             </div>
           </div>
 

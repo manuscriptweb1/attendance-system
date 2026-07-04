@@ -251,6 +251,10 @@ const AdminManualAttendance = () => {
     }
   };
 
+  const handleClearComingSoon = () => {
+    setAlertDialog({ isOpen: true, title: 'Notice', message: 'Clear feature will be implemented later.', type: 'info' });
+  };
+
   const filteredEmployeesRaw = employees.filter(emp =>
     emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     emp.employee_id.toLowerCase().includes(searchTerm.toLowerCase())
@@ -269,10 +273,15 @@ const AdminManualAttendance = () => {
               <h1 className="text-xl font-bold text-admin-heading">Manual Attendance</h1>
               <p className="text-sm text-slate-400 mt-0.5">Emergency Attendance Management</p>
             </div>
-            <button onClick={openBulkModal} disabled={selectedIds.length === 0 || isSunday}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${selectedIds.length > 0 && !isSunday ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-200 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-500 dark:text-slate-400 cursor-not-allowed'}`}>
-              <FiEdit size={16} /> Add for Selected ({selectedIds.length})
-            </button>
+            <div className="flex flex-wrap gap-2.5">
+              <button onClick={handleClearComingSoon} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                <FiTrash2 size={16} /> Clear Month
+              </button>
+              <button onClick={openBulkModal} disabled={selectedIds.length === 0 || isSunday}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${selectedIds.length > 0 && !isSunday ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-200 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-500 dark:text-slate-400 cursor-not-allowed'}`}>
+                <FiEdit size={16} /> Add for Selected ({selectedIds.length})
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">

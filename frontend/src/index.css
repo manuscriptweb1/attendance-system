@@ -1029,3 +1029,28 @@ body.admin-theme-dark .absent-reason-modal label,
 .admin-theme-dark .absent-reason-modal label {
   color: #cbd5e1 !important;
 }
+
+/* Expenses Badge Styles */
+.expense-type-badge,
+.payment-method-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid var(--badge-border);
+  background-color: var(--badge-bg);
+  color: var(--badge-text);
+  white-space: nowrap;
+}
+
+body.admin-theme-dark .expense-type-badge,
+.admin-theme-dark .expense-type-badge,
+body.admin-theme-dark .payment-method-badge,
+.admin-theme-dark .payment-method-badge {
+  background-color: color-mix(in srgb, var(--badge-border) 20%, transparent);
+  color: color-mix(in srgb, var(--badge-text) 80%, white);
+  border-color: color-mix(in srgb, var(--badge-border) 40%, transparent);
+}

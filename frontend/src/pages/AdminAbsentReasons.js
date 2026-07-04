@@ -8,6 +8,7 @@ import { getAbsentEmployees, updateAbsentReason, clearAbsentReason, getAllDepart
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateDateString } from '../utils/dateValidation';
 import { FiEdit, FiSearch, FiCalendar, FiFilter, FiSave, FiX, FiLayers, FiTrash2 } from 'react-icons/fi';
+import { sortEmployeeRows } from '../utils/sorting';
 
 const getLocalYMD = () => {
   const d = new Date();
@@ -19,6 +20,7 @@ const AdminAbsentReasons = () => {
   const [date, setDate] = useState(getLocalYMD());
   const [departmentId, setDepartmentId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('name_asc');
   const [departments, setDepartments] = useState([]);
   
   const [employees, setEmployees] = useState([]);
@@ -48,6 +50,7 @@ const AdminAbsentReasons = () => {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, departmentId]);
 
   const fetchDepartments = async () => {
@@ -136,10 +139,12 @@ const AdminAbsentReasons = () => {
     }
   };
 
-  const filteredEmployees = employees.filter(emp =>
+  const filteredEmployeesRaw = employees.filter(emp =>
     emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     emp.employee_id.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  
+  const filteredEmployees = sortEmployeeRows(filteredEmployeesRaw, sortBy);
 
   return (
     <div className="flex h-screen bg-admin-bg dark-scroll">
@@ -154,7 +159,7 @@ const AdminAbsentReasons = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className="relative">
               <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Date</label>
               <div className="relative">
@@ -187,10 +192,21 @@ const AdminAbsentReasons = () => {
                 </button>
               </div>
             </div>
+            <div className="relative">
+              <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Sort By</label>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6] cursor-pointer appearance-none">
+                <option value="name_asc" className="bg-admin-elevated text-slate-900">Name A-Z</option>
+                <option value="name_desc" className="bg-admin-elevated text-slate-900">Name Z-A</option>
+                <option value="employee_id_asc" className="bg-admin-elevated text-slate-900">Employee ID A-Z</option>
+                <option value="employee_id_desc" className="bg-admin-elevated text-slate-900">Employee ID Z-A</option>
+
+              </select>
+            </div>
           </div>
 
           <div className="bg-admin-surface border border-admin-border rounded-2xl overflow-hidden shadow-clay-admin">
-            <div className="overflow-x-auto dark-scroll">
+            <div className="table-responsive dark-scroll">
               <table className="min-w-full divide-y divide-white/[0.04]">
                 <thead className="bg-admin-bg">
                   <tr>
@@ -246,7 +262,7 @@ const AdminAbsentReasons = () => {
       {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-admin-overlay backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fade-in">
-          <div className="bg-admin-elevated border border-admin-border rounded-2xl shadow-clay-admin-modal w-full max-w-lg flex flex-col animate-scale-in">
+          <div className="absent-reason-modal admin-modal bg-admin-elevated border border-admin-border rounded-2xl shadow-clay-admin-modal w-full max-w-lg flex flex-col animate-scale-in">
             <div className="flex items-center justify-between px-6 py-5 border-b border-admin-border shrink-0">
               <div>
                 <h2 className="text-base font-bold text-admin-text">Absent Reason</h2>
@@ -262,7 +278,7 @@ const AdminAbsentReasons = () => {
                   <div className="flex flex-wrap gap-2 mb-4">
                     {predefinedReasons.map(pr => (
                       <button type="button" key={pr} onClick={() => setReason(pr)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${reason === pr ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-white/5 text-slate-300 border border-admin-border hover:bg-white/10'}`}>
+                        className={`quick-select-btn px-3 py-1.5 rounded-lg text-xs transition-colors ${reason === pr ? 'active' : ''}`}>
                         {pr}
                       </button>
                     ))}
@@ -271,7 +287,7 @@ const AdminAbsentReasons = () => {
                 
                 <div>
                   <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Reason (Custom or Selected)</label>
-                  <textarea name="reason" value={reason} onChange={e => setReason(e.target.value)} required rows={4} maxLength={500} placeholder="Type reason here..." className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 resize-none" />
+                  <textarea name="reason" value={reason} onChange={e => setReason(e.target.value)} required rows={4} maxLength={500} placeholder="Type reason here..." className="absent-reason-input w-full admin-input resize-none" />
                   <div className="flex justify-end mt-1">
                     <span className={`text-[10px] ${reason.length > 450 ? 'text-amber-500' : 'text-slate-500'}`}>{reason.length}/500</span>
                   </div>

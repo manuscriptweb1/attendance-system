@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiActivity, FiDownload, FiFilter, FiSearch, FiX, FiEye, FiRefreshCw, FiTrash2, FiSettings, FiCalendar, FiLogIn, FiAlertTriangle } from 'react-icons/fi';
+import { FiActivity, FiDownload, FiFilter, FiSearch, FiX, FiEye, FiTrash2, FiSettings, FiCalendar, FiLogIn, FiAlertTriangle } from 'react-icons/fi';
 import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
@@ -39,6 +39,7 @@ const AdminActivityLogs = () => {
     fetchActionTypes();
     fetchModuleNames();
     fetchStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.page, filters.sortOrder]);
 
   const fetchStats = async () => {
@@ -229,7 +230,7 @@ const AdminActivityLogs = () => {
                 <p className="text-xs mt-1">Adjust filters to see more results.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto dark-scroll">
+              <div className="table-responsive dark-scroll">
                 <table className="min-w-full relative">
                   <thead>
                     <tr>

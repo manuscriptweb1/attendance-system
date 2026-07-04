@@ -4,7 +4,7 @@ import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
 import { Spinner } from '../components/Loader';
 import { getSettings, updateSettings } from '../services/api';
-import { FiMapPin, FiClock, FiSave, FiWifi, FiShield, FiInfo, FiSliders, FiCheckCircle } from 'react-icons/fi';
+import { FiMapPin, FiClock, FiSave, FiShield, FiInfo, FiSliders, FiCheckCircle } from 'react-icons/fi';
 
 /* ─── CUSTOM TOGGLE SWITCH ─── */
 const ToggleSwitch = ({ checked, onChange }) => (

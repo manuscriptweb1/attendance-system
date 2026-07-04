@@ -4,7 +4,7 @@ import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
 import { Spinner } from '../components/Loader';
 import { getOTPSettings, updateOTPSettings } from '../services/api';
-import { FiSave, FiRefreshCw, FiClock, FiShield, FiAlertCircle, FiInfo, FiActivity, FiKey } from 'react-icons/fi';
+import { FiSave, FiRefreshCw, FiClock, FiShield, FiAlertCircle, FiInfo } from 'react-icons/fi';
 
 const Field = ({ label, hint, error, icon: Icon, children }) => (
   <div>

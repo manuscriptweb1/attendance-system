@@ -75,6 +75,7 @@ const AdminTrustedDevices = () => {
   useEffect(() => { 
     fetchDevices(); 
     fetchStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const fetchStats = async () => {
@@ -300,7 +301,7 @@ const AdminTrustedDevices = () => {
             </div>
 
             {/* Table Area */}
-            <div className="flex-1 overflow-x-auto overflow-y-auto max-h-[600px] dark-scroll relative">
+            <div className="flex-1 table-responsive overflow-y-auto max-h-[600px] dark-scroll relative">
               {loading ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-admin-elevated backdrop-blur-sm z-20">
                   <Spinner size={40} color="blue" />

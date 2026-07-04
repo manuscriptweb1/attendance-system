@@ -81,6 +81,7 @@ export const AdminThemeProvider = ({ children }) => {
       document.documentElement.classList.remove('admin-theme-dark', 'admin-theme-light', 'dark');
       document.body.classList.remove('admin-theme-dark', 'admin-theme-light', 'dark');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin, user?.id]); // Safely depend on user.id
 
   const toggleTheme = async () => {

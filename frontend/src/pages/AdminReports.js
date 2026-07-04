@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
-import { Spinner } from '../components/Loader';
-import api, { getMonthlyAttendanceReport, exportMonthlyAttendanceReport } from '../services/api';
+
+import { getMonthlyAttendanceReport, exportMonthlyAttendanceReport } from '../services/api';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateMonthYear } from '../utils/dateValidation';
 import { FiDownload, FiFileText, FiRefreshCw } from 'react-icons/fi';
+import { sortEmployeeRows } from '../utils/sorting';
 
 const AdminReports = () => {
   const [loading, setLoading] = useState(false);
@@ -14,6 +15,7 @@ const AdminReports = () => {
   
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [sortBy, setSortBy] = useState('name_asc');
   
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
@@ -94,6 +96,14 @@ const AdminReports = () => {
                   })}
                 </select>
               </div>
+              <div className="flex-1">
+                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Sort By</label>
+                <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="admin-select py-2.5 text-sm text-admin-muted cursor-pointer">
+                  <option value="name_asc" className="bg-admin-elevated text-slate-900">Name A-Z</option>
+                  <option value="name_desc" className="bg-admin-elevated text-slate-900">Name Z-A</option>
+
+                </select>
+              </div>
               <div className="flex gap-2">
                 <button onClick={handleGenerateReport} disabled={loading} className="flex items-center gap-2 bg-admin-elevated hover:bg-white/10 text-admin-text px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border border-admin-border shadow-sm disabled:opacity-50">
                   <FiRefreshCw size={16} className={loading ? 'animate-spin' : ''} /> {loading ? 'Generating...' : 'Generate'}
@@ -112,7 +122,7 @@ const AdminReports = () => {
                 <h3 className="text-xs font-bold text-admin-text uppercase tracking-wider">Preview: {new Date(0, month-1).toLocaleString('default', { month: 'long' })} {year}</h3>
                 <span className="text-[10px] font-bold text-admin-secondary uppercase tracking-widest">{reportData.length} Records</span>
               </div>
-              <div className="overflow-x-auto dark-scroll">
+              <div className="table-responsive dark-scroll">
                 <table className="min-w-full divide-y divide-white/[0.04]">
                   <thead className="bg-admin-bg">
                     <tr>{['Emp ID','Name','Department','Present','Absent','Half Day','Holiday','Late Count','Total Hours'].map(h => (
@@ -120,8 +130,10 @@ const AdminReports = () => {
                     ))}</tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
-                    {reportData.map(r => (
-                      <tr key={r.employeeCode} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors">
+                    {(() => {
+                      const sortedData = sortEmployeeRows(reportData, sortBy);
+                      return sortedData.map(r => (
+                        <tr key={r.employeeCode} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors">
                         <td className="px-5 py-3.5 text-xs text-admin-muted font-mono whitespace-nowrap">{r.employeeCode}</td>
                         <td className="px-5 py-3.5 text-sm font-bold text-admin-text whitespace-nowrap">{r.employeeName}</td>
                         <td className="px-5 py-3.5 text-xs text-admin-secondary whitespace-nowrap">{r.department}</td>
@@ -138,7 +150,8 @@ const AdminReports = () => {
                           })()}
                         </td>
                       </tr>
-                    ))}
+                      ));
+                    })()}
                   </tbody>
                 </table>
               </div>

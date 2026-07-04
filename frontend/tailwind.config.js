@@ -63,10 +63,10 @@ module.exports = {
         },
       },
       boxShadow: {
-        // Clay admin dark
-        'clay-admin':       '0 4px 24px rgba(0,0,0,0.45), 0 1px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
-        'clay-admin-hover': '0 8px 40px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08)',
-        'clay-admin-modal': '0 24px 80px rgba(0,0,0,0.7), 0 8px 24px rgba(0,0,0,0.5)',
+        // Clay admin dark / responsive light
+        'clay-admin':       'var(--shadow-admin-card)',
+        'clay-admin-hover': 'var(--shadow-admin-card-hover)',
+        'clay-admin-modal': 'var(--shadow-admin-modal)',
         'glow-blue':        '0 0 20px rgba(59,130,246,0.4), 0 0 40px rgba(59,130,246,0.15)',
         'glow-blue-sm':     '0 0 12px rgba(59,130,246,0.35)',
         'glow-emerald':     '0 0 16px rgba(16,185,129,0.4)',

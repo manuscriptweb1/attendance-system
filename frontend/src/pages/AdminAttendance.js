@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
-import AdminToast from '../components/AdminToast';
 import ClearDataDialog from '../components/ClearDataDialog';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
@@ -10,7 +9,8 @@ import { getAllAttendance, downloadMonthlyMatrixPDF, downloadMonthlyMatrixExcel,
 import { formatTime, formatDate, formatWorkingHours } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateDateString, validateMonthYear } from '../utils/dateValidation';
-import { FiDownload, FiFilter, FiRefreshCw, FiTrash2, FiRotateCcw, FiX, FiCalendar, FiCheckCircle, FiAlertCircle, FiClock, FiHome, FiTrendingUp } from 'react-icons/fi';
+import { FiDownload, FiFilter, FiRefreshCw, FiTrash2, FiRotateCcw, FiX, FiCalendar, FiCheckCircle, FiClock, FiHome, FiTrendingUp } from 'react-icons/fi';
+import { sortEmployeeRows } from '../utils/sorting';
 
 const getLocalDateString = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`; };
 
@@ -18,13 +18,14 @@ const AdminAttendance = () => {
   const [attendance,   setAttendance]   = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [filters,      setFilters]      = useState({ date: getLocalDateString(), status:'', employee_id:'', department:'', is_wfh:'' });
+  const [sortBy,       setSortBy]       = useState('name_asc');
   
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState('pdf');
   const [downloadData,   setDownloadData]   = useState({ month:'', year:'' });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen:false, title:'', message:'', onConfirm:null, type:'info' });
   const [alertDialog,   setAlertDialog]   = useState({ isOpen:false, title:'', message:'', type:'success' });
-  const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
+
   const [clearDialog, setClearDialog] = useState({ isOpen: false });
 
   const fetchAttendance = async () => {
@@ -72,7 +73,6 @@ const AdminAttendance = () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a'); link.href = url; link.download = fileName;
       document.body.appendChild(link); link.click(); document.body.removeChild(link); window.URL.revokeObjectURL(url);
-      setToastConfig({ message: `${downloadFormat.toUpperCase()} downloaded successfully!`, type: 'success' });
     } catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
   };
 
@@ -80,7 +80,7 @@ const AdminAttendance = () => {
     const resetText = resetType === 'check-in' ? 'Check-In' : 'Check-Out';
     setConfirmDialog({ isOpen:true, title:`Reset ${resetText}`, type:'warning', message:`Reset ${resetText} for "${record.name}" on ${formatDate(record.attendance_date)}?`,
       onConfirm: async () => {
-        try { const r = await resetAttendance(record.id, resetType); if (r.data.success) { setToastConfig({ message: `${resetText} reset successfully!`, type: 'success' }); fetchAttendance(); } else throw new Error(r.data.message); }
+        try { const r = await resetAttendance(record.id, resetType); if (r.data.success) { fetchAttendance(); } else throw new Error(r.data.message); }
         catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
       },
     });
@@ -90,7 +90,7 @@ const AdminAttendance = () => {
     isOpen:true, title:'Delete Attendance Record', type:'danger',
     message:`Permanently delete the attendance record for "${record.name}" on ${formatDate(record.attendance_date)}?`,
     onConfirm: async () => {
-      try { const r = await deleteAttendance(record.id); if (r.data.success) { setToastConfig({ message: 'Record deleted successfully!', type: 'success' }); fetchAttendance(); } else throw new Error(r.data.message); }
+      try { const r = await deleteAttendance(record.id); if (r.data.success) { fetchAttendance(); } else throw new Error(r.data.message); }
       catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
     },
   });
@@ -99,7 +99,6 @@ const AdminAttendance = () => {
     try {
       const response = await clearMonthlyAttendance(year, month);
       if (response.data.success) {
-        setToastConfig({ message: `Attendance records for ${month}/${year} cleared successfully`, type: 'success' });
         fetchAttendance();
       } else {
         setAlertDialog({ isOpen: true, title: 'Error', message: response.data.message || 'Failed to clear attendance', type: 'error' });
@@ -176,7 +175,7 @@ const AdminAttendance = () => {
               </div>
               <h2 className="text-sm font-bold text-admin-text">Filter Records</h2>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
               <div>
                 <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Date</label>
                 <input type="date" name="date" value={filters.date} onChange={handleFilterChange} className="admin-input py-2.5 text-sm" />
@@ -212,6 +211,16 @@ const AdminAttendance = () => {
                   <option value="true">WFH</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Sort By</label>
+                <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="admin-select py-2.5 text-sm text-admin-muted cursor-pointer">
+                  <option value="name_asc" className="text-slate-900">Name A-Z</option>
+                  <option value="name_desc" className="text-slate-900">Name Z-A</option>
+                  <option value="employee_id_asc" className="text-slate-900">Employee ID A-Z</option>
+                  <option value="employee_id_desc" className="text-slate-900">Employee ID Z-A</option>
+
+                </select>
+              </div>
             </div>
           </div>
 
@@ -223,69 +232,76 @@ const AdminAttendance = () => {
                 <p className="text-sm font-medium text-admin-secondary mt-4 animate-pulse">Loading records...</p>
               </div>
             ) : (
-              <div className="overflow-x-auto dark-scroll">
-                <table className="min-w-full divide-y divide-white/[0.04]">
+              <div className="table-responsive attendance-table-wrapper dark-scroll">
+                <table className="attendance-table divide-y divide-white/[0.04]">
                   <thead className="bg-admin-bg">
-                    <tr>{['Date','Employee','IN','OUT','Hours','Status','Reason','Actions'].map(h => (
-                      <th key={h} className={`px-3 py-2.5 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap ${h === 'Actions' ? 'sticky right-0 z-10 bg-admin-bg border-l border-white/[0.04] shadow-[-4px_0_15px_rgba(0,0,0,0.2)]' : ''}`}>{h}</th>
+                    <tr>{['DATE', 'EMP ID', 'NAME', 'DEPT', 'CHECK IN', 'CHECK OUT', 'HOURS', 'IN STATUS', 'OUT STATUS', 'STATUS', 'ABSENT REASON', 'TYPE', 'ACTIONS'].map(h => (
+                      <th key={h} className={`px-3 py-2.5 text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap ${h === 'ACTIONS' ? 'actions-column' : 'text-left'}`}>{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
-                    {attendance.length > 0 ? attendance.map(r => (
-                      <tr key={r.id} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors group">
+                    {(() => {
+                      const sortedAttendance = sortEmployeeRows(attendance, sortBy);
+                      return sortedAttendance.length > 0 ? sortedAttendance.map(r => (
+                        <tr key={r.id} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors group">
                         <td className="px-3 py-2.5 text-[11px] font-semibold text-admin-secondary whitespace-nowrap">{formatDate(r.attendance_date)}</td>
+                        <td className="px-3 py-2.5 text-[11px] font-mono text-admin-text whitespace-nowrap">{r.emp_id}</td>
+                        <td className="px-3 py-2.5 text-[11px] font-bold text-admin-text whitespace-nowrap">{r.name}</td>
+                        <td className="px-3 py-2.5 text-[11px] text-admin-secondary whitespace-nowrap">{r.department}</td>
                         <td className="px-3 py-2.5 whitespace-nowrap">
-                          <div className="text-xs font-bold text-admin-text">{r.name}</div>
-                          <div className="text-[10px] text-admin-muted font-mono">{r.emp_id} • {r.department}</div>
+                          <div className="text-[11px] text-admin-secondary font-mono">{formatTime(r.login_time) || '—'}</div>
                         </td>
                         <td className="px-3 py-2.5 whitespace-nowrap">
-                          <div className="text-xs text-admin-secondary font-mono">{formatTime(r.login_time) || '—'}</div>
-                          {(() => {
-                            if (r.checkin_status === 'late') return <span className="block text-[10px] text-amber-500 font-bold mt-0.5">Late {r.late_minutes}m</span>;
-                            if (r.checkin_status === 'early') return <span className="block text-[10px] text-purple-400 font-bold mt-0.5">Early</span>;
-                            if (r.login_time) return <span className="block text-[10px] text-emerald-400 font-bold mt-0.5">On Time</span>;
-                            return null;
-                          })()}
-                        </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap">
-                          <div className="text-xs text-admin-secondary font-mono">
+                          <div className="text-[11px] text-admin-secondary font-mono">
                             {formatTime(r.logout_time) || '—'}
                             {r.is_auto_checkout && r.logout_time && <span className="ml-1 text-[9px] text-amber-500/80 font-bold">(Auto)</span>}
                           </div>
+                        </td>
+                        <td className="px-3 py-2.5 text-[11px] text-admin-secondary font-mono whitespace-nowrap">{r.logout_time ? formatWorkingHours(parseFloat(r.total_working_hours)) : '—'}</td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
                           {(() => {
-                            if (r.checkout_status === 'late') return <span className="block text-[10px] text-amber-500 font-bold mt-0.5">Late</span>;
-                            if (r.checkout_status === 'early') return <span className="block text-[10px] text-purple-400 font-bold mt-0.5">Early {r.early_minutes}m</span>;
-                            if (r.logout_time) return <span className="block text-[10px] text-emerald-400 font-bold mt-0.5">On Time</span>;
-                            return null;
+                            if (r.checkin_status === 'late') return <span className="block text-[10px] text-amber-500 font-bold">Late {r.late_minutes}m</span>;
+                            if (r.checkin_status === 'early') return <span className="block text-[10px] text-purple-400 font-bold">Early</span>;
+                            if (r.login_time) return <span className="block text-[10px] text-emerald-400 font-bold">On Time</span>;
+                            return <span className="block text-[10px] text-admin-muted font-bold">—</span>;
                           })()}
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-admin-secondary font-mono whitespace-nowrap">{r.logout_time ? formatWorkingHours(parseFloat(r.total_working_hours)) : '—'}</td>
                         <td className="px-3 py-2.5 whitespace-nowrap">
-                          <div className="flex flex-col items-start gap-1">
-                            <div className="flex items-center gap-1.5">
-                              <StatusBadge status={r.attendance_status || 'Not Mention'} dark />
-                              {r.validation_method === 'Manual' && <span className="text-[9px] font-bold text-purple-400 bg-purple-500/20 border border-purple-500/30 px-1.5 py-0.5 rounded-sm">M</span>}
-                            </div>
-                            {r.is_wfh ? <span className="text-[9px] font-bold text-blue-400 bg-blue-500/20 border border-blue-500/30 px-1.5 py-0.5 rounded-sm">WFH</span> : <span className="text-[9px] text-[#475569] font-medium">Office</span>}
+                          {(() => {
+                            if (r.checkout_status === 'late') return <span className="block text-[10px] text-amber-500 font-bold">Late</span>;
+                            if (r.checkout_status === 'early') return <span className="block text-[10px] text-purple-400 font-bold">Early {r.early_minutes}m</span>;
+                            if (r.logout_time) return <span className="block text-[10px] text-emerald-400 font-bold">On Time</span>;
+                            return <span className="block text-[10px] text-admin-muted font-bold">—</span>;
+                          })()}
+                        </td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <StatusBadge status={r.attendance_status || 'Not Mention'} dark />
+                            {r.validation_method === 'Manual' && <span className="text-[10px] font-bold text-purple-500 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">Manual</span>}
                           </div>
                         </td>
                         <td className="px-3 py-2.5 text-[11px] font-semibold text-admin-secondary whitespace-nowrap">
                           {r.attendance_status === 'Absent' || r.attendance_status === 'Not Mention' ? (r.absent_reason || '—') : '—'}
                         </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap sticky right-0 z-10 bg-admin-surface border-l border-white/[0.04] shadow-[-4px_0_15px_rgba(0,0,0,0.2)]">
-                          <div className="flex items-center gap-1.5 opacity-50 group-hover:opacity-100 transition-opacity">
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            {r.is_wfh ? <span className="text-[9px] font-bold text-blue-400 bg-blue-500/20 border border-blue-500/30 px-1.5 py-0.5 rounded-sm">WFH</span> : <span className="text-[9px] text-[#475569] font-medium">Office</span>}
+                          </div>
+                        </td>
+                        <td className="actions-column px-3 py-2.5 whitespace-nowrap">
+                          <div className="action-buttons opacity-50 group-hover:opacity-100 transition-opacity">
                             {r.login_time && (
-                              <button onClick={() => handleResetAttendance(r, 'check-in')} title="Reset Check-In" className="w-8 h-8 rounded-xl flex items-center justify-center text-amber-500 bg-admin-elevated border border-admin-border hover:bg-amber-500/10 hover:border-amber-500/20 transition-all shadow-sm"><FiRotateCcw size={14} /></button>
+                              <button onClick={() => handleResetAttendance(r, 'check-in')} title="Reset Check-In" className="action-icon-btn text-amber-500 bg-admin-elevated border border-admin-border hover:bg-amber-500/10 hover:border-amber-500/20 transition-all shadow-sm"><FiRotateCcw size={16} /></button>
                             )}
                             {r.logout_time && (
-                              <button onClick={() => handleResetAttendance(r, 'check-out')} title="Reset Check-Out" className="w-8 h-8 rounded-xl flex items-center justify-center text-blue-400 bg-admin-elevated border border-admin-border hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"><FiRefreshCw size={14} /></button>
+                              <button onClick={() => handleResetAttendance(r, 'check-out')} title="Reset Check-Out" className="action-icon-btn text-blue-400 bg-admin-elevated border border-admin-border hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"><FiRefreshCw size={16} /></button>
                             )}
-                            <button onClick={() => handleDeleteAttendance(r)} title="Delete Record" className="w-8 h-8 rounded-xl flex items-center justify-center text-red-500 bg-admin-elevated border border-admin-border hover:bg-red-500/10 hover:border-red-500/20 transition-all shadow-sm"><FiTrash2 size={14} /></button>
+                            <button onClick={() => handleDeleteAttendance(r)} title="Delete Record" className="action-icon-btn text-red-500 bg-admin-elevated border border-admin-border hover:bg-red-500/10 hover:border-red-500/20 transition-all shadow-sm"><FiTrash2 size={16} /></button>
                           </div>
                         </td>
                       </tr>
                     )) : (
-                      <tr><td colSpan={10} className="px-5 py-20 text-center">
+                      <tr><td colSpan={13} className="px-5 py-20 text-center">
                         <div className="flex flex-col items-center gap-3">
                           <div className="w-16 h-16 rounded-2xl bg-admin-elevated/[0.02] flex items-center justify-center">
                             <FiCalendar size={28} className="text-[#475569]" />
@@ -296,7 +312,8 @@ const AdminAttendance = () => {
                           </div>
                         </div>
                       </td></tr>
-                    )}
+                    );
+                    })()}
                   </tbody>
                 </table>
               </div>

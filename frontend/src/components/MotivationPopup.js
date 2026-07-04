@@ -17,6 +17,7 @@ const MotivationPopup = ({ isOpen, message, onClose }) => {
       
       return () => clearTimeout(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, message]);
 
   const handleClose = () => {

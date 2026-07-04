@@ -78,19 +78,27 @@ function getWorkedMinutes(att) {
   return 0;
 }
 
-async function buildMonthlyAttendanceMatrixAndSummary(month, year) {
+async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmployeeId = null) {
   const settings = await getSettingsFromDB();
   const officeLateTimeInMinutes = parseTime(settings.workingHours.lateAfterTime);
 
-  const employeesResult = await pool.query(
-    `SELECT e.id, e.employee_id as "employeeCode", e.name as "employeeName", d.name as department,
+  let employeesQuery = `
+     SELECT e.id, e.employee_id as "employeeCode", e.name as "employeeName", d.name as department,
             e.monthly_salary, e.basic_salary, e.hra, e.special_allowance, e.staff_advance, e.professional_tax, e.tds
      FROM employees e
      LEFT JOIN departments d ON e.department_id = d.id
      WHERE e.status = 'active' OR e.status = 'Active'
-     ORDER BY e.name ASC`
-  );
+  `;
+  const queryParams = [];
 
+  if (targetEmployeeId) {
+    employeesQuery += ` AND (e.id::text = $1 OR e.employee_id = $1)`;
+    queryParams.push(String(targetEmployeeId));
+  } else {
+    employeesQuery += ` ORDER BY e.name ASC`;
+  }
+
+  const employeesResult = await pool.query(employeesQuery, queryParams);
   const employees = employeesResult.rows;
 
   const holidaysResult = await pool.query(
@@ -236,9 +244,22 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year) {
   return { matrixRows, summaryRows, holidaysResult, maxDay, attendanceData, employees };
 }
 
-async function buildMonthlyPayroll(month, year) {
-  const { matrixRows, employees, maxDay } = await buildMonthlyAttendanceMatrixAndSummary(month, year);
+async function buildMonthlyPayroll(month, year, targetEmployeeId = null) {
+  const { matrixRows, employees, maxDay } = await buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmployeeId);
   
+  let existingRecordsQuery = `SELECT * FROM payroll_records WHERE payroll_month = $1 AND payroll_year = $2`;
+  const existingParams = [month, year];
+  if (targetEmployeeId) {
+     existingRecordsQuery += ` AND (employee_id::text = $3 OR employee_code::text = $3)`;
+     existingParams.push(String(targetEmployeeId));
+  }
+  const existingResult = await pool.query(existingRecordsQuery, existingParams);
+  const existingMap = {};
+  existingResult.rows.forEach(r => {
+    existingMap[r.employee_id] = r;
+    existingMap[r.employee_code] = r;
+  });
+
   const totalDays = new Date(year, month, 0).getDate();
   const today = new Date();
   const currentYear = today.getFullYear();
@@ -284,21 +305,38 @@ async function buildMonthlyPayroll(month, year) {
       }
     }
 
-    const paidDays = fullPaidDays + (halfDays * 0.5);
-    const lopDays = absentDays + blankUnmarkedDays + (halfDays * 0.5);
+    let paidDays = fullPaidDays + (halfDays * 0.5);
+    let lopDays = absentDays + blankUnmarkedDays + (halfDays * 0.5);
+    let workingDays = totalDays;
 
-    const monthlyEarning = parseFloat(emp.monthly_salary) || 0;
+    let monthlyEarning = parseFloat(emp.monthly_salary) || 0;
+    let basicSalary = parseFloat(emp.basic_salary) || 0;
+    let hra = parseFloat(emp.hra) || 0;
+    let specialAllowance = parseFloat(emp.special_allowance) || 0;
+    let staffAdvance = parseFloat(emp.staff_advance) || 0;
+    let professionalTax = parseFloat(emp.professional_tax) || 0;
+    let tds = parseFloat(emp.tds) || 0;
+
+    const existing = existingMap[emp.employeeCode];
+    const isEdited = existing && existing.is_manual_edited === true;
+
+    if (isEdited) {
+      paidDays = parseFloat(existing.paid_days) || 0;
+      lopDays = parseFloat(existing.lop_days) || 0;
+      workingDays = parseFloat(existing.working_days) || totalDays;
+      monthlyEarning = parseFloat(existing.monthly_earning) || 0;
+      basicSalary = parseFloat(existing.basic_salary) || 0;
+      hra = parseFloat(existing.hra) || 0;
+      specialAllowance = parseFloat(existing.special_allowance) || 0;
+      staffAdvance = parseFloat(existing.staff_advance) || 0;
+      professionalTax = parseFloat(existing.professional_tax) || 0;
+      tds = parseFloat(existing.tds) || 0;
+    }
+
     const perDaySalary = totalDays > 0 ? (monthlyEarning / totalDays) : 0;
     const halfDayLossAmount = halfDays * 0.5 * perDaySalary;
     const lopAmount = lopDays * perDaySalary;
     const netEarning = monthlyEarning - lopAmount;
-
-    const basicSalary = parseFloat(emp.basic_salary) || 0;
-    const hra = parseFloat(emp.hra) || 0;
-    const specialAllowance = parseFloat(emp.special_allowance) || 0;
-    const staffAdvance = parseFloat(emp.staff_advance) || 0;
-    const professionalTax = parseFloat(emp.professional_tax) || 0;
-    const tds = parseFloat(emp.tds) || 0;
 
     const netPayable = netEarning - staffAdvance - professionalTax - tds;
 
@@ -308,7 +346,7 @@ async function buildMonthlyPayroll(month, year) {
       employeeName: emp.employeeName,
       department: emp.department || 'N/A',
       totalDays,
-      workingDays: totalDays, // user rule 2: same as total_days
+      workingDays: workingDays,
       presentDays: fullPaidDays,
       lateDays: 0,
       absentDays,
@@ -329,7 +367,8 @@ async function buildMonthlyPayroll(month, year) {
       professionalTax: parseFloat(professionalTax.toFixed(2)),
       tds: parseFloat(tds.toFixed(2)),
       netPayable: parseFloat(netPayable.toFixed(2)),
-      status: "pending"
+      status: "pending",
+      is_manual_edited: isEdited
     });
   }
 

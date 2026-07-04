@@ -5,7 +5,7 @@ import ClearDataDialog from '../components/ClearDataDialog';
 import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
 import { Spinner } from '../components/Loader';
-import { FiShield, FiEye, FiEdit2, FiSave, FiX, FiRefreshCw, FiMonitor, FiList, FiAlertCircle, FiTrash2, FiSearch, FiFilter, FiCalendar } from 'react-icons/fi';
+import { FiShield, FiEye, FiEdit2, FiSave, FiX, FiRefreshCw, FiMonitor, FiList, FiAlertCircle, FiTrash2, FiSearch, FiCalendar } from 'react-icons/fi';
 import axios from 'axios';
 import { updateDeviceAlias, clearEmployeeAuditLogs } from '../services/api';
 import { formatDate } from '../utils/formatTime';
@@ -351,7 +351,7 @@ const AdminSecurityLogs = () => {
             </div>
 
             {/* Table Area */}
-            <div className="flex-1 overflow-x-auto overflow-y-auto max-h-[600px] dark-scroll relative">
+            <div className="flex-1 table-responsive overflow-y-auto max-h-[600px] dark-scroll relative">
               {loading ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-admin-elevated backdrop-blur-sm z-20">
                   <Spinner size={40} color="blue" />

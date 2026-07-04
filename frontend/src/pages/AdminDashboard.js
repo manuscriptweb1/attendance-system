@@ -5,8 +5,8 @@ import { Spinner } from '../components/Loader';
 import { getDashboardStats, getAllAttendance, getTrustedDeviceStats, getAdminActivityStats, getAdminActivityLogs, getAllHolidays, getSystemHealth } from '../services/api';
 import { formatTime, formatWorkingHours, formatDate } from '../utils/formatTime';
 import {
-  FiUsers, FiCheckCircle, FiClock, FiHome, FiXCircle, FiActivity, FiSmartphone,
-  FiAlertTriangle, FiPlus, FiSettings, FiCalendar, FiDatabase, FiServer, FiWifi, FiMail,
+  FiUsers, FiCheckCircle, FiClock, FiXCircle, FiActivity, FiSmartphone,
+  FiPlus, FiSettings, FiCalendar, FiDatabase, FiServer, FiMail,
   FiDollarSign, FiUserCheck
 } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
@@ -168,7 +168,7 @@ const AdminDashboard = () => {
   // Calculate mutually exclusive attendance categories to prevent double counting
   let presentCount = 0;
   let absentCount = 0;
-  let notMentionCount = 0;
+
   let lateCount = 0;
   let halfDayCount = 0;
   let wfhCount = 0;
@@ -177,7 +177,7 @@ const AdminDashboard = () => {
     switch (a.attendance_status) {
       case 'Present': presentCount++; break;
       case 'Absent': absentCount++; break;
-      case 'Not Mention': notMentionCount++; break;
+      case 'Not Mention': break;
       case 'Late': lateCount++; break;
       case 'Half Day': halfDayCount++; break;
       case 'Work From Home': wfhCount++; break;
@@ -432,7 +432,7 @@ const AdminDashboard = () => {
               </div>
 
               {/* Table */}
-              <div className="overflow-x-auto dark-scroll">
+              <div className="table-responsive dark-scroll">
                 <table className="min-w-full divide-y divide-white/[0.04]">
                   <thead className="bg-admin-bg">
                     <tr>{['Emp ID','Name','Department','Check In','Check Out','Hours','Status','WFH','Actions'].map(h => (

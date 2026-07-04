@@ -37,6 +37,7 @@ const AdminManagement = () => {
   useEffect(() => {
     fetchAdmins();
     fetchLoginLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchAdmins = async () => { try { setLoading(true); const r = await api.get('/admins'); setAdmins(r.data.admins || []); } catch(e) { } finally { setLoading(false); } };
@@ -91,7 +92,6 @@ const AdminManagement = () => {
   /* ─── STATS CALCULATION ─── */
   const stats = useMemo(() => {
     const today = new Date().toDateString();
-    const currentMonth = new Date().getMonth();
     
     let loginsToday = 0;
     const activeBrowsers = new Set();
@@ -101,7 +101,7 @@ const AdminManagement = () => {
       if (l.browser_info) activeBrowsers.add(l.browser_info.split(' ')[0]);
     });
 
-    const newAdminsThisMonth = admins.filter(a => new Date(a.created_at).getMonth() === currentMonth).length;
+    // const newAdminsThisMonth = admins.filter(a => new Date(a.created_at).getMonth() === currentMonth).length;
 
     return { 
       totalAdmins: admins.length, 
@@ -158,7 +158,7 @@ const AdminManagement = () => {
           <div className="bg-admin-elevated border border-admin-border rounded-2xl shadow-clay-admin overflow-hidden flex flex-col min-h-[500px]">
             
             {/* Tabs */}
-            <div className="flex overflow-x-auto dark-scroll border-b border-admin-border bg-admin-surface backdrop-blur-md px-2 pt-2">
+            <div className="flex table-responsive dark-scroll border-b border-admin-border bg-admin-surface backdrop-blur-md px-2 pt-2">
               {TABS.map(t => (
                 <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex items-center gap-2 px-5 py-3.5 text-xs font-bold border-b-2 transition-all duration-300 whitespace-nowrap ${activeTab === t.id ? 'border-blue-500 text-blue-400 bg-admin-elevated/[0.02]' : 'border-transparent text-admin-secondary hover:text-admin-muted hover:bg-admin-elevated/[0.02]'}`}>
                   <t.Icon size={14} /> {t.label}
@@ -176,7 +176,7 @@ const AdminManagement = () => {
 
               {/* ── Admins Tab ── */}
               {activeTab === 'admins' && (
-                <div className="overflow-x-auto dark-scroll flex-1">
+                <div className="table-responsive dark-scroll flex-1">
                   <table className="min-w-full">
                     <thead>
                       <tr>
@@ -265,7 +265,7 @@ const AdminManagement = () => {
                     </button>
                   </div>
                   
-                  <div className="overflow-x-auto dark-scroll flex-1">
+                  <div className="table-responsive dark-scroll flex-1">
                     <table className="min-w-full">
                       <thead>
                         <tr>{['Admin', 'Timestamp', 'IP Address', 'Browser', 'Device'].map(h => <th key={h} className="px-6 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 backdrop-blur-md z-10">{h}</th>)}</tr>

@@ -43,6 +43,11 @@
     --admin-neutral-btn-bg: rgba(255, 255, 255, 0.05);
     --admin-neutral-btn-text: #CBD5E1;
     --admin-neutral-btn-border: rgba(255, 255, 255, 0.1);
+
+    /* Shadows */
+    --shadow-admin-card: 0 4px 24px rgba(0,0,0,0.45), 0 1px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+    --shadow-admin-card-hover: 0 8px 40px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+    --shadow-admin-modal: 0 24px 80px rgba(0,0,0,0.7), 0 8px 24px rgba(0,0,0,0.5);
   }
 
   .admin-theme-light {
@@ -77,6 +82,11 @@
     --admin-neutral-btn-bg: #F8FAFC;
     --admin-neutral-btn-text: #0F172A;
     --admin-neutral-btn-border: #CBD5E1;
+
+    /* Shadows */
+    --shadow-admin-card: 0 4px 14px rgba(15, 23, 42, 0.08);
+    --shadow-admin-card-hover: 0 6px 18px rgba(15, 23, 42, 0.10);
+    --shadow-admin-modal: 0 20px 40px rgba(15, 23, 42, 0.15);
   }
 
   .admin-theme-dark {
@@ -111,6 +121,11 @@
     --admin-neutral-btn-bg: rgba(255, 255, 255, 0.05);
     --admin-neutral-btn-text: #CBD5E1;
     --admin-neutral-btn-border: rgba(255, 255, 255, 0.1);
+
+    /* Shadows */
+    --shadow-admin-card: 0 4px 24px rgba(0,0,0,0.45), 0 1px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+    --shadow-admin-card-hover: 0 8px 40px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+    --shadow-admin-modal: 0 24px 80px rgba(0,0,0,0.7), 0 8px 24px rgba(0,0,0,0.5);
   }
 }
 
@@ -161,7 +176,7 @@ button, a, input, select, textarea {
   background: var(--admin-modal-bg) !important;
   color: var(--admin-modal-text) !important;
   border: 1px solid var(--admin-border) !important;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-admin-modal) !important;
 }
 
 /* ─── Light Theme Dialog Overrides ─── */
@@ -171,7 +186,7 @@ html.admin-theme-light .admin-modal,
   background: #ffffff !important;
   color: #0f172a !important;
   border: 1px solid #e2e8f0 !important;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25) !important;
+  box-shadow: var(--shadow-admin-modal) !important;
   backdrop-filter: none !important;
 }
 
@@ -237,7 +252,7 @@ html.admin-theme-light .admin-toast,
 .admin-theme-light .admin-toast {
   background: #ffffff !important;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.1), 0 4px 6px -4px rgba(15, 23, 42, 0.1) !important;
+  box-shadow: var(--shadow-admin-card) !important;
 }
 
 body.admin-theme-light .admin-toast-text,
@@ -250,7 +265,7 @@ html.admin-theme-light .admin-toast-text,
 .admin-toast {
   background: var(--admin-modal-bg);
   border: 1px solid var(--admin-border);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-admin-card);
 }
 .admin-toast-text {
   color: var(--admin-modal-text);
@@ -348,8 +363,49 @@ html.admin-theme-light .admin-toast-text,
 .nav-active-glow { box-shadow: 0 0 16px rgba(59,130,246,0.25), inset 0 0 16px rgba(59,130,246,0.05); }
 
 /* ─── Table rows ─── */
-.admin-table-row { transition: background 0.15s; }
-.admin-table-row:hover { background: rgba(255,255,255,0.03) !important; }
+.admin-table-row,
+.admin-table tbody tr,
+.attendance-table tbody tr,
+.payroll-table tbody tr,
+.expense-table tbody tr,
+.holiday-table tbody tr,
+.department-table tbody tr,
+.employee-table tbody tr,
+.report-table tbody tr { 
+  transition: background-color 0.15s ease, box-shadow 0.15s ease; 
+}
+
+/* Default Dark Theme Hover */
+.admin-table-row:hover,
+.admin-table tbody tr:hover,
+.attendance-table tbody tr:hover,
+.payroll-table tbody tr:hover,
+.expense-table tbody tr:hover,
+.holiday-table tbody tr:hover,
+.department-table tbody tr:hover,
+.employee-table tbody tr:hover,
+.report-table tbody tr:hover { 
+  background-color: rgba(255,255,255,0.04) !important; 
+}
+
+/* Light Theme Hover */
+body.admin-theme-light .admin-table-row:hover,
+body.admin-theme-light .admin-table tbody tr:hover,
+body.admin-theme-light .attendance-table tbody tr:hover,
+body.admin-theme-light .payroll-table tbody tr:hover,
+body.admin-theme-light .expense-table tbody tr:hover,
+body.admin-theme-light .holiday-table tbody tr:hover,
+body.admin-theme-light .department-table tbody tr:hover,
+body.admin-theme-light .employee-table tbody tr:hover,
+body.admin-theme-light .report-table tbody tr:hover,
+html.admin-theme-light .admin-table-row:hover,
+.admin-theme-light .admin-table-row:hover,
+.admin-theme-light .admin-table tbody tr:hover,
+[data-theme="light"] .admin-table-row:hover,
+[data-theme="light"] .admin-table tbody tr:hover {
+  background-color: #f8fafc !important;
+}
+
 .emp-table-row { transition: background 0.15s; }
 .emp-table-row:hover { background: rgba(37,99,235,0.03) !important; }
 
@@ -703,4 +759,273 @@ html.admin-theme-light .admin-toast-text,
   .clay-header-card {
     border-radius: 18px;
   }
+}
+
+/* ─── Global Responsive Tables & Action Buttons ─── */
+.table-responsive,
+.attendance-table-wrapper {
+  overflow-x: auto;
+  max-width: 100%;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.attendance-table {
+  width: 100%;
+  min-width: 1400px;
+  border-collapse: collapse;
+}
+
+.attendance-table th,
+.attendance-table td {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.action-icon-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.actions-column {
+  min-width: 130px;
+  width: 130px;
+  text-align: center;
+}
+
+@media (max-width: 1200px) {
+  .admin-table th, .admin-table td,
+  .clay-table th, .clay-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}
+
+.admin-table th, .admin-table td {
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .page-header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+  .action-icon-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+  }
+}
+
+
+body {
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+* {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+.payslip-section-title,
+.section-title {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #111827;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #94a3b8 !important;
+}
+
+.payslip-section-title.earning,
+.section-title.earning {
+  border-left: 4px solid #10b981 !important;
+  border-bottom: 1px solid #94a3b8 !important;
+  padding-left: 8px !important;
+}
+
+.payslip-section-title.deduction,
+.section-title.deduction {
+  border-left: 4px solid #ef4444 !important;
+  border-bottom: 1px solid #94a3b8 !important;
+  padding-left: 8px !important;
+}
+
+.payslip-row,
+.row {
+  border-bottom: 1px solid #d1d5db !important;
+}
+
+.payslip-divider,
+.divider,
+.payslip-footer-divider,
+.footer-divider {
+  border-top: 1px solid #94a3b8 !important;
+  height: 0 !important;
+}
+
+.company-header,
+.payslip-company-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0 0 14px 0;
+  padding: 0;
+  line-height: 1;
+}
+
+.company-logo,
+.payslip-logo {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  vertical-align: middle;
+}
+
+.company-name,
+.payslip-company-name {
+  font-size: 22px;
+  font-weight: 800;
+  color: #111827;
+  line-height: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  top: -2px;
+}
+
+/* Admin Table Hover Effects */
+.admin-table tbody tr,
+table tbody tr {
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Light theme hover */
+.light-theme .admin-table tbody tr:hover,
+[data-theme="light"] .admin-table tbody tr:hover,
+.admin-light .admin-table tbody tr:hover,
+.light-theme table tbody tr:hover,
+[data-theme="light"] table tbody tr:hover,
+.admin-light table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+/* Dark theme hover */
+.dark-theme .admin-table tbody tr:hover,
+[data-theme="dark"] .admin-table tbody tr:hover,
+.admin-dark .admin-table tbody tr:hover,
+.dark-theme table tbody tr:hover,
+[data-theme="dark"] table tbody tr:hover,
+.admin-dark table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+/* Absent Reason Modal - Light Theme UI Fixes */
+.absent-reason-modal .quick-select-btn {
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  font-weight: 600;
+  opacity: 1 !important;
+}
+
+.absent-reason-modal .quick-select-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.absent-reason-modal .quick-select-btn.active,
+.absent-reason-modal .quick-select-btn.selected {
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border-color: #3b82f6 !important;
+}
+
+.absent-reason-modal .quick-select-btn:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed;
+}
+
+.absent-reason-modal textarea.absent-reason-input,
+.absent-reason-modal input.absent-reason-input {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.absent-reason-modal textarea.absent-reason-input::placeholder,
+.absent-reason-modal input.absent-reason-input::placeholder {
+  color: #94a3b8 !important;
+}
+
+.absent-reason-modal label,
+.absent-reason-modal .form-label,
+.absent-reason-modal .section-label {
+  color: #334155 !important;
+  font-weight: 700;
+}
+
+/* Dark theme overrides */
+body.admin-theme-dark .absent-reason-modal .quick-select-btn,
+.admin-theme-dark .absent-reason-modal .quick-select-btn,
+[data-theme="dark"] .absent-reason-modal .quick-select-btn {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #475569;
+}
+
+body.admin-theme-dark .absent-reason-modal .quick-select-btn:hover,
+.admin-theme-dark .absent-reason-modal .quick-select-btn:hover,
+[data-theme="dark"] .absent-reason-modal .quick-select-btn:hover {
+  background: #334155;
+  color: #ffffff;
+}
+
+body.admin-theme-dark .absent-reason-modal .quick-select-btn.active,
+.admin-theme-dark .absent-reason-modal .quick-select-btn.active {
+  background: rgba(245, 158, 11, 0.2) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+body.admin-theme-dark .absent-reason-modal textarea.absent-reason-input,
+.admin-theme-dark .absent-reason-modal textarea.absent-reason-input {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+body.admin-theme-dark .absent-reason-modal label,
+.admin-theme-dark .absent-reason-modal label {
+  color: #cbd5e1 !important;
 }

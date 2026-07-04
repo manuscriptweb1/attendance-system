@@ -15,7 +15,7 @@ import { formatTime, formatWorkingHours, format24To12Hour, formatDate } from '..
 import {
   FiLogIn, FiLogOut, FiClock, FiCheckCircle, FiAlertCircle, FiInfo,
   FiCalendar, FiTrendingUp, FiSun, FiMoon, FiSunrise, FiActivity,
-  FiBriefcase, FiHome, FiTarget, FiZap, FiBell, FiBarChart2, FiAward
+  FiBriefcase, FiHome, FiTarget, FiBell, FiBarChart2, FiAward
 } from 'react-icons/fi';
 
 /* ─── Constants ─── */

@@ -151,7 +151,7 @@ const AdminDepartments = () => {
 
           {/* Table */}
           <div className="bg-admin-surface border border-admin-border rounded-2xl overflow-hidden shadow-clay-admin">
-            <div className="overflow-x-auto dark-scroll">
+            <div className="table-responsive dark-scroll">
               <table className="min-w-full divide-y divide-white/[0.04]">
                 <thead className="bg-admin-bg">
                   <tr>

@@ -7,7 +7,7 @@ const getExpenseTypes = async (req, res) => {
     const result = await pool.query('SELECT * FROM expense_types ORDER BY name ASC');
     if (result.rows.length === 0) {
       // Seed default expense types
-      const defaults = ['Freelancers', 'Rent', 'Office Staff', 'Utilities', 'Other'];
+      const defaults = ['Freelancer', 'Rent', 'Office Staff', 'Editorial Expenses', 'Reviewer Expenses'];
       for (const name of defaults) {
         await pool.query(
           'INSERT INTO expense_types (name) VALUES ($1) ON CONFLICT DO NOTHING',
@@ -20,6 +20,16 @@ const getExpenseTypes = async (req, res) => {
     res.json({ success: true, expenseTypes: result.rows });
   } catch (error) {
     console.error('Get expense types error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+const getActiveExpenseTypes = async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM expense_types WHERE is_active = true ORDER BY name ASC');
+    res.json({ success: true, expenseTypes: result.rows });
+  } catch (error) {
+    console.error('Get active expense types error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -60,6 +70,13 @@ const updateExpenseType = async (req, res) => {
 const deleteExpenseType = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Check if it's used
+    const checkResult = await pool.query('SELECT COUNT(*) FROM monthly_expenses WHERE expense_type_id = $1', [id]);
+    if (parseInt(checkResult.rows[0].count) > 0) {
+      return res.status(400).json({ success: false, message: 'This expense type is already used. Please deactivate it instead.' });
+    }
+    
     await pool.query('DELETE FROM expense_types WHERE id = $1', [id]);
     res.json({ success: true, message: 'Deleted successfully' });
   } catch (error) {
@@ -99,10 +116,10 @@ const getExpenseSummary = async (req, res) => {
     if (!month || !year) return res.status(400).json({ success: false, message: 'Month and year required' });
 
     const result = await pool.query(
-      `SELECT status, payment_mode, SUM(amount) as total 
+      `SELECT payment_status as status, payment_method as payment_mode, SUM(amount) as total 
        FROM monthly_expenses 
        WHERE expense_month = $1 AND expense_year = $2
-       GROUP BY status, payment_mode`,
+       GROUP BY payment_status, payment_method`,
       [month, year]
     );
 
@@ -120,9 +137,9 @@ const getExpenseSummary = async (req, res) => {
         unpaid += amount;
       } else {
         totalPaid += amount;
-        if (row.payment_mode === 'petty_cash') {
+        if (row.payment_mode === 'petty_cash' || row.payment_mode === 'Petty Cash') {
           pettyCash += amount;
-        } else if (['bank', 'upi'].includes(row.payment_mode)) {
+        } else if (['bank', 'upi', 'Bank'].includes(row.payment_mode)) {
           bank += amount;
         }
       }
@@ -130,6 +147,17 @@ const getExpenseSummary = async (req, res) => {
 
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const period = `${monthNames[month - 1]} ${year}`;
+
+    // Get Summary by Type
+    const typeSummaryResult = await pool.query(`
+      SELECT et.name, COALESCE(SUM(me.amount), 0) as total_amount, COUNT(me.id) as entry_count
+      FROM expense_types et
+      LEFT JOIN monthly_expenses me ON et.id = me.expense_type_id 
+        AND me.expense_month = $1 AND me.expense_year = $2
+      WHERE et.is_active = true OR me.id IS NOT NULL
+      GROUP BY et.id, et.name
+      ORDER BY et.name
+    `, [month, year]);
 
     res.json({
       success: true,
@@ -139,7 +167,12 @@ const getExpenseSummary = async (req, res) => {
         totalPaid,
         pettyCash,
         bank,
-        period
+        period,
+        byType: typeSummaryResult.rows.map(row => ({
+          name: row.name,
+          amount: parseFloat(row.total_amount),
+          count: parseInt(row.entry_count)
+        }))
       }
     });
 
@@ -151,21 +184,30 @@ const getExpenseSummary = async (req, res) => {
 
 const addExpense = async (req, res) => {
   try {
-    const { expense_type_id, title, description, amount, expense_date, payment_mode, status, paid_to } = req.body;
+    const { expense_type_id, name, notes, amount, payment_method, payment_status, paid_to } = req.body;
     
-    if (!title || !amount || !expense_date) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    if (!name || !amount) {
+      return res.status(400).json({ success: false, message: 'Name and amount are required' });
     }
 
-    const dateObj = new Date(expense_date);
+    if (expense_type_id) {
+      const typeCheck = await pool.query('SELECT is_active FROM expense_types WHERE id = $1', [expense_type_id]);
+      if (typeCheck.rows.length === 0 || typeCheck.rows[0].is_active !== true) {
+        return res.status(400).json({ success: false, message: 'Inactive expense type cannot be selected' });
+      }
+    }
+
+    // Auto set date
+    const dateObj = new Date();
+    const expense_date = dateObj.toISOString().split('T')[0];
     const expense_month = dateObj.getMonth() + 1;
     const expense_year = dateObj.getFullYear();
 
     const result = await pool.query(
       `INSERT INTO monthly_expenses 
-       (expense_type_id, title, description, amount, expense_date, expense_month, expense_year, payment_mode, status, paid_to, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
-      [expense_type_id || null, title, description, amount, expense_date, expense_month, expense_year, payment_mode, status, paid_to, req.user.id]
+       (expense_type_id, title, name, description, notes, amount, expense_date, expense_month, expense_year, payment_mode, payment_method, status, payment_status, paid_to, created_by)
+       VALUES ($1, $2, $2, $3, $3, $4, $5, $6, $7, $8, $8, $9, $9, $10, $11) RETURNING *`,
+      [expense_type_id || null, name, notes, amount, expense_date, expense_month, expense_year, payment_method, payment_status, paid_to, req.user.id]
     );
 
     res.json({ success: true, expense: result.rows[0] });
@@ -178,19 +220,26 @@ const addExpense = async (req, res) => {
 const updateExpense = async (req, res) => {
   try {
     const { id } = req.params;
-    const { expense_type_id, title, description, amount, expense_date, payment_mode, status, paid_to } = req.body;
+    const { expense_type_id, name, notes, amount, payment_method, payment_status, paid_to, expense_date } = req.body;
+
+    if (expense_type_id) {
+      const typeCheck = await pool.query('SELECT is_active FROM expense_types WHERE id = $1', [expense_type_id]);
+      if (typeCheck.rows.length === 0 || typeCheck.rows[0].is_active !== true) {
+        return res.status(400).json({ success: false, message: 'Inactive expense type cannot be selected' });
+      }
+    }
     
-    const dateObj = new Date(expense_date);
+    const dateObj = new Date(expense_date || new Date());
     const expense_month = dateObj.getMonth() + 1;
     const expense_year = dateObj.getFullYear();
 
     const result = await pool.query(
       `UPDATE monthly_expenses 
-       SET expense_type_id = $1, title = $2, description = $3, amount = $4, 
+       SET expense_type_id = $1, title = $2, name = $2, description = $3, notes = $3, amount = $4, 
            expense_date = $5, expense_month = $6, expense_year = $7, 
-           payment_mode = $8, status = $9, paid_to = $10, updated_at = CURRENT_TIMESTAMP
+           payment_mode = $8, payment_method = $8, status = $9, payment_status = $9, paid_to = $10, updated_at = CURRENT_TIMESTAMP
        WHERE id = $11 RETURNING *`,
-      [expense_type_id || null, title, description, amount, expense_date, expense_month, expense_year, payment_mode, status, paid_to, id]
+      [expense_type_id || null, name, notes, amount, dateObj.toISOString().split('T')[0], expense_month, expense_year, payment_method, payment_status, paid_to, id]
     );
 
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Not found' });
@@ -230,20 +279,21 @@ const exportExpenses = async (req, res) => {
     const worksheet = workbook.addWorksheet('Expenses');
 
     worksheet.columns = [
-      { header: 'Date', key: 'expense_date', width: 15 },
-      { header: 'Type', key: 'expense_type_name', width: 20 },
-      { header: 'Title', key: 'title', width: 30 },
+      { header: 'Expense Date', key: 'expense_date', width: 15 },
+      { header: 'Expense Type', key: 'expense_type_name', width: 20 },
+      { header: 'Name / Description', key: 'name', width: 30 },
       { header: 'Amount', key: 'amount', width: 15 },
-      { header: 'Payment Mode', key: 'payment_mode', width: 15 },
-      { header: 'Status', key: 'status', width: 15 },
-      { header: 'Paid To', key: 'paid_to', width: 25 },
-      { header: 'Description', key: 'description', width: 40 },
+      { header: 'Payment Method', key: 'payment_method', width: 15 },
+      { header: 'Payment Status', key: 'payment_status', width: 15 },
+      { header: 'Notes', key: 'notes', width: 40 },
+      { header: 'Created At', key: 'created_at', width: 25 },
     ];
 
     result.rows.forEach(row => {
-      // Format date to local date string format for Excel
       const d = new Date(row.expense_date);
       row.expense_date = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const cd = new Date(row.created_at);
+      row.created_at = cd.toLocaleString();
     });
 
     worksheet.addRows(result.rows);
@@ -261,6 +311,7 @@ const exportExpenses = async (req, res) => {
 
 module.exports = {
   getExpenseTypes,
+  getActiveExpenseTypes,
   addExpenseType,
   updateExpenseType,
   deleteExpenseType,

@@ -229,7 +229,7 @@ export const mapErrorToDialogConfig = (error) => {
     };
   }
 
-  if (data.errorCode === 'SETTINGS_NOT_FOUND' || status === 404 && message.includes('settings')) {
+  if (data.errorCode === 'SETTINGS_NOT_FOUND' || (status === 404 && message.includes('settings'))) {
     return {
       priority: 6,
       title: data.title || 'Settings Not Loaded',

@@ -5,17 +5,19 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import AdminToast from '../components/AdminToast';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
-import { getAllDepartments, getAllEmployees, getEmployeesForManualAttendance, createManualAttendance, updateManualAttendance, deleteManualAttendance, checkInRowManualAttendance, checkOutRowManualAttendance } from '../services/api';
+import { getAllDepartments, getEmployeesForManualAttendance, createManualAttendance, updateManualAttendance, deleteManualAttendance, checkInRowManualAttendance, checkOutRowManualAttendance } from '../services/api';
 import { formatTime } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateDateString } from '../utils/dateValidation';
-import { FiCheckSquare, FiSquare, FiEdit, FiSearch, FiCalendar, FiFilter, FiSave, FiX, FiLayers, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiCheckSquare, FiSquare, FiEdit, FiSearch, FiCalendar, FiFilter, FiSave, FiX, FiLayers, FiTrash2 } from 'react-icons/fi';
+import { sortEmployeeRows } from '../utils/sorting';
 
 const AdminManualAttendance = () => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [departmentId, setDepartmentId] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('name_asc');
   const [departments, setDepartments] = useState([]);
   
   const [employees, setEmployees] = useState([]);
@@ -46,6 +48,7 @@ const AdminManualAttendance = () => {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, departmentId, statusFilter]);
 
   const fetchDepartments = async () => {
@@ -248,10 +251,12 @@ const AdminManualAttendance = () => {
     }
   };
 
-  const filteredEmployees = employees.filter(emp =>
+  const filteredEmployeesRaw = employees.filter(emp =>
     emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     emp.employee_id.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  
+  const filteredEmployees = sortEmployeeRows(filteredEmployeesRaw, sortBy);
 
   return (
     <div className="flex h-screen bg-admin-bg dark-scroll">
@@ -270,7 +275,7 @@ const AdminManualAttendance = () => {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             <div className="relative">
               <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Date</label>
               <div className="relative">
@@ -311,6 +316,17 @@ const AdminManualAttendance = () => {
                   className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-[#3B82F6]" />
               </div>
             </div>
+            <div className="relative">
+              <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Sort By</label>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-[#3B82F6] cursor-pointer appearance-none">
+                <option value="name_asc" className="bg-admin-elevated text-slate-900">Name A-Z</option>
+                <option value="name_desc" className="bg-admin-elevated text-slate-900">Name Z-A</option>
+                <option value="employee_id_asc" className="bg-admin-elevated text-slate-900">Employee ID A-Z</option>
+                <option value="employee_id_desc" className="bg-admin-elevated text-slate-900">Employee ID Z-A</option>
+
+              </select>
+            </div>
           </div>
 
           {isSunday && (
@@ -323,7 +339,7 @@ const AdminManualAttendance = () => {
           )}
 
           <div className="bg-admin-surface border border-admin-border rounded-2xl overflow-hidden shadow-clay-admin">
-            <div className="overflow-x-auto dark-scroll">
+            <div className="table-responsive dark-scroll">
               <table className="min-w-full divide-y divide-white/[0.04]">
                 <thead className="bg-admin-bg">
                   <tr>

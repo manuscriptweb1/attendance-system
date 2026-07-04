@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
-import AdminToast from '../components/AdminToast';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
 import { getAllEmployees, getAllDepartments, addEmployee, updateEmployee, deleteEmployee, enableWFH, disableWFH, toggleEarlyCheckout } from '../services/api';
 import { FiPlus, FiEdit, FiTrash2, FiSearch, FiHome, FiClock, FiEye, FiEyeOff, FiX, FiUsers } from 'react-icons/fi';
+import { sortEmployeeRows } from '../utils/sorting';
 
 const getMonthlySalaryValue = (employee) => {
   const value =
@@ -56,7 +56,8 @@ const AdminEmployees = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen:false, title:'', message:'', onConfirm:null, type:'danger' });
   const [alertDialog,   setAlertDialog]   = useState({ isOpen:false, title:'', message:'', type:'success' });
-  const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
+  const [sortBy,        setSortBy]        = useState('name_asc');
+
   const [formData, setFormData] = useState({ 
     id:'', employee_id:'', name:'', department_id:'', job_role:'', mobile:'', email:'', password:'', status:'Active', date_of_birth:'', joining_date:'',
     monthly_salary:'', basic_salary:'', hra:'', special_allowance:'', staff_advance:'', professional_tax:'', tds:''
@@ -97,7 +98,6 @@ const AdminEmployees = () => {
 
       const response = editMode ? await updateEmployee(payload.id, payload) : await addEmployee(payload);
       if (response.data.success) {
-        setToastConfig({ message: editMode ? 'Employee updated successfully!' : 'Employee added successfully!', type: 'success' });
         fetchData(); closeModal();
       }
     } catch (error) { setAlertDialog({ isOpen:true, title:'Error', message: error.response?.data?.message || 'Operation failed.', type:'error' }); }
@@ -116,7 +116,7 @@ const AdminEmployees = () => {
     isOpen:true, title:'Delete Employee', type:'danger',
     message:`Are you sure you want to delete "${emp.name}"? This cannot be undone.`,
     onConfirm: async () => {
-      try { const r = await deleteEmployee(emp.id); if (r.data.success) { setToastConfig({ message: 'Employee deleted successfully!', type: 'success' }); fetchData(); } }
+      try { const r = await deleteEmployee(emp.id); if (r.data.success) { fetchData(); } }
       catch (error) { setAlertDialog({ isOpen:true, title:'Error', message: error.response?.data?.message || 'Delete failed.', type:'error' }); }
     },
   });
@@ -127,7 +127,7 @@ const AdminEmployees = () => {
       isOpen:true, title:`${action === 'disable' ? 'Disable' : 'Enable'} Work From Home`, type: emp.wfh_enabled ? 'warning' : 'info',
       message:`Are you sure you want to ${action} WFH access for "${emp.name}"?`,
       onConfirm: async () => {
-        try { emp.wfh_enabled ? await disableWFH(emp.employee_id) : await enableWFH(emp.employee_id); setToastConfig({ message: `WFH access ${action}d successfully!`, type: 'success' }); fetchData(); }
+        try { emp.wfh_enabled ? await disableWFH(emp.employee_id) : await enableWFH(emp.employee_id); fetchData(); }
         catch (error) { setAlertDialog({ isOpen:true, title:'Error', message: error.response?.data?.message || 'Operation failed.', type:'error' }); }
       },
     });
@@ -139,7 +139,7 @@ const AdminEmployees = () => {
       isOpen:true, title:`${action === 'disable' ? 'Disable' : 'Enable'} Early Checkout`, type: emp.early_checkout_enabled ? 'warning' : 'info',
       message:`Are you sure you want to ${action} early checkout for "${emp.name}"?`,
       onConfirm: async () => {
-        try { const r = await toggleEarlyCheckout(emp.employee_id, !emp.early_checkout_enabled); if (r.data.success) { setToastConfig({ message: r.data.message, type: 'success' }); fetchData(); } else throw new Error(r.data.message); }
+        try { const r = await toggleEarlyCheckout(emp.employee_id, !emp.early_checkout_enabled); if (r.data.success) { fetchData(); } else throw new Error(r.data.message); }
         catch (error) { setAlertDialog({ isOpen:true, title:'Error', message: error.response?.data?.message || 'Operation failed.', type:'error' }); }
       },
     });
@@ -153,11 +153,13 @@ const AdminEmployees = () => {
     }); 
   };
 
-  const filteredEmployees = employees.filter(emp =>
+  const filteredEmployeesRaw = employees.filter(emp =>
     emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     emp.employee_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     emp.email.toLowerCase().includes(searchTerm.toLowerCase())
-  ).sort((a, b) => a.employee_id.localeCompare(b.employee_id));
+  );
+  
+  const filteredEmployees = sortEmployeeRows(filteredEmployeesRaw, sortBy);
 
   if (loading) return (
     <div className="flex h-screen bg-admin-bg"><Sidebar /><div className="flex-1 flex items-center justify-center"><Spinner size={36} /></div></div>
@@ -181,16 +183,32 @@ const AdminEmployees = () => {
             </button>
           </div>
 
-          {/* Search */}
-          <div className="relative mb-5">
-            <FiSearch size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-admin-secondary pointer-events-none" />
-            <input type="text" placeholder="Search by name, ID, or email…" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-              className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-3 pl-12 pr-4 text-sm placeholder:text-admin-secondary focus:outline-none focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/15 transition-all" />
+          {/* Search & Sort */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-5">
+            <div className="relative flex-1">
+              <FiSearch size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-admin-secondary pointer-events-none" />
+              <input type="text" placeholder="Search by name, ID, or email…" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-3 pl-12 pr-4 text-sm placeholder:text-admin-secondary focus:outline-none focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/15 transition-all" />
+            </div>
+            <div className="sm:w-64 shrink-0 relative">
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-3 px-4 pr-10 text-sm focus:outline-none focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/15 transition-all cursor-pointer appearance-none">
+                <option value="name_asc" className="text-slate-900">Name A-Z</option>
+                <option value="name_desc" className="text-slate-900">Name Z-A</option>
+                <option value="employee_id_asc" className="text-slate-900">Employee ID A-Z</option>
+                <option value="employee_id_desc" className="text-slate-900">Employee ID Z-A</option>
+                <option value="salary_asc" className="text-slate-900">Salary Low to High</option>
+                <option value="salary_desc" className="text-slate-900">Salary High to Low</option>
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-admin-secondary">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+            </div>
           </div>
 
           {/* Table */}
           <div className="bg-admin-surface border border-admin-border rounded-2xl overflow-hidden shadow-clay-admin">
-            <div className="overflow-x-auto dark-scroll">
+            <div className="table-responsive dark-scroll">
               <table className="min-w-full divide-y divide-white/[0.04]">
                 <thead className="bg-admin-bg">
                   <tr>

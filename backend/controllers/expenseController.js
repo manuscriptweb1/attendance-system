@@ -1,5 +1,6 @@
 const pool = require('../config/database');
 const exceljs = require('exceljs');
+const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
 
 // --- Expense Types ---
 const getExpenseTypes = async (req, res) => {
@@ -43,6 +44,18 @@ const addExpenseType = async (req, res) => {
       'INSERT INTO expense_types (name, description) VALUES ($1, $2) RETURNING *',
       [name, description]
     );
+
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.CREATE_EXPENSE_TYPE,
+      moduleName: 'Expense Types',
+      description: `Created expense type '${name}'.`,
+      newData: result.rows[0],
+      ipAddress: req.ip
+    });
+
     res.json({ success: true, expenseType: result.rows[0] });
   } catch (error) {
     console.error('Add expense type error:', error);
@@ -55,11 +68,34 @@ const updateExpenseType = async (req, res) => {
     const { id } = req.params;
     const { name, description, is_active } = req.body;
     
+    const oldRecord = await pool.query('SELECT * FROM expense_types WHERE id = $1', [id]);
+    if (oldRecord.rows.length === 0) return res.status(404).json({ success: false, message: 'Not found' });
+    
     const result = await pool.query(
       'UPDATE expense_types SET name = $1, description = $2, is_active = $3 WHERE id = $4 RETURNING *',
       [name, description, is_active, id]
     );
-    if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Not found' });
+    
+    const oldData = oldRecord.rows[0];
+    const newData = result.rows[0];
+    
+    let descriptionStr = `Updated expense type '${oldData.name}'.`;
+    if (oldData.is_active !== newData.is_active) {
+      descriptionStr = newData.is_active ? `Activated expense type '${newData.name}'.` : `Deactivated expense type '${newData.name}'.`;
+    }
+
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.UPDATE_EXPENSE_TYPE,
+      moduleName: 'Expense Types',
+      description: descriptionStr,
+      oldData,
+      newData,
+      ipAddress: req.ip
+    });
+
     res.json({ success: true, expenseType: result.rows[0] });
   } catch (error) {
     console.error('Update expense type error:', error);
@@ -71,6 +107,9 @@ const deleteExpenseType = async (req, res) => {
   try {
     const { id } = req.params;
     
+    const oldRecord = await pool.query('SELECT * FROM expense_types WHERE id = $1', [id]);
+    if (oldRecord.rows.length === 0) return res.status(404).json({ success: false, message: 'Not found' });
+    
     // Check if it's used
     const checkResult = await pool.query('SELECT COUNT(*) FROM monthly_expenses WHERE expense_type_id = $1', [id]);
     if (parseInt(checkResult.rows[0].count) > 0) {
@@ -78,6 +117,18 @@ const deleteExpenseType = async (req, res) => {
     }
     
     await pool.query('DELETE FROM expense_types WHERE id = $1', [id]);
+
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.DELETE_EXPENSE_TYPE,
+      moduleName: 'Expense Types',
+      description: `Deleted expense type '${oldRecord.rows[0].name}'.`,
+      oldData: oldRecord.rows[0],
+      ipAddress: req.ip
+    });
+
     res.json({ success: true, message: 'Deleted successfully' });
   } catch (error) {
     console.error('Delete expense type error:', error);
@@ -210,7 +261,27 @@ const addExpense = async (req, res) => {
       [expense_type_id || null, name, notes, amount, expense_date, expense_month, expense_year, payment_method, payment_status, paid_to, req.user.id]
     );
 
-    res.json({ success: true, expense: result.rows[0] });
+    let typeName = 'General';
+    if (expense_type_id) {
+      const typeRes = await pool.query('SELECT name FROM expense_types WHERE id = $1', [expense_type_id]);
+      if (typeRes.rows.length > 0) typeName = typeRes.rows[0].name;
+    }
+
+    const exp = result.rows[0];
+    const logDesc = `Created expense '${exp.name}' under ${typeName} for ₹${exp.amount}. Payment status: ${exp.payment_status || 'Unpaid'}. Payment method: ${exp.payment_method || 'N/A'}. Date: ${expense_date}.`;
+
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.CREATE_EXPENSE,
+      moduleName: MODULE_NAMES.EXPENSES,
+      description: logDesc,
+      newData: exp,
+      ipAddress: req.ip
+    });
+
+    res.json({ success: true, expense: exp });
   } catch (error) {
     console.error('Add expense error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -233,6 +304,15 @@ const updateExpense = async (req, res) => {
     const expense_month = dateObj.getMonth() + 1;
     const expense_year = dateObj.getFullYear();
 
+    const oldRecordRes = await pool.query(`
+      SELECT me.*, et.name as expense_type_name 
+      FROM monthly_expenses me
+      LEFT JOIN expense_types et ON me.expense_type_id = et.id
+      WHERE me.id = $1`, [id]
+    );
+    if (oldRecordRes.rows.length === 0) return res.status(404).json({ success: false, message: 'Not found' });
+    const oldData = oldRecordRes.rows[0];
+
     const result = await pool.query(
       `UPDATE monthly_expenses 
        SET expense_type_id = $1, title = $2, name = $2, description = $3, notes = $3, amount = $4, 
@@ -241,9 +321,53 @@ const updateExpense = async (req, res) => {
        WHERE id = $11 RETURNING *`,
       [expense_type_id || null, name, notes, amount, dateObj.toISOString().split('T')[0], expense_month, expense_year, payment_method, payment_status, paid_to, id]
     );
+    const newData = result.rows[0];
 
-    if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Not found' });
-    res.json({ success: true, expense: result.rows[0] });
+    let changes = [];
+    if (parseFloat(oldData.amount) !== parseFloat(newData.amount)) {
+      changes.push(`Amount changed from ₹${oldData.amount} to ₹${newData.amount}`);
+    }
+    if (oldData.payment_status !== newData.payment_status) {
+      changes.push(`Payment status changed from ${oldData.payment_status || 'Unpaid'} to ${newData.payment_status || 'Unpaid'}`);
+    }
+    if (oldData.payment_method !== newData.payment_method) {
+      changes.push(`Payment method changed from ${oldData.payment_method || 'N/A'} to ${newData.payment_method || 'N/A'}`);
+    }
+    if (oldData.name !== newData.name) {
+      changes.push(`Name changed from '${oldData.name}' to '${newData.name}'`);
+    }
+    if (oldData.expense_type_id != newData.expense_type_id) {
+      let newTypeName = 'General';
+      if (newData.expense_type_id) {
+        const typeRes = await pool.query('SELECT name FROM expense_types WHERE id = $1', [newData.expense_type_id]);
+        if (typeRes.rows.length > 0) newTypeName = typeRes.rows[0].name;
+      }
+      changes.push(`Expense type changed from ${oldData.expense_type_name || 'General'} to ${newTypeName}`);
+    }
+    const oldDateStr = new Date(oldData.expense_date).toISOString().split('T')[0];
+    const newDateStr = new Date(newData.expense_date).toISOString().split('T')[0];
+    if (oldDateStr !== newDateStr) {
+      changes.push(`Payment date changed from ${oldDateStr} to ${newDateStr}`);
+    }
+    if (oldData.notes !== newData.notes) {
+      changes.push(`Notes updated`);
+    }
+
+    if (changes.length > 0) {
+      await logAdminActivity({
+        adminId: req.user.id,
+        adminName: req.user.username,
+        adminEmail: req.user.email || '',
+        actionType: ADMIN_ACTION_TYPES.UPDATE_EXPENSE,
+        moduleName: MODULE_NAMES.EXPENSES,
+        description: `Updated expense '${oldData.name}'. ${changes.join('; ')}`,
+        oldData,
+        newData,
+        ipAddress: req.ip
+      });
+    }
+
+    res.json({ success: true, expense: newData });
   } catch (error) {
     console.error('Update expense error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -253,7 +377,32 @@ const updateExpense = async (req, res) => {
 const deleteExpense = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    const oldRecordRes = await pool.query(`
+      SELECT me.*, et.name as expense_type_name 
+      FROM monthly_expenses me
+      LEFT JOIN expense_types et ON me.expense_type_id = et.id
+      WHERE me.id = $1`, [id]
+    );
+    if (oldRecordRes.rows.length === 0) return res.status(404).json({ success: false, message: 'Not found' });
+    const exp = oldRecordRes.rows[0];
+
     await pool.query('DELETE FROM monthly_expenses WHERE id = $1', [id]);
+
+    const oldDateStr = new Date(exp.expense_date).toISOString().split('T')[0];
+    const logDesc = `Deleted expense '${exp.name}' under ${exp.expense_type_name || 'General'} for ₹${exp.amount}. Payment status: ${exp.payment_status || 'Unpaid'}. Payment method: ${exp.payment_method || 'N/A'}. Date: ${oldDateStr}.`;
+
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.DELETE_EXPENSE,
+      moduleName: MODULE_NAMES.EXPENSES,
+      description: logDesc,
+      oldData: exp,
+      ipAddress: req.ip
+    });
+
     res.json({ success: true, message: 'Deleted successfully' });
   } catch (error) {
     console.error('Delete expense error:', error);
@@ -330,9 +479,9 @@ const clearExpenseRange = async (req, res) => {
       return res.status(400).json({ success: false, message: 'From Date cannot be after To Date' });
     }
 
-    const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
+
     const adminId = req.user.id;
-    const adminName = req.user.name;
+    const adminName = req.user.username;
 
     const result = await pool.query(
       'DELETE FROM monthly_expenses WHERE expense_date BETWEEN $1 AND $2 RETURNING id',

@@ -343,3 +343,13 @@ export const clearAdminActivityLogs = () =>
 
 export const clearMonthlyAttendance = (year, month) => 
   api.delete('/clear-data/monthly-attendance', { data: { year, month } });
+
+// Database Monitor APIs
+export const getDatabaseMonitor = () => api.get('/database/monitor');
+
+// Public APIs (No Auth Required)
+export const getPublicAttendanceMatrix = (month, year) => 
+  api.get('/public/attendance-matrix', { params: { month, year } });
+
+export const getPublicHolidayInfo = () => 
+  api.get('/public/holiday-info');

@@ -2,14 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
-import { getDashboardStats, getAllAttendance, getTrustedDeviceStats, getAdminActivityStats, getAdminActivityLogs, getAllHolidays, getSystemHealth } from '../services/api';
+import { getDashboardStats, getAllAttendance, getTrustedDeviceStats, getAdminActivityStats, getAdminActivityLogs, getAllHolidays, getSystemHealth, getDatabaseMonitor } from '../services/api';
 import { formatTime, formatWorkingHours, formatDate } from '../utils/formatTime';
 import {
   FiUsers, FiCheckCircle, FiClock, FiXCircle, FiActivity, FiSmartphone,
   FiPlus, FiSettings, FiCalendar, FiDatabase, FiServer, FiMail,
   FiDollarSign, FiUserCheck
 } from 'react-icons/fi';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const getLocalDateString = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`; };
 
@@ -111,11 +111,14 @@ const AdminDashboard = () => {
   const [recentActivities, setRecentActivities] = useState([]);
   const [upcomingHolidays, setUpcomingHolidays] = useState([]);
   const [systemHealth, setSystemHealth] = useState(null);
+  const [databaseStats, setDatabaseStats] = useState(null);
   
   // Attendance Table State
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [time, setTime] = useState(new Date());
+  
+  const navigate = useNavigate();
 
   // Search & Filters for Table
   const [search, setSearch] = useState('');
@@ -138,14 +141,15 @@ const AdminDashboard = () => {
       const localDate = getLocalDateString();
       const now = new Date();
       
-      const [statsRes, attendanceRes, deviceRes, activityRes, logsRes, holidaysRes, healthRes] = await Promise.all([
+      const [statsRes, attendanceRes, deviceRes, activityRes, logsRes, holidaysRes, healthRes, dbRes] = await Promise.all([
         getDashboardStats(), 
         getAllAttendance({ date: localDate }), 
         getTrustedDeviceStats(),
         getAdminActivityStats(),
         getAdminActivityLogs({ limit: 5 }),
         getAllHolidays(now.getFullYear(), now.getMonth() + 1),
-        getSystemHealth()
+        getSystemHealth(),
+        getDatabaseMonitor()
       ]);
       
       if (statsRes.data.success) setStats(statsRes.data.stats);
@@ -158,6 +162,7 @@ const AdminDashboard = () => {
         setUpcomingHolidays(hols.slice(0, 3));
       }
       if (healthRes.data.success) setSystemHealth(healthRes.data.health);
+      if (dbRes.data.success) setDatabaseStats(dbRes.data.database);
     } catch (e) { console.error('Error fetching dashboard data:', e); }
     finally { setLoading(false); }
   };
@@ -264,8 +269,8 @@ const AdminDashboard = () => {
 
           {/* 2. EMPLOYEE OVERVIEW (Today) */}
           <div className="mb-6 animate-fadeInUp stagger-2">
-            <h2 className="text-[10px] font-bold text-admin-secondary uppercase tracking-widest mb-3 px-1">Employee Overview (Today)</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <h2 className="text-[10px] font-bold text-admin-secondary uppercase tracking-widest mb-3 px-1">Overview (Today)</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
               {[
                 { title: 'Total Employees', value: stats.totalEmployees, icon: FiUsers,       baseBg: 'bg-indigo-500/5', hoverBg: 'group-hover:bg-indigo-500/20', color: 'text-indigo-400', border: 'border-indigo-500/20', iconBg: 'bg-indigo-500/10' },
                 { title: 'Active Employees',value: stats.activeEmployees,icon: FiUserCheck,   baseBg: 'bg-emerald-500/5', hoverBg: 'group-hover:bg-emerald-500/20', color: 'text-emerald-400', border: 'border-emerald-500/20', iconBg: 'bg-emerald-500/10' },
@@ -286,6 +291,60 @@ const AdminDashboard = () => {
                   </div>
                 </div>
               ))}
+              
+              {/* Database Storage Card */}
+              {databaseStats ? (
+                (() => {
+                  const limit = parseInt(process.env.REACT_APP_DATABASE_STORAGE_LIMIT_MB || '500', 10);
+                  const percentage = Math.min((databaseStats.sizeBytes / (limit * 1024 * 1024)) * 100, 100);
+                  let status = 'Healthy';
+                  let colorClass = 'text-emerald-400';
+                  let bgClass = 'bg-emerald-500/10';
+                  let borderClass = 'border-emerald-500/20';
+                  let baseBg = 'bg-emerald-500/5';
+                  let hoverBg = 'group-hover:bg-emerald-500/20';
+                  
+                  if (percentage >= 95) {
+                    status = 'Critical';
+                    colorClass = 'text-red-400';
+                    bgClass = 'bg-red-500/10';
+                    borderClass = 'border-red-500/20';
+                    baseBg = 'bg-red-500/5';
+                    hoverBg = 'group-hover:bg-red-500/20';
+                  } else if (percentage >= 80) {
+                    status = 'Warning';
+                    colorClass = 'text-orange-400';
+                    bgClass = 'bg-orange-500/10';
+                    borderClass = 'border-orange-500/20';
+                    baseBg = 'bg-orange-500/5';
+                    hoverBg = 'group-hover:bg-orange-500/20';
+                  }
+
+                  return (
+                    <div 
+                      onClick={() => navigate("/admin/database-monitor")} 
+                      className="cursor-pointer bg-admin-surface border border-admin-border rounded-2xl p-5 shadow-clay-admin hover:-translate-y-1 transition-transform duration-300 relative overflow-hidden group"
+                    >
+                      <div className={`absolute top-0 right-0 w-24 h-24 rounded-bl-full ${baseBg} ${hoverBg} transition-all duration-300 group-hover:scale-110`} />
+                      <div className="flex items-center justify-between mb-4 relative z-10">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${bgClass} ${colorClass} ${borderClass}`}>
+                          <FiDatabase size={18} />
+                        </div>
+                        <span className={`text-xs font-bold ${colorClass}`}>{status}</span>
+                      </div>
+                      <div className="relative z-10">
+                        <p className="text-xl lg:text-2xl font-extrabold text-admin-heading mb-1">{databaseStats.size}</p>
+                        <p className="text-xs font-semibold text-admin-muted">Database Storage ({percentage.toFixed(1)}% used)</p>
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="bg-admin-surface border border-admin-border rounded-2xl p-5 shadow-clay-admin relative overflow-hidden flex flex-col items-center justify-center min-h-[140px]">
+                  <FiDatabase size={24} className="text-admin-secondary mb-2 opacity-50" />
+                  <p className="text-xs font-semibold text-admin-secondary">Storage unavailable</p>
+                </div>
+              )}
             </div>
           </div>
 

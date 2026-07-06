@@ -15,6 +15,7 @@ import ContactPage from './pages/ContactPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsAndConditionsPage from './pages/TermsAndConditionsPage';
 import SupportPage from './pages/SupportPage';
+import PublicEmployeeInfo from './pages/PublicEmployeeInfo';
 
 // Auth Pages
 import AdminLogin from './pages/AdminLogin';
@@ -38,7 +39,7 @@ import AdminActivityLogs from './pages/AdminActivityLogs';
 import AdminPayroll from './pages/AdminPayroll';
 import AdminExpenses from './pages/AdminExpenses';
 import AdminReports from './pages/AdminReports';
-
+import AdminDatabaseMonitor from './pages/AdminDatabaseMonitor';
 // Employee Pages
 import EmployeeDashboard from './pages/EmployeeDashboard';
 import EmployeeAttendance from './pages/EmployeeAttendance';
@@ -173,6 +174,9 @@ function App() {
             {/* Public Landing Page */}
             <Route path="/" element={<LandingPage />} />
             
+            {/* New Public Info Page */}
+            <Route path="/public/employee-info" element={<PublicEmployeeInfo />} />
+            
             {/* Public Pages */}
             <Route path="/about" element={<AboutPage />} />
             <Route path="/features" element={<FeaturesPage />} />
@@ -294,6 +298,14 @@ function App() {
               element={
                 <ProtectedRoute requiredRole="admin">
                   <AdminSecurityLogs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/database-monitor"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminDatabaseMonitor />
                 </ProtectedRoute>
               }
             />

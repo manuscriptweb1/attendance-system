@@ -6,13 +6,12 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { Spinner } from '../components/Loader';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { FiEdit2, FiTrash2, FiPlus, FiDownload, FiEye, FiEyeOff, FiShield, FiLock, FiList, FiX, FiUsers, FiActivity, FiKey } from 'react-icons/fi';
-import { formatDate, formatTime } from '../utils/formatTime';
+import { FiEdit2, FiTrash2, FiPlus, FiEye, FiEyeOff, FiShield, FiLock, FiX, FiUsers, FiKey } from 'react-icons/fi';
+import { formatDate } from '../utils/formatTime';
 
 const TABS = [
   { id:'admins',   label:'Manage Admins',  Icon:FiShield },
   { id:'password', label:'Change Password', Icon:FiLock   },
-  { id:'logs',     label:'Login Logs',      Icon:FiList   },
 ];
 
 const AdminManagement = () => {
@@ -20,7 +19,6 @@ const AdminManagement = () => {
   const [activeTab, setActiveTab] = useState('admins');
   const [loading, setLoading] = useState(false);
   const [admins, setAdmins] = useState([]);
-  const [loginLogs, setLoginLogs] = useState([]);
   const [alertDialog, setAlertDialog] = useState({ isOpen:false, title:'', message:'', type:'success' });
   const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen:false, title:'', message:'', onConfirm:null, type:'danger' });
@@ -31,20 +29,13 @@ const AdminManagement = () => {
   
   const [passwordForm, setPasswordForm] = useState({ currentPassword:'', newPassword:'', confirmPassword:'' });
   const [showPw, setShowPw] = useState({ current:false, new:false, confirm:false });
-  
-  const [dateFilter, setDateFilter] = useState({ startDate:'', endDate:'' });
 
   useEffect(() => {
     fetchAdmins();
-    fetchLoginLogs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchAdmins = async () => { try { setLoading(true); const r = await api.get('/admins'); setAdmins(r.data.admins || []); } catch(e) { } finally { setLoading(false); } };
-  const fetchLoginLogs = async () => {
-    try { setLoading(true); const params = {}; if (dateFilter.startDate) params.startDate = dateFilter.startDate; if (dateFilter.endDate) params.endDate = dateFilter.endDate; const r = await api.get('/admins/login-logs', { params }); setLoginLogs(r.data.logs || []); }
-    catch(e) { } finally { setLoading(false); }
-  };
 
   const handleSaveAdmin = async () => {
     if (!adminForm.username || !adminForm.email) { setAlertDialog({ isOpen:true, title:'Validation Error', message:'Username and email are required', type:'error' }); return; }
@@ -68,14 +59,6 @@ const AdminManagement = () => {
     finally { setLoading(false); }
   };
 
-  const handleDownloadLogs = async () => {
-    try { setLoading(true); const params = {}; if (dateFilter.startDate) params.startDate = dateFilter.startDate; if (dateFilter.endDate) params.endDate = dateFilter.endDate;
-      const response = await api.get('/pdf/admin-logs', { params, responseType:'blob' });
-      const url = window.URL.createObjectURL(new Blob([response.data])); const link = document.createElement('a'); link.href = url; link.setAttribute('download', `admin_login_logs_${Date.now()}.pdf`); document.body.appendChild(link); link.click(); link.remove();
-      setToastConfig({ message: 'PDF downloaded!', type: 'success' }); }
-    catch(e) { setAlertDialog({ isOpen:true, title:'Error', message: e.response?.data?.message || 'Failed to download PDF', type:'error' }); }
-    finally { setLoading(false); }
-  };
 
   const PwField = ({ label, field, pwKey }) => (
     <div className="relative z-10">
@@ -91,28 +74,13 @@ const AdminManagement = () => {
 
   /* ─── STATS CALCULATION ─── */
   const stats = useMemo(() => {
-    const today = new Date().toDateString();
-    
-    let loginsToday = 0;
-    const activeBrowsers = new Set();
-    
-    loginLogs.forEach(l => {
-      if (new Date(l.login_time).toDateString() === today) loginsToday++;
-      if (l.browser_info) activeBrowsers.add(l.browser_info.split(' ')[0]);
-    });
-
-    // const newAdminsThisMonth = admins.filter(a => new Date(a.created_at).getMonth() === currentMonth).length;
-
     return { 
       totalAdmins: admins.length, 
       superAdmins: 1, 
       standardAdmins: Math.max(0, admins.length - 1),
-      activeSessions: activeBrowsers.size,
-      twoFactorEnabled: 0,
-      loginLogs: loginLogs.length, 
-      loginsToday 
+      twoFactorEnabled: 0
     };
-  }, [admins, loginLogs]);
+  }, [admins]);
 
   return (
     <div className="flex h-screen bg-admin-bg dark-scroll selection:bg-blue-500/30">
@@ -133,12 +101,11 @@ const AdminManagement = () => {
           </div>
 
           {/* Stat Cards - CSS Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             {[
               { label:'Total Admins',     value:stats.totalAdmins,     color:'text-blue-400',    bg:'from-blue-500/10 to-transparent', border:'border-blue-500/20', icon:FiUsers },
               { label:'Super Admins',     value:stats.superAdmins,     color:'text-emerald-400', bg:'from-emerald-500/10 to-transparent', border:'border-emerald-500/20', icon:FiShield },
               { label:'Standard Admins',  value:stats.standardAdmins,  color:'text-purple-400',  bg:'from-purple-500/10 to-transparent', border:'border-purple-500/20', icon:FiUsers },
-              { label:'Active Sessions',  value:stats.activeSessions,  color:'text-amber-400',   bg:'from-amber-500/10 to-transparent', border:'border-amber-500/20', icon:FiActivity },
               { label:'2FA Enabled',      value:stats.twoFactorEnabled,color:'text-cyan-400',    bg:'from-cyan-500/10 to-transparent', border:'border-cyan-500/20', icon:FiLock },
             ].map((s, i) => (
               <div key={i} className={`bg-admin-elevated border ${s.border} rounded-2xl p-4 shadow-clay-admin overflow-hidden relative group hover:-translate-y-1 transition-transform duration-300`}>
@@ -246,50 +213,6 @@ const AdminManagement = () => {
                 </div>
               )}
 
-              {/* ── Logs Tab ── */}
-              {activeTab === 'logs' && (
-                <div className="flex flex-col flex-1 h-full">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border-b border-admin-border bg-admin-bg">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <input type="date" value={dateFilter.startDate} onChange={e => setDateFilter(d => ({ ...d, startDate: e.target.value }))} className="bg-admin-bg border border-admin-border text-admin-muted text-xs rounded-xl px-4 py-2 outline-none focus:border-blue-500/50 transition-all" />
-                      </div>
-                      <span className="text-admin-secondary font-bold text-xs">TO</span>
-                      <div className="relative">
-                        <input type="date" value={dateFilter.endDate} onChange={e => setDateFilter(d => ({ ...d, endDate: e.target.value }))} className="bg-admin-bg border border-admin-border text-admin-muted text-xs rounded-xl px-4 py-2 outline-none focus:border-blue-500/50 transition-all" />
-                      </div>
-                      <button onClick={fetchLoginLogs} className="px-4 py-2 bg-admin-surface border border-admin-border hover:border-admin-border text-admin-muted hover:text-admin-text text-xs font-bold rounded-xl transition-colors">Filter</button>
-                    </div>
-                    <button onClick={handleDownloadLogs} disabled={loginLogs.length === 0} className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 hover:border-emerald-500/30 text-emerald-400 text-xs font-bold rounded-xl disabled:opacity-50 transition-all shadow-clay-admin">
-                      <FiDownload size={14} /> Export PDF
-                    </button>
-                  </div>
-                  
-                  <div className="table-responsive dark-scroll flex-1">
-                    <table className="min-w-full">
-                      <thead>
-                        <tr>{['Admin', 'Timestamp', 'IP Address', 'Browser', 'Device'].map(h => <th key={h} className="px-6 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 backdrop-blur-md z-10">{h}</th>)}</tr>
-                      </thead>
-                      <tbody>
-                        {loginLogs.length === 0 ? (
-                          <tr><td colSpan="5" className="text-center py-16 text-admin-secondary text-sm font-bold">No login logs match criteria.</td></tr>
-                        ) : loginLogs.map(log => (
-                          <tr key={log.id} className="border-b border-admin-border hover:bg-admin-elevated/[0.02] transition-colors">
-                            <td className="px-6 py-4 whitespace-nowrap"><span className="text-sm font-bold text-admin-text">{log.username}</span></td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="block text-xs font-semibold text-admin-secondary">{formatDate(log.login_time_utc || log.login_time)}</span>
-                              <span className="text-[10px] text-admin-secondary font-mono">{formatTime(log.login_time_utc || log.login_time)}</span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap"><span className="text-xs font-mono text-blue-400/80 bg-blue-500/10 px-2 py-1 rounded-md border border-blue-500/10">{log.ip_address}</span></td>
-                            <td className="px-6 py-4"><span className="text-xs text-admin-muted">{log.browser_info}</span></td>
-                            <td className="px-6 py-4"><span className="text-xs text-admin-muted">{log.device_info}</span></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>

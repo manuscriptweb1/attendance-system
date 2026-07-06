@@ -23,6 +23,8 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const payrollRoutes = require('./routes/payrollRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const databaseMonitorRoutes = require('./routes/databaseMonitorRoutes');
+const publicRoutes = require('./routes/publicRoutes');
 
 // Import cron jobs
 const { createDailyAbsentRecords } = require('./jobs/createDailyAbsentRecords');
@@ -99,6 +101,8 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/database', databaseMonitorRoutes);
+app.use('/api/public', publicRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

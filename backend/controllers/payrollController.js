@@ -1,6 +1,7 @@
 const pool = require('../config/database');
 const exceljs = require('exceljs');
 const { buildMonthlyPayroll } = require('../services/attendanceReportService');
+const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
 
 const mapRecordToCamelCase = (r) => ({
   id: r.id,
@@ -123,6 +124,24 @@ const calculatePayroll = async (req, res) => {
       );
     }
 
+    let totalNetPayable = 0;
+    calculatedRecords.forEach(pr => {
+      totalNetPayable += parseFloat(pr.netPayable) || 0;
+    });
+
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthName = monthNames[parseInt(month) - 1] || month;
+
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.CALCULATE_ALL_PAYROLL,
+      moduleName: MODULE_NAMES.PAYROLL,
+      description: `Calculated payroll for ${monthName} ${year}. Total employees processed: ${calculatedRecords.length}. Total net payable: ₹${totalNetPayable.toLocaleString('en-IN')}.`,
+      ipAddress: req.ip
+    });
+
     res.json({ success: true, message: 'Payroll calculated successfully', records: calculatedRecords });
   } catch (error) {
     console.error('Calculate payroll error:', error);
@@ -228,7 +247,12 @@ const updatePayrollRecord = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid status' });
     }
 
-    const existing = await pool.query('SELECT * FROM payroll_records WHERE id = $1', [id]);
+    const existing = await pool.query(`
+      SELECT pr.*, e.name as employee_name
+      FROM payroll_records pr
+      JOIN employees e ON pr.employee_id::text = e.id::text OR pr.employee_code::text = e.employee_id::text
+      WHERE pr.id = $1
+    `, [id]);
     if (existing.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Record not found' });
     }
@@ -282,7 +306,51 @@ const updatePayrollRecord = async (req, res) => {
       [id]
     );
 
-    res.json({ success: true, record: mapRecordToCamelCase(updated.rows[0]) });
+    const newData = updated.rows[0];
+    let changes = [];
+    
+    if (parseFloat(currentRecord.working_days || 0) !== parseFloat(newData.working_days || 0)) {
+      changes.push(`Working Days changed from ${currentRecord.working_days || 0} to ${newData.working_days || 0}`);
+    }
+    if (parseFloat(currentRecord.paid_days || 0) !== parseFloat(newData.paid_days || 0)) {
+      changes.push(`Paid Days changed from ${currentRecord.paid_days || 0} to ${newData.paid_days || 0}`);
+    }
+    if (parseFloat(currentRecord.lop_days || 0) !== parseFloat(newData.lop_days || 0)) {
+      changes.push(`LOP Days changed from ${currentRecord.lop_days || 0} to ${newData.lop_days || 0}`);
+    }
+    if (parseFloat(currentRecord.staff_advance || 0) !== parseFloat(newData.staff_advance || 0)) {
+      changes.push(`Staff Advance changed from ₹${currentRecord.staff_advance || 0} to ₹${newData.staff_advance || 0}`);
+    }
+    if (parseFloat(currentRecord.professional_tax || 0) !== parseFloat(newData.professional_tax || 0)) {
+      changes.push(`PT changed from ₹${currentRecord.professional_tax || 0} to ₹${newData.professional_tax || 0}`);
+    }
+    if (parseFloat(currentRecord.tds || 0) !== parseFloat(newData.tds || 0)) {
+      changes.push(`TDS changed from ₹${currentRecord.tds || 0} to ₹${newData.tds || 0}`);
+    }
+    if (currentRecord.status !== newData.status) {
+      const oldStatus = currentRecord.status ? currentRecord.status.charAt(0).toUpperCase() + currentRecord.status.slice(1) : 'Pending';
+      const newStatus = newData.status ? newData.status.charAt(0).toUpperCase() + newData.status.slice(1) : 'Pending';
+      changes.push(`Status changed from ${oldStatus} to ${newStatus}`);
+    }
+
+    if (changes.length > 0) {
+      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const monthName = monthNames[parseInt(currentRecord.payroll_month) - 1] || currentRecord.payroll_month;
+      
+      await logAdminActivity({
+        adminId: req.user.id,
+        adminName: req.user.username,
+        adminEmail: req.user.email || '',
+        actionType: ADMIN_ACTION_TYPES.UPDATE_PAYROLL,
+        moduleName: MODULE_NAMES.PAYROLL,
+        description: `Updated payroll for ${currentRecord.employee_code} - ${currentRecord.employee_name} for ${monthName} ${currentRecord.payroll_year}. ${changes.join('; ')}.`,
+        oldData: currentRecord,
+        newData: newData,
+        ipAddress: req.ip
+      });
+    }
+
+    res.json({ success: true, record: mapRecordToCamelCase(newData) });
   } catch (error) {
     console.error('Update payroll record error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -361,7 +429,21 @@ const calculateSinglePayroll = async (req, res) => {
       [result.rows[0].id]
     );
 
-    res.json({ success: true, message: 'Payroll calculated successfully', record: mapRecordToCamelCase(updated.rows[0]) });
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthName = monthNames[parseInt(month) - 1] || month;
+    const finalRecord = updated.rows[0];
+
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.CALCULATE_PAYROLL,
+      moduleName: MODULE_NAMES.PAYROLL,
+      description: `Calculated payroll for ${finalRecord.employee_code} - ${finalRecord.employee_name} for ${monthName} ${year}. Net payable: ₹${parseFloat(finalRecord.net_payable || 0).toLocaleString('en-IN')}.`,
+      ipAddress: req.ip
+    });
+
+    res.json({ success: true, message: 'Payroll calculated successfully', record: mapRecordToCamelCase(finalRecord) });
   } catch (error) {
     console.error('Calculate single payroll error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -472,7 +554,7 @@ const clearPayrollRange = async (req, res) => {
 
     const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
     const adminId = req.user.id;
-    const adminName = req.user.name;
+    const adminName = req.user.username;
 
     const start = new Date(fromDate);
     const end = new Date(toDate);

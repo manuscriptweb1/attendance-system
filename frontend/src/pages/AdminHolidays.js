@@ -79,12 +79,14 @@ const AdminHolidays = () => {
   const [alertDialog, setAlertDialog] = useState({ isOpen:false, title:'', message:'', type:'success' });
   const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
   const [clearDialog, setClearDialog] = useState({ isOpen: false, isLoading: false });
+  const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
 
-  useEffect(() => { fetchHolidays(); }, []);
+  useEffect(() => { fetchHolidays(); }, [filterMonth, filterYear]); // eslint-disable-line
 
   const fetchHolidays = async () => {
     setLoading(true);
-    try { const r = await getAllHolidays(); if (r.data.success) setHolidays(r.data.holidays || []); }
+    try { const r = await getAllHolidays(filterYear, filterMonth); if (r.data.success) setHolidays(r.data.holidays || []); }
     catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
     finally { setLoading(false); }
   };
@@ -202,8 +204,29 @@ const AdminHolidays = () => {
 
           {/* Holiday List */}
           <div className="bg-admin-elevated border border-admin-border rounded-2xl shadow-clay-admin overflow-hidden flex flex-col min-h-[500px]">
-            <div className="flex items-center px-6 py-4 border-b border-admin-border bg-admin-surface backdrop-blur-md">
-              <h2 className="text-sm font-bold text-admin-text flex items-center gap-2"><FiUmbrella className="text-blue-400" /> Holiday Calendar</h2>
+            <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 border-b border-admin-border bg-admin-surface backdrop-blur-md gap-4">
+              <h2 className="text-sm font-bold text-admin-text flex items-center gap-2 shrink-0"><FiUmbrella className="text-blue-400" /> Holiday Calendar</h2>
+              
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <select 
+                  value={filterMonth} 
+                  onChange={e => setFilterMonth(e.target.value)} 
+                  className="admin-select py-1.5 text-sm flex-1 sm:w-32"
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                    <option key={m} value={m}>{new Date(0, m - 1).toLocaleString('default', { month: 'long' })}</option>
+                  ))}
+                </select>
+                <select 
+                  value={filterYear} 
+                  onChange={e => setFilterYear(e.target.value)} 
+                  className="admin-select py-1.5 text-sm flex-1 sm:w-24"
+                >
+                  {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             
             <div className="flex-1 table-responsive overflow-y-auto max-h-[600px] dark-scroll relative">
@@ -213,11 +236,11 @@ const AdminHolidays = () => {
                   <p className="text-xs font-bold text-blue-400 mt-4 animate-pulse">Syncing Holidays...</p>
                 </div>
               ) : holidays.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center py-20 text-admin-secondary">
-                  <div className="w-16 h-16 rounded-2xl bg-admin-elevated/[0.02] flex items-center justify-center mb-4"><FiUmbrella size={32} className="opacity-20" /></div>
-                  <p className="text-sm font-bold">No holidays configured</p>
-                  <p className="text-xs mt-1">Click the button above to add your first holiday.</p>
-                </div>
+                  <div className="flex flex-col items-center justify-center h-full text-center py-20 text-admin-secondary">
+                    <div className="w-16 h-16 rounded-2xl bg-admin-elevated/[0.02] flex items-center justify-center mb-4"><FiUmbrella size={32} className="opacity-20" /></div>
+                    <p className="text-sm font-bold">No holidays found for selected month.</p>
+                    <p className="text-xs mt-1">Try selecting a different month or click 'Add Holiday'.</p>
+                  </div>
               ) : (
                 <div className="min-w-[800px]">
                   <table className="min-w-full relative">

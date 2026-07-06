@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FiClock, FiMenu, FiX } from 'react-icons/fi';
+import { FiMenu, FiX } from 'react-icons/fi';
 
 const NAV_LINKS = [
   { label: 'Home',     path: '/'         },
@@ -27,10 +27,10 @@ export const PublicNavbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <button onClick={() => navigate('/')} className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-xl bg-[#2563EB] flex items-center justify-center shadow-[0_4px_12px_rgba(37,99,235,0.3)] group-hover:shadow-[0_4px_16px_rgba(37,99,235,0.45)] transition-shadow">
-              <FiClock size={16} className="text-white" />
+            <div className="flex items-center justify-center">
+              <img src="/favicon/favicon-96x96.png" alt="Manuscript Attendance" className="brand-logo" />
             </div>
-            <span className="text-lg font-extrabold text-[#0F172A]">AttendNest</span>
+            <span className="text-lg font-extrabold text-[#0F172A]">Manuscript Attendance</span>
           </button>
 
           {/* Desktop nav */}
@@ -81,10 +81,10 @@ export const PublicFooter = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2.5 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-[#2563EB] flex items-center justify-center">
-                <FiClock size={14} className="text-white" />
+              <div className="flex items-center justify-center">
+                <img src="/favicon/favicon-96x96.png" alt="Manuscript Attendance" className="brand-logo" />
               </div>
-              <span className="text-base font-extrabold text-white">AttendNest</span>
+              <span className="text-base font-extrabold text-white">Manuscript Attendance</span>
             </div>
             <p className="text-slate-400 text-sm leading-relaxed">Modern attendance management for modern organizations.</p>
           </div>
@@ -100,7 +100,7 @@ export const PublicFooter = () => {
           ))}
         </div>
         <div className="border-t border-white/10 mt-10 pt-8 text-center text-sm text-slate-400">
-          &copy; {new Date().getFullYear()} AttendNest. All rights reserved.
+          &copy; {new Date().getFullYear()} Manuscript Attendance. All rights reserved.
         </div>
       </div>
     </footer>

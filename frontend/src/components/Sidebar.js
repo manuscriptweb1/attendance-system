@@ -84,12 +84,12 @@ const Sidebar = () => {
         <aside className={`fixed lg:sticky lg:top-0 inset-y-0 left-0 z-40 ${isCollapsed ? 'w-14' : 'w-64'} flex-shrink-0 h-screen flex flex-col overflow-hidden bg-admin-bg border-r border-admin-border transform transition-transform duration-300 ease-out dark-scroll ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
           {/* Logo */}
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 px-5'} h-16 border-b border-admin-border flex-shrink-0`}>
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-admin-accent to-admin-accent2 flex items-center justify-center flex-shrink-0 shadow-glow-blue-sm">
-              <FiClock size={16} className="text-white" />
+            <div className="flex items-center justify-center flex-shrink-0">
+              <img src="/favicon/favicon-96x96.png" alt="MTM Attendance" className="brand-logo" />
             </div>
             {!isCollapsed && (
               <div className="min-w-0">
-                <p className="font-bold text-admin-text text-sm leading-none tracking-tight">AttendanceMS</p>
+                <p className="font-bold text-admin-text text-sm leading-none tracking-tight">MTM Attendance</p>
                 <p className="text-[10px] text-admin-accent mt-0.5 font-medium">Admin Panel</p>
               </div>
             )}
@@ -156,11 +156,11 @@ const Sidebar = () => {
       <aside className={`fixed lg:sticky lg:top-0 inset-y-0 left-0 z-40 w-[272px] flex-shrink-0 h-screen flex flex-col overflow-hidden clay-sidebar-emp transform transition-transform duration-300 ease-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
 
         <div className="flex items-center gap-3 px-5 h-[68px] border-b border-[#E7EBF2]/80 flex-shrink-0">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#4F6CE1] to-[#7B93F5] flex items-center justify-center flex-shrink-0 shadow-[0_4px_14px_rgba(79,108,225,0.3)]">
-            <FiClock size={18} className="text-white" />
+          <div className="flex items-center justify-center flex-shrink-0">
+            <img src="/favicon/favicon-96x96.png" alt="MTM Attendance" className="brand-logo" />
           </div>
           <div className="min-w-0">
-            <p className="font-bold text-[#1E293B] text-[15px] leading-none tracking-tight">AttendanceMS</p>
+            <p className="font-bold text-[#1E293B] text-[15px] leading-none tracking-tight">MTM Attendance</p>
             <p className="text-[10px] text-[#4F6CE1] mt-0.5 font-semibold tracking-wide uppercase">Employee Portal</p>
           </div>
         </div>

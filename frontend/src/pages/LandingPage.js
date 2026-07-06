@@ -87,7 +87,7 @@ const LandingPage = () => {
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#0F172A] mb-5">About Our System</h2>
-            <p className="text-[#475569] leading-relaxed mb-4">AttendNest is a comprehensive solution designed to streamline employee attendance tracking. Built with modern technology and security best practices, it provides organizations with powerful tools to monitor and manage workforce attendance efficiently.</p>
+            <p className="text-[#475569] leading-relaxed mb-4">Manuscript Attendance is a comprehensive solution designed to streamline employee attendance tracking. Built with modern technology and security best practices, it provides organizations with powerful tools to monitor and manage workforce attendance efficiently.</p>
             <p className="text-[#475569] leading-relaxed mb-4">Supports both office-based and remote work with GPS verification, network validation, and flexible attendance policies. Administrators can manage employees, generate reports, and monitor attendance in real-time.</p>
             <p className="text-[#475569] leading-relaxed">With automatic late marking, holiday management, OTP-based security, and detailed audit logs — ensuring accuracy, security, and compliance.</p>
           </div>

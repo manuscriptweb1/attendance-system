@@ -71,7 +71,7 @@ const IllustrationPanel = () => (
       <h2 className="font-bold text-[#0F172A] leading-tight mb-2" style={{ fontSize: 'clamp(15px, 1.6vw, 22px)' }}>
         Welcome to{' '}
         <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
-          AttendNest
+          Manuscript Attendance
         </span>
       </h2>
       <p className="text-[#64748B]" style={{ fontSize: 'clamp(10px, 1vw, 13px)' }}>
@@ -211,7 +211,7 @@ const EmployeeLogin = () => {
 
       {/* Footer */}
       <p className="text-center text-xs font-semibold text-[#94A3B8] mt-5">
-        © {new Date().getFullYear()} AttendNest. All rights reserved.
+        © {new Date().getFullYear()} Manuscript Attendance. All rights reserved.
       </p>
     </AuthLayout>
   );

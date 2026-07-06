@@ -1,6 +1,7 @@
 const pool = require('../config/database');
 const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
 const { getClientIP } = require('../services/networkValidationService');
+const { validateDateInput } = require('../utils/dateValidation');
 
 // Helper function to get local date in YYYY-MM-DD format
 const getLocalDateString = () => {
@@ -148,6 +149,14 @@ const addHoliday = async (req, res) => {
     });
   } catch (error) {
     console.error('Add holiday error:', error);
+    
+    if (error.isOperational) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: error.code === '23505' ? 'Holiday already exists for this date' : 'Error adding holiday'
@@ -159,7 +168,7 @@ const addHoliday = async (req, res) => {
 const updateHoliday = async (req, res) => {
   try {
     const { id } = req.params;
-    const { holiday_type, holiday_title, holiday_note, is_enabled } = req.body;
+    const { holiday_type, holiday_title, holiday_note, is_enabled, holiday_date } = req.body;
     
     // Validation
     if (!holiday_type || !holiday_title) {
@@ -167,6 +176,11 @@ const updateHoliday = async (req, res) => {
         success: false,
         message: 'Holiday type and title are required'
       });
+    }
+
+    // Validate holiday date if provided
+    if (holiday_date) {
+      validateDateInput(holiday_date, { allowFuture: true });
     }
     
     // Validate holiday type
@@ -180,11 +194,11 @@ const updateHoliday = async (req, res) => {
     // Update holiday
     const result = await pool.query(
       `UPDATE holidays 
-       SET holiday_type = $1, holiday_title = $2, holiday_note = $3, 
-           is_enabled = $4, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $5
+       SET holiday_date = COALESCE($1, holiday_date), holiday_type = $2, holiday_title = $3, holiday_note = $4, 
+           is_enabled = $5, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $6
        RETURNING *`,
-      [holiday_type, holiday_title, holiday_note || null, is_enabled !== undefined ? is_enabled : true, id]
+      [holiday_date ? new Date(holiday_date).toISOString().split('T')[0] : null, holiday_type, holiday_title, holiday_note || null, is_enabled !== undefined ? is_enabled : true, id]
     );
     
     if (result.rows.length === 0) {
@@ -202,7 +216,7 @@ const updateHoliday = async (req, res) => {
       actionType: ADMIN_ACTION_TYPES.UPDATE_HOLIDAY,
       moduleName: MODULE_NAMES.HOLIDAY,
       description: `Updated holiday: ${holiday_title}`,
-      newData: { holiday_type, holiday_title, holiday_note, is_enabled },
+      newData: { holiday_date, holiday_type, holiday_title, holiday_note, is_enabled },
       ipAddress: getClientIP(req),
       browserInfo: req.headers['user-agent']
     });
@@ -214,6 +228,14 @@ const updateHoliday = async (req, res) => {
     });
   } catch (error) {
     console.error('Update holiday error:', error);
+    
+    if (error.isOperational) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Error updating holiday'

@@ -9,6 +9,7 @@ const getAuditLogs = async (req, res) => {
     let query = `
       SELECT 
         al.*,
+        al.created_at AT TIME ZONE 'UTC' AS created_at_utc,
         e.name as employee_name
       FROM audit_logs al
       LEFT JOIN employees e ON al.user_id = e.employee_id

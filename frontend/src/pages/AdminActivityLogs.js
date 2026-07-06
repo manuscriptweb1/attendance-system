@@ -13,7 +13,8 @@ import {
   clearAdminActivityLogRange,
   getAdminActivityStats
 } from '../services/api';
-import { formatTime, formatDate } from '../utils/formatTime';
+
+import { formatDate, formatTime } from '../utils/formatTime';
 
 const AdminActivityLogs = () => {
   const [logs, setLogs] = useState([]);
@@ -252,8 +253,8 @@ const AdminActivityLogs = () => {
                     {logs.map((log) => (
                       <tr key={log.id} className="group border-b border-admin-border hover:bg-admin-elevated/[0.02] transition-colors">
                         <td className="px-5 py-4 whitespace-nowrap">
-                          <span className="block text-xs font-semibold text-admin-text">{formatDate(log.created_at)}</span>
-                          <span className="text-[10px] text-admin-secondary font-mono">{formatTime(log.created_at)}</span>
+                          <span className="text-sm font-semibold text-admin-heading block">{formatDate(log.created_at_utc || log.created_at)}</span>
+                          <span className="text-[10px] text-admin-secondary font-mono">{formatTime(log.created_at_utc || log.created_at)}</span>
                         </td>
                         <td className="px-5 py-4 whitespace-nowrap">
                           <span className="block text-sm font-bold text-admin-text">{log.admin_name || 'N/A'}</span>
@@ -319,7 +320,7 @@ const AdminActivityLogs = () => {
                     <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400">{detailsDialog.log.action_type}</span>
                     <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400">{detailsDialog.log.module_name}</span>
                   </div>
-                  <p className="text-xs text-admin-text font-mono mt-3">{formatDate(detailsDialog.log.created_at)} {formatTime(detailsDialog.log.created_at)}</p>
+                  <p className="text-xs text-admin-text font-mono mt-3">{formatDate(detailsDialog.log.created_at_utc || detailsDialog.log.created_at)} {formatTime(detailsDialog.log.created_at_utc || detailsDialog.log.created_at)}</p>
                 </div>
               </div>
 

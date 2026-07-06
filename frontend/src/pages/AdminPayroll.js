@@ -8,7 +8,7 @@ import { Spinner } from '../components/Loader';
 import api, { clearPayrollRange } from '../services/api';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateMonthYear } from '../utils/dateValidation';
-import { FiDownload, FiRefreshCw, FiDollarSign, FiEdit2, FiFileText, FiX, FiCheckCircle, FiTrash2 } from 'react-icons/fi';
+import { FiDownload, FiRefreshCw, FiDollarSign, FiEdit2, FiFileText, FiX, FiTrash2 } from 'react-icons/fi';
 import { sortEmployeeRows } from '../utils/sorting';
 
 const formatCurrency = (value) => {

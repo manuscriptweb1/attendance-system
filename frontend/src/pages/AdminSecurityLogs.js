@@ -8,7 +8,7 @@ import { Spinner } from '../components/Loader';
 import { FiShield, FiEye, FiEdit2, FiSave, FiX, FiRefreshCw, FiMonitor, FiList, FiAlertCircle, FiTrash2, FiSearch, FiCalendar } from 'react-icons/fi';
 import axios from 'axios';
 import { updateDeviceAlias, clearSecurityLogRange } from '../services/api';
-import { formatDate } from '../utils/formatTime';
+import { formatDate, formatTime } from '../utils/formatTime';
 
 const TABS = [
   { id:'audit',     label:'Audit Logs',          icon:FiList        },
@@ -183,7 +183,10 @@ const AdminSecurityLogs = () => {
       <tbody>
         {filteredLogs.length === 0 ? <EmptyState message="No audit logs match criteria" /> : filteredLogs.map((log, i) => (
           <tr key={i} className="group">
-            <AdminTd className="whitespace-nowrap font-mono text-xs">{formatDate(log.created_at)}</AdminTd>
+            <AdminTd className="whitespace-nowrap font-mono text-xs">
+              <span className="block font-semibold text-admin-text">{formatDate(log.created_at_utc || log.created_at)}</span>
+              <span className="text-[10px] text-admin-secondary">{formatTime(log.created_at_utc || log.created_at)}</span>
+            </AdminTd>
             <AdminTd className="font-bold text-admin-text">{log.user_id}</AdminTd>
             <AdminTd className="text-xs">{log.user_type}</AdminTd>
             <AdminTd className="font-semibold text-admin-muted">{log.action}</AdminTd>

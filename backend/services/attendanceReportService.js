@@ -27,22 +27,22 @@ function normalizeAttendanceStatus(status) {
 }
 
 function getFinalAttendanceCode(record, isSun, isGovH, isOffH) {
-  if (isSun) return 'Sun';
-  if (isGovH) return 'GovH';
-  if (isOffH) return 'OffH';
+  if (isSun) return 'S';
+  if (isOffH) return 'OH';
+  if (isGovH) return 'GH';
 
-  if (!record) return '';
+  if (!record) return '-';
 
   const status = normalizeAttendanceStatus(record.attendance_status || record.status);
 
   if (status === 'Present') return 'P';
-  if (status === 'Late') return 'Late';
+  if (status === 'Late') return 'L';
   if (status === 'Half Day') return 'HD';
   if (status === 'Absent') return 'A';
-  if (status === 'Work From Home') return 'WFH';
-  if (status === 'Not Mention') return '';
+  if (status === 'Work From Home') return 'P';
+  if (status === 'Not Mention') return '-';
 
-  return '';
+  return '-';
 }
 
 function getWorkedMinutes(att) {
@@ -164,8 +164,9 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
       
       // 2. Check Holiday
       const holiday = holidayMap[day];
-      const isGovH = holiday && holiday.holiday_type === 'Government Holiday';
-      const isOffH = holiday && holiday.holiday_type === 'Office Holiday';
+      const hType = holiday ? String(holiday.holiday_type || holiday.type || '').toLowerCase() : '';
+      const isGovH = hType.includes('gov');
+      const isOffH = hType.includes('office') || (!isGovH && holiday); // fallback to OH if not gov
 
       if (isSun || holiday) {
         holidayCount++;
@@ -181,9 +182,9 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
       if (!dateRecords || dateRecords.length === 0) {
         finalCode = getFinalAttendanceCode(null, isSun, isGovH, isOffH);
       } else {
-        // Priority map for multiple records (Absent > HD > Late > P > WFH > empty > Sun > GovH > OffH)
+        // Priority map for multiple records
         let highestPriority = -1;
-        const priorityMap = { 'A': 5, 'HD': 4, 'Late': 3, 'P': 2, 'WFH': 2, '': 1, 'Sun': 0, 'GovH': 0, 'OffH': 0 };
+        const priorityMap = { 'A': 5, 'HD': 4, 'L': 3, 'P': 2, '-': 1, 'S': 0, 'GH': 0, 'OH': 0 };
         
         for (const att of dateRecords) {
            const code = getFinalAttendanceCode(att, isSun, isGovH, isOffH);
@@ -213,8 +214,8 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
       // Exact count
       if (finalCode === 'A') absent++;
       else if (finalCode === 'HD') halfDay++;
-      else if (finalCode === 'Late') lateCount++;
-      else if (finalCode === 'P' || finalCode === 'WFH') present++;
+      else if (finalCode === 'L') lateCount++;
+      else if (finalCode === 'P') present++;
     }
 
     const totalHours = Number((monthlyTotalMinutes / 60).toFixed(1));
@@ -241,7 +242,35 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
     });
   }
 
-  return { matrixRows, summaryRows, holidaysResult, maxDay, attendanceData, employees };
+  // Build holidayTable
+  const holidayTable = holidaysResult.rows.map(h => {
+    let type = h.holiday_type || h.type || '';
+    if (type.toLowerCase().includes('gov')) type = 'Government Holiday';
+    else type = 'Office Holiday';
+    return {
+      date: h.holiday_date,
+      type: type,
+      name: h.holiday_title || h.name || '',
+      notes: h.holiday_note || h.notes || ''
+    };
+  }).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  // Build absentTable
+  const absentTable = attendanceData.filter(att => {
+    const status = normalizeAttendanceStatus(att.attendance_status || att.status);
+    return status === 'Absent' || att.absent_reason;
+  }).map(att => ({
+    employeeId: att.employee_id,
+    employeeName: att.name,
+    date: att.attendance_date,
+    reason: att.absent_reason || '-'
+  })).sort((a, b) => {
+    const dateDiff = new Date(a.date) - new Date(b.date);
+    if (dateDiff !== 0) return dateDiff;
+    return a.employeeName.localeCompare(b.employeeName);
+  });
+
+  return { matrixRows, summaryRows, holidaysResult, maxDay, attendanceData, employees, holidayTable, absentTable };
 }
 
 async function buildMonthlyPayroll(month, year, targetEmployeeId = null) {

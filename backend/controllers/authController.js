@@ -55,8 +55,8 @@ const adminLogin = async (req, res) => {
     // Log admin login
     try {
       await pool.query(
-        `INSERT INTO admin_login_logs (admin_id, username, ip_address, browser_info, device_info)
-         VALUES ($1, $2, $3, $4, $5)`,
+        `INSERT INTO admin_login_logs (admin_id, username, ip_address, browser_info, device_info, login_time)
+         VALUES ($1, $2, $3, $4, $5, NOW() AT TIME ZONE 'UTC')`,
         [
           admin.id,
           admin.username,

@@ -277,8 +277,8 @@ const AdminManagement = () => {
                           <tr key={log.id} className="border-b border-admin-border hover:bg-admin-elevated/[0.02] transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap"><span className="text-sm font-bold text-admin-text">{log.username}</span></td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="block text-xs font-semibold text-admin-secondary">{formatDate(log.login_time)}</span>
-                              <span className="text-[10px] text-admin-secondary font-mono">{formatTime(log.login_time)}</span>
+                              <span className="block text-xs font-semibold text-admin-secondary">{formatDate(log.login_time_utc || log.login_time)}</span>
+                              <span className="text-[10px] text-admin-secondary font-mono">{formatTime(log.login_time_utc || log.login_time)}</span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap"><span className="text-xs font-mono text-blue-400/80 bg-blue-500/10 px-2 py-1 rounded-md border border-blue-500/10">{log.ip_address}</span></td>
                             <td className="px-6 py-4"><span className="text-xs text-admin-muted">{log.browser_info}</span></td>

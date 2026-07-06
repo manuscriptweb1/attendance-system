@@ -5,11 +5,11 @@ import AlertDialog from '../components/AlertDialog';
 import ClearRangeDialog from '../components/ClearRangeDialog';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
-import { getAllAttendance, downloadMonthlyMatrixPDF, downloadMonthlyMatrixExcel, downloadMonthlyExcel, resetAttendance, deleteAttendance, clearAttendanceRange } from '../services/api';
+import { getAllAttendance, resetAttendance, deleteAttendance, clearAttendanceRange } from '../services/api';
 import { formatTime, formatDate, formatWorkingHours } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
-import { validateDateString, validateMonthYear } from '../utils/dateValidation';
-import { FiDownload, FiFilter, FiRefreshCw, FiTrash2, FiRotateCcw, FiX, FiCalendar, FiCheckCircle, FiClock, FiHome, FiTrendingUp } from 'react-icons/fi';
+import { validateDateString } from '../utils/dateValidation';
+import { FiFilter, FiRefreshCw, FiTrash2, FiRotateCcw, FiCalendar, FiCheckCircle, FiClock, FiHome, FiTrendingUp } from 'react-icons/fi';
 import { sortEmployeeRows } from '../utils/sorting';
 
 const getLocalDateString = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`; };
@@ -19,10 +19,6 @@ const AdminAttendance = () => {
   const [loading,      setLoading]      = useState(true);
   const [filters,      setFilters]      = useState({ date: getLocalDateString(), status:'', employee_id:'', department:'', is_wfh:'' });
   const [sortBy,       setSortBy]       = useState('name_asc');
-  
-  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
-  const [downloadFormat, setDownloadFormat] = useState('pdf');
-  const [downloadData,   setDownloadData]   = useState({ month:'', year:'' });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen:false, title:'', message:'', onConfirm:null, type:'info' });
   const [alertDialog,   setAlertDialog]   = useState({ isOpen:false, title:'', message:'', type:'success' });
 
@@ -52,29 +48,7 @@ const AdminAttendance = () => {
     setFilters(f => ({ ...f, [e.target.name]: e.target.value }));
   };
 
-  /* ─── DOWNLOAD & ACTIONS ─── */
-  const handleDownloadPDF = format => {
-    setDownloadFormat(format);
-    const now = new Date(); setDownloadData({ month: String(now.getMonth()+1), year: String(now.getFullYear()) });
-    setShowDownloadDialog(true);
-  };
-
-  const downloadMatrix = async () => {
-    const { month, year } = downloadData;
-    const errorMsg = validateMonthYear(month, year);
-    if (errorMsg) { setAlertDialog({ isOpen:true, title:'Error', message: errorMsg, type:'error' }); return; }
-    setShowDownloadDialog(false);
-    try {
-      let response, fileName;
-      if (downloadFormat === 'pdf') { response = await downloadMonthlyMatrixPDF(month, year); fileName = `attendance_matrix_${month}_${year}.pdf`; }
-      else if (downloadFormat === 'excel') { response = await downloadMonthlyMatrixExcel(month, year); fileName = `attendance_matrix_${month}_${year}.xlsx`; }
-      else if (downloadFormat === 'excel-list') { response = await downloadMonthlyExcel(month, year); fileName = `attendance_report_${month}_${year}.xlsx`; }
-      const blob = new Blob([response.data], { type: downloadFormat === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a'); link.href = url; link.download = fileName;
-      document.body.appendChild(link); link.click(); document.body.removeChild(link); window.URL.revokeObjectURL(url);
-    } catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
-  };
+  /* ─── ACTIONS ─── */
 
   const handleResetAttendance = (record, resetType) => {
     const resetText = resetType === 'check-in' ? 'Check-In' : 'Check-Out';
@@ -142,12 +116,6 @@ const AdminAttendance = () => {
             <div className="flex flex-wrap gap-2.5">
               <button onClick={() => setClearDialog({ isOpen: true })} className="admin-btn-neutral px-4 py-2.5 rounded-xl text-sm font-semibold hover:text-red-500 hover:border-red-500/50">
                 <FiTrash2 size={16} /> Clear Month
-              </button>
-              <button onClick={() => handleDownloadPDF('pdf')} className="admin-btn-neutral px-4 py-2.5 rounded-xl text-sm font-semibold hover:text-red-500 hover:border-red-500/50">
-                <FiDownload size={16} /> PDF
-              </button>
-              <button onClick={() => handleDownloadPDF('excel')} className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(16,185,129,0.2)]">
-                <FiDownload size={16} /> Excel
               </button>
             </div>
           </div>
@@ -328,33 +296,6 @@ const AdminAttendance = () => {
       </div>
 
       {/* ═══ DIALOGS ═══ */}
-      {showDownloadDialog && (
-        <div className="fixed inset-0 bg-admin-overlay backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-admin-surface border border-admin-border rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.4)] w-full max-w-sm animate-scale-in overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-admin-border bg-admin-elevated">
-              <h2 className="text-sm font-bold text-admin-text">Download Attendance</h2>
-              <button onClick={() => setShowDownloadDialog(false)} className="w-8 h-8 rounded-xl flex items-center justify-center text-admin-secondary hover:bg-admin-elevated hover:text-admin-text transition-colors"><FiX size={16} /></button>
-            </div>
-            <div className="px-6 py-6 space-y-5">
-              <div>
-                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Month (1–12)</label>
-                <input type="number" min="1" max="12" value={downloadData.month} onChange={e => setDownloadData(d => ({ ...d, month: e.target.value }))} placeholder="1–12" className="admin-input py-2.5" />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Year</label>
-                <input type="number" min="2020" max="2030" value={downloadData.year} onChange={e => setDownloadData(d => ({ ...d, year: e.target.value }))} placeholder="e.g. 2026" className="admin-input py-2.5" />
-              </div>
-            </div>
-            <div className="flex gap-3 px-6 py-5 border-t border-admin-border bg-admin-elevated">
-              <button onClick={() => setShowDownloadDialog(false)} className="flex-1 px-4 py-2.5 text-sm font-bold text-admin-muted border border-admin-border rounded-xl hover:bg-admin-elevated transition-colors">Cancel</button>
-              <button onClick={downloadMatrix} className={`flex-1 px-4 py-2.5 text-sm font-bold text-white rounded-xl shadow-sm transition-all duration-200 ${downloadFormat === 'pdf' ? 'bg-red-600 hover:bg-red-500 shadow-[0_4px_16px_rgba(220,38,38,0.2)]' : 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 shadow-[0_4px_16px_rgba(16,185,129,0.2)]'}`}>
-                Download {downloadFormat.toUpperCase()}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(d => ({ ...d, isOpen:false }))} onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(d => ({ ...d, isOpen:false })); }} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText={confirmDialog.type === 'danger' ? 'Delete' : 'Confirm'} />
       <AlertDialog   isOpen={alertDialog.isOpen}   onClose={() => setAlertDialog(d => ({ ...d, isOpen:false }))}   title={alertDialog.title}   message={alertDialog.message}   type={alertDialog.type} />
       <ClearRangeDialog 

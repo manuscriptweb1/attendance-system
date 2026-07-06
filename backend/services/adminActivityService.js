@@ -20,8 +20,8 @@ const logAdminActivity = async ({
     await pool.query(
       `INSERT INTO admin_activity_logs 
        (admin_id, admin_name, admin_email, action_type, module_name, description, 
-        old_data, new_data, ip_address, device_info, browser_info)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+        old_data, new_data, ip_address, device_info, browser_info, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW() AT TIME ZONE 'UTC')`,
       [
         adminId,
         adminName,
@@ -49,7 +49,7 @@ const logAdminActivity = async ({
 const getAdminActivityLogs = async (filters = {}) => {
   try {
     let query = `
-      SELECT * FROM admin_activity_logs 
+      SELECT *, created_at AT TIME ZONE 'UTC' AS created_at_utc FROM admin_activity_logs 
       WHERE 1=1
     `;
     const params = [];
@@ -97,7 +97,7 @@ const getAdminActivityLogs = async (filters = {}) => {
     }
 
     // Count total before pagination
-    const countQuery = query.replace('SELECT *', 'SELECT COUNT(*)');
+    const countQuery = query.replace(/SELECT .* FROM/i, 'SELECT COUNT(*) FROM');
     const countResult = await pool.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count);
 
@@ -161,7 +161,7 @@ const getActivityStats = async () => {
 
     // Recent activities (last 5)
     const recentResult = await pool.query(
-      `SELECT * FROM admin_activity_logs 
+      `SELECT *, created_at AT TIME ZONE 'UTC' AS created_at_utc FROM admin_activity_logs 
        ORDER BY created_at DESC 
        LIMIT 5`
     );

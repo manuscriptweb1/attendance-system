@@ -262,6 +262,12 @@ export const downloadMonthlyExcel = (month, year) => {
 export const getMonthlyAttendanceReport = (month, year) => 
   api.get('/reports/monthly-attendance', { params: { month, year } });
 
+export const getReportSnapshot = (month, year) => 
+  api.get('/reports/snapshot', { params: { month, year } });
+
+export const generateMonthlyAttendanceReport = (month, year) => 
+  api.post('/reports/generate', { month, year });
+
 export const exportMonthlyAttendanceReport = (month, year) => 
   api.get('/reports/monthly-attendance/export', { params: { month, year }, responseType: 'blob' });
 

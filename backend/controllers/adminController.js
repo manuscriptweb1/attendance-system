@@ -332,6 +332,7 @@ const getLoginLogs = async (req, res) => {
         al.admin_id,
         al.username,
         al.login_time,
+        al.login_time AT TIME ZONE 'UTC' AS login_time_utc,
         al.ip_address,
         al.browser_info,
         al.device_info

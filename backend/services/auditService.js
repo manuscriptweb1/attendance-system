@@ -13,8 +13,8 @@ const logAudit = async ({
 }) => {
   try {
     await pool.query(
-      `INSERT INTO audit_logs (user_id, user_type, action, status, ip_address, user_agent, device_fingerprint, details)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      `INSERT INTO audit_logs (user_id, user_type, action, status, ip_address, user_agent, device_fingerprint, details, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() AT TIME ZONE 'UTC')`,
       [
         userId,
         userType,
@@ -37,7 +37,7 @@ const logAudit = async ({
 // Get audit logs with filters
 const getAuditLogs = async (filters = {}) => {
   try {
-    let query = 'SELECT * FROM audit_logs WHERE 1=1';
+    let query = 'SELECT *, created_at AT TIME ZONE \'UTC\' AS created_at_utc FROM audit_logs WHERE 1=1';
     const params = [];
     let paramCount = 1;
 

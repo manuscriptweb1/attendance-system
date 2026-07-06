@@ -7,7 +7,7 @@ import AdminToast from '../components/AdminToast';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
 import { getAllDepartments, getEmployeesForManualAttendance, createManualAttendance, updateManualAttendance, deleteManualAttendance, checkInRowManualAttendance, checkOutRowManualAttendance, clearManualAttendanceRange } from '../services/api';
-import { formatTime } from '../utils/formatTime';
+import { formatTime, format24To12Hour } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateDateString } from '../utils/dateValidation';
 import { FiCheckSquare, FiSquare, FiEdit, FiSearch, FiCalendar, FiFilter, FiSave, FiX, FiLayers, FiTrash2 } from 'react-icons/fi';
@@ -23,6 +23,7 @@ const AdminManualAttendance = () => {
   
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [rowLoadingId, setRowLoadingId] = useState(null);
   
   const [selectedIds, setSelectedIds] = useState([]);
   
@@ -38,6 +39,8 @@ const AdminManualAttendance = () => {
     remarks: '',
     reason: ''
   });
+  
+  const [originalData, setOriginalData] = useState(null);
   
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
@@ -62,18 +65,18 @@ const AdminManualAttendance = () => {
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await getEmployeesForManualAttendance({ date, department_id: departmentId, status: statusFilter });
       if (res.data.success) {
         setEmployees(res.data.employees);
-        setSelectedIds([]);
+        if (!silent) setSelectedIds([]);
       }
     } catch (error) {
       setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' });
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -108,7 +111,7 @@ const AdminManualAttendance = () => {
           const res = await deleteManualAttendance(emp.attendance_id);
           if (res.data.success) {
             setToastConfig({ message: res.data.message, type: 'success' });
-            fetchData();
+            fetchData({ silent: true });
           }
         } catch (error) {
           setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' });
@@ -136,6 +139,7 @@ const AdminManualAttendance = () => {
     }
 
     setFormData({ login_time: '09:30', logout_time: '17:30', attendance_status: 'Present', is_wfh: false, remarks: '', reason: '' });
+    setOriginalData(null);
     setEditMode(false);
     setTargetAttendanceId(null);
     setShowModal(true);
@@ -155,7 +159,8 @@ const AdminManualAttendance = () => {
     const login = emp.login_time ? new Date(emp.login_time).toTimeString().substring(0,5) : '';
     const logout = emp.logout_time ? new Date(emp.logout_time).toTimeString().substring(0,5) : '';
     
-    setFormData({ login_time: login, logout_time: logout, attendance_status: emp.attendance_status || 'Present', is_wfh: false, remarks: '', reason: '' });
+    setFormData({ login_time: login, logout_time: logout, attendance_status: emp.attendance_status || 'Present', is_wfh: !!emp.is_wfh, remarks: '', reason: '' });
+    setOriginalData({ login_time: login, logout_time: logout, attendance_status: emp.attendance_status || 'Present', is_wfh: !!emp.is_wfh });
     setEditMode(true);
     setTargetAttendanceId(emp.attendance_id);
     setShowModal(true);
@@ -176,6 +181,47 @@ const AdminManualAttendance = () => {
     }
   };
 
+  const generateManualAttendanceReason = (orig, curr) => {
+    const changes = [];
+    
+    if (orig.login_time !== curr.login_time) {
+      const oldVal = orig.login_time ? format24To12Hour(orig.login_time) : '-';
+      const newVal = curr.login_time ? format24To12Hour(curr.login_time) : '-';
+      if (!orig.login_time && curr.login_time) {
+        changes.push(`Added check-in time as ${newVal}`);
+      } else if (orig.login_time && !curr.login_time) {
+        changes.push(`Removed check-in time. Previous check-in time was ${oldVal}`);
+      } else {
+        changes.push(`Updated check-in time from ${oldVal} to ${newVal}`);
+      }
+    }
+    
+    if (orig.logout_time !== curr.logout_time) {
+      const oldVal = orig.logout_time ? format24To12Hour(orig.logout_time) : '-';
+      const newVal = curr.logout_time ? format24To12Hour(curr.logout_time) : '-';
+      if (!orig.logout_time && curr.logout_time) {
+        changes.push(`Added check-out time as ${newVal}`);
+      } else if (orig.logout_time && !curr.logout_time) {
+        changes.push(`Removed check-out time. Previous check-out time was ${oldVal}`);
+      } else {
+        changes.push(`Updated check-out time from ${oldVal} to ${newVal}`);
+      }
+    }
+    
+    if (orig.attendance_status !== curr.attendance_status) {
+      changes.push(`Updated status from ${orig.attendance_status} to ${curr.attendance_status}`);
+    }
+    
+    if (orig.is_wfh !== curr.is_wfh) {
+      const oldVal = orig.is_wfh ? 'WFH' : 'Office';
+      const newVal = curr.is_wfh ? 'WFH' : 'Office';
+      changes.push(`Updated work type from ${oldVal} to ${newVal}`);
+    }
+    
+    if (changes.length === 0) return 'No changes detected';
+    return changes.join('; ');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isFutureDate()) {
@@ -183,9 +229,17 @@ const AdminManualAttendance = () => {
       return;
     }
     
-    if (!formData.reason.trim()) {
-      setAlertDialog({ isOpen: true, title: 'Validation Error', message: 'Reason is required.', type: 'error' });
-      return;
+    let finalReason = formData.reason.trim();
+    if (!finalReason) {
+      if (editMode && originalData) {
+        finalReason = generateManualAttendanceReason(originalData, formData);
+        if (finalReason === 'No changes detected') {
+          setAlertDialog({ isOpen: true, title: 'Validation Error', message: 'No changes detected.', type: 'error' });
+          return;
+        }
+      } else {
+        finalReason = 'Manual attendance entry created';
+      }
     }
 
     const dateError = validateDateString(date, { allowFuture: false });
@@ -200,20 +254,20 @@ const AdminManualAttendance = () => {
     }
 
     if (['Present', 'Late', 'Half Day'].includes(formData.attendance_status)) {
-      if (!formData.login_time || !formData.logout_time) {
-        setAlertDialog({ isOpen: true, title: 'Validation Error', message: 'Check-in and check-out time are required for Present, Late, or Half Day.', type: 'error' });
+      if (!formData.login_time) {
+        setAlertDialog({ isOpen: true, title: 'Validation Error', message: 'Check-in time is required for Present, Late, or Half Day.', type: 'error' });
         return;
       }
-      if (formData.logout_time < formData.login_time) {
+      if (formData.login_time && formData.logout_time && formData.logout_time < formData.login_time) {
         setAlertDialog({ isOpen: true, title: 'Validation Error', message: 'Check-out time cannot be earlier than check-in time.', type: 'error' });
         return;
       }
     }
 
-    executeSubmit();
+    executeSubmit(finalReason);
   };
 
-  const executeSubmit = async () => {
+  const executeSubmit = async (finalReason) => {
     try {
       if (editMode) {
         const payload = {
@@ -222,13 +276,13 @@ const AdminManualAttendance = () => {
           attendance_status: formData.attendance_status,
           is_wfh: formData.is_wfh,
           remarks: formData.remarks,
-          reason: formData.reason
+          reason: finalReason
         };
         const res = await updateManualAttendance(targetAttendanceId, payload);
         if (res.data.success) {
           setToastConfig({ message: res.data.message, type: 'success' });
           setShowModal(false);
-          fetchData();
+          fetchData({ silent: true });
         }
       } else {
         const records = selectedIds.map(empId => ({
@@ -240,12 +294,12 @@ const AdminManualAttendance = () => {
           is_wfh: formData.is_wfh,
           remarks: formData.remarks
         }));
-        const payload = { records, reason: formData.reason };
+        const payload = { records, reason: finalReason };
         const res = await createManualAttendance(payload);
         if (res.data.success) {
           setToastConfig({ message: res.data.message, type: 'success' });
           setShowModal(false);
-          fetchData();
+          fetchData({ silent: true });
         }
       }
     } catch (error) {
@@ -433,13 +487,13 @@ const AdminManualAttendance = () => {
                           const status = emp.attendance_status || 'Not Mention';
                           
                           const editButton = (
-                            <button onClick={() => openEditModal(emp)} disabled={isSunday} className={`text-blue-400 hover:text-blue-300 transition-colors text-sm font-medium flex items-center gap-1.5 ${isSunday ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                            <button type="button" onClick={(e) => { e.preventDefault(); openEditModal(emp); }} disabled={isSunday} className={`text-blue-400 hover:text-blue-300 transition-colors text-sm font-medium flex items-center gap-1.5 ${isSunday ? 'opacity-50 cursor-not-allowed' : ''}`}>
                               <FiEdit size={14} /> {emp.attendance_id ? 'Edit' : 'Add (Edit)'}
                             </button>
                           );
 
                           const deleteButton = emp.attendance_id && emp.validation_method === 'Manual' ? (
-                            <button onClick={() => handleDelete(emp)} disabled={isSunday} className={`text-red-400 hover:text-red-300 transition-colors text-sm font-medium flex items-center gap-1.5 ${isSunday ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                            <button type="button" onClick={(e) => { e.preventDefault(); handleDelete(emp); }} disabled={isSunday} className={`text-red-400 hover:text-red-300 transition-colors text-sm font-medium flex items-center gap-1.5 ${isSunday ? 'opacity-50 cursor-not-allowed' : ''}`}>
                               <FiTrash2 size={14} />
                             </button>
                           ) : null;
@@ -450,6 +504,7 @@ const AdminManualAttendance = () => {
                               return;
                             }
                             try {
+                              setRowLoadingId(emp.employee_id);
                               let res;
                               if (action === 'checkin') {
                                 res = await checkInRowManualAttendance({ employee_id: emp.employee_id, attendance_date: date });
@@ -458,22 +513,26 @@ const AdminManualAttendance = () => {
                               }
                               if (res.data.success) {
                                 setToastConfig({ message: res.data.message, type: 'success' });
-                                fetchData();
+                                await fetchData({ silent: true });
                               }
                             } catch (error) {
                               setToastConfig({ message: error.response?.data?.message || 'Operation failed', type: 'error' });
+                            } finally {
+                              setRowLoadingId(null);
                             }
                           };
 
+                          const isLoading = rowLoadingId === emp.employee_id;
+
                           const checkInBtn = (
-                            <button onClick={() => handleRowAction(emp, 'checkin')} disabled={isSunday} className={`transition-colors text-sm font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${isSunday ? 'bg-white/5 text-slate-500 border-admin-border cursor-not-allowed' : 'bg-emerald-500/10 text-emerald-400 hover:text-emerald-300 border-emerald-500/20'}`}>
-                              Check-In
+                            <button type="button" onClick={(e) => { e.preventDefault(); handleRowAction(emp, 'checkin'); }} disabled={isSunday || isLoading} className={`transition-colors text-sm font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${isSunday || isLoading ? 'bg-white/5 text-slate-500 border-admin-border cursor-not-allowed' : 'bg-emerald-500/10 text-emerald-400 hover:text-emerald-300 border-emerald-500/20'}`}>
+                              {isLoading ? <Spinner size={14} /> : 'Check-In'}
                             </button>
                           );
 
                           const checkOutBtn = (
-                            <button onClick={() => handleRowAction(emp, 'checkout')} disabled={isSunday} className={`transition-colors text-sm font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${isSunday ? 'bg-white/5 text-slate-500 border-admin-border cursor-not-allowed' : 'bg-blue-500/10 text-blue-400 hover:text-blue-300 border-blue-500/20'}`}>
-                              Check-Out
+                            <button type="button" onClick={(e) => { e.preventDefault(); handleRowAction(emp, 'checkout'); }} disabled={isSunday || isLoading} className={`transition-colors text-sm font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${isSunday || isLoading ? 'bg-white/5 text-slate-500 border-admin-border cursor-not-allowed' : 'bg-blue-500/10 text-blue-400 hover:text-blue-300 border-blue-500/20'}`}>
+                              {isLoading ? <Spinner size={14} /> : 'Check-Out'}
                             </button>
                           );
 
@@ -599,9 +658,9 @@ const AdminManualAttendance = () => {
                 )}
                 
                 <div>
-                  <label className="block text-xs font-bold text-amber-500 uppercase tracking-wider mb-2">Admin Reason *</label>
-                  <p className="text-xs text-slate-400 mb-2">Required for audit logging (e.g. Server Down, Biometric Failure, Management Approval)</p>
-                  <input type="text" name="reason" value={formData.reason} onChange={handleInputChange} required placeholder="Why is this being added manually?" className="w-full bg-amber-500/10 border border-amber-500/30 text-admin-text rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 placeholder:text-amber-500/50" />
+                  <label className="block text-xs font-bold text-amber-500 uppercase tracking-wider mb-2">Admin Reason (Optional)</label>
+                  <p className="text-xs text-slate-400 mb-2">If left empty, the system will automatically generate a reason from your changes.</p>
+                  <input type="text" name="reason" value={formData.reason} onChange={handleInputChange} placeholder="Optional — reason will be generated automatically if left empty" className="w-full bg-amber-500/10 border border-amber-500/30 text-admin-text rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 placeholder:text-amber-500/50" />
                 </div>
               </form>
             </div>

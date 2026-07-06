@@ -3,15 +3,20 @@ import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
 
-import { getMonthlyAttendanceReport, exportMonthlyAttendanceReport } from '../services/api';
+import { getReportSnapshot, generateMonthlyAttendanceReport, exportMonthlyAttendanceReport } from '../services/api';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateMonthYear } from '../utils/dateValidation';
 import { FiDownload, FiFileText, FiRefreshCw } from 'react-icons/fi';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { sortEmployeeRows } from '../utils/sorting';
 
 const AdminReports = () => {
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
+  const [matrixData, setMatrixData] = useState(null);
+  const [absentTable, setAbsentTable] = useState(null);
+  const [holidayTable, setHolidayTable] = useState(null);
   
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
@@ -19,6 +24,213 @@ const AdminReports = () => {
   
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
+
+  React.useEffect(() => {
+    fetchSnapshot(month, year);
+  }, [month, year]);
+
+  const fetchSnapshot = async (m, y) => {
+    try {
+      setLoading(true);
+      const res = await getReportSnapshot(m, y);
+      if (res.data.success && !res.data.notFound) {
+        setReportData(res.data.reports || []);
+        setMatrixData(res.data.dailyAttendanceMatrix || null);
+        setAbsentTable(res.data.absentTable || []);
+        setHolidayTable(res.data.holidayTable || []);
+      } else {
+        setReportData(null);
+        setMatrixData(null);
+        setAbsentTable(null);
+        setHolidayTable(null);
+      }
+    } catch (e) {
+      setReportData(null);
+      setMatrixData(null);
+      setAbsentTable(null);
+      setHolidayTable(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getBadgeClass = (code) => {
+    switch (code) {
+      case 'P': return 'bg-emerald-500/10 text-emerald-500 font-bold';
+      case 'A': return 'bg-red-500/10 text-red-500 font-bold';
+      case 'HD': return 'bg-amber-500/10 text-amber-600 font-bold';
+      case 'S': return 'bg-slate-500/10 text-slate-500 font-bold';
+      case 'OH': return 'bg-blue-500/10 text-blue-500 font-bold';
+      case 'GH': return 'bg-purple-500/10 text-purple-500 font-bold';
+      case 'L': return 'bg-orange-500/10 text-orange-500 font-bold';
+      default: return 'text-slate-400 font-medium';
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (!matrixData || !reportData) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: 'Please generate a report first.', type: 'error' });
+      return;
+    }
+    
+    // Load image
+    const logoUrl = `${window.location.origin}/favicon/web-app-manifest-192x192.png`;
+    const imgData = await new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => resolve(null);
+      img.src = logoUrl;
+    });
+
+    const doc = new jsPDF('landscape');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let currentY = 15;
+
+    // Header
+    if (imgData) {
+      doc.addImage(imgData, 'PNG', pageWidth / 2 - 45, currentY - 6, 12, 12);
+      doc.setFontSize(16);
+      doc.text("Manuscript Technomedia LLP", pageWidth / 2 - 28, currentY + 3);
+      currentY += 15;
+    } else {
+      doc.setFontSize(16);
+      doc.text("Manuscript Technomedia LLP", pageWidth / 2, currentY, { align: "center" });
+      currentY += 10;
+    }
+
+    doc.setFontSize(14);
+    doc.text("ATTENDANCE REPORT", pageWidth / 2, currentY, { align: "center" });
+    currentY += 8;
+    
+    doc.setFontSize(11);
+    doc.text(`For the month of ${new Date(0, month-1).toLocaleString('default', { month: 'long' })} ${year}`, pageWidth / 2, currentY, { align: "center" });
+    currentY += 5;
+    
+    doc.setLineWidth(0.5);
+    doc.line(14, currentY, pageWidth - 14, currentY);
+    currentY += 10;
+
+    // Report Summary Table
+    const summaryHead = [['Emp ID','Name','Department','Present','Absent','Half Day','Holiday','Late Count','Total Hours']];
+    const summaryBody = sortEmployeeRows(reportData, sortBy).map(r => {
+      const rawTotalHours = r.totalHours ?? r.total_hours ?? r.totalWorkingHours ?? r.total_working_hours ?? r.workingHours ?? r.working_hours ?? 0;
+      const displayTotalHours = Number(rawTotalHours || 0);
+      const hoursStr = displayTotalHours % 1 === 0 ? displayTotalHours.toString() : displayTotalHours.toFixed(1);
+      return [r.employeeCode, r.employeeName, r.department, r.present, r.absent, r.halfDay, r.holiday, r.lateCount, hoursStr];
+    });
+
+    autoTable(doc, {
+      startY: currentY,
+      head: summaryHead,
+      body: summaryBody,
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
+      columnStyles: { 0: { halign: 'left' }, 1: { halign: 'left' }, 2: { halign: 'left' } },
+    });
+
+    currentY = doc.lastAutoTable.finalY + 15;
+
+    // Daily Attendance Matrix
+    doc.setFontSize(12);
+    doc.text("Daily Attendance Matrix", 14, currentY);
+    currentY += 5;
+
+    const sortedMatrix = [...matrixData.employees].sort((a, b) => a.name.localeCompare(b.name));
+    const matrixHead = [['Employee', ...matrixData.days.map(d => String(d))]];
+    const matrixBody = sortedMatrix.map(emp => {
+      const row = [emp.name];
+      matrixData.days.forEach(d => {
+        row.push(emp.days[d] || '-');
+      });
+      return row;
+    });
+
+    autoTable(doc, {
+      startY: currentY,
+      head: matrixHead,
+      body: matrixBody,
+      theme: 'grid',
+      styles: { fontSize: 7, cellPadding: 1, halign: 'center' },
+      columnStyles: { 0: { halign: 'left', cellWidth: 30 } },
+      didParseCell: function(data) {
+        if (data.section === 'body' && data.column.index > 0) {
+          const val = data.cell.raw;
+          if (val === 'P') data.cell.styles.textColor = [16, 185, 129];
+          else if (val === 'A') data.cell.styles.textColor = [239, 68, 68];
+          else if (val === 'HD') data.cell.styles.textColor = [245, 158, 11];
+          else if (val === 'S') data.cell.styles.textColor = [100, 116, 139];
+          else if (val === 'OH') data.cell.styles.textColor = [59, 130, 246];
+          else if (val === 'GH') data.cell.styles.textColor = [168, 85, 247];
+          else if (val === 'L') data.cell.styles.textColor = [249, 115, 22];
+        }
+      }
+    });
+
+    currentY = doc.lastAutoTable.finalY + 5;
+    
+    // Legend
+    doc.setFontSize(9);
+    doc.text("Legend: P - Present, A - Absent, HD - Half Day, S - Sunday, OH - Office Holiday, GH - Government Holiday, L - Late", 14, currentY + 5);
+
+    currentY += 20;
+
+    // Absent Table
+    if (absentTable && absentTable.length > 0) {
+      doc.setFontSize(12);
+      doc.text("Employee Absent Details", 14, currentY);
+      
+      const absentHead = [['S.No', 'Employee ID', 'Employee Name', 'Date', 'Absent Reason']];
+      const absentBody = absentTable.map((a, i) => [
+        i + 1,
+        a.employeeId,
+        a.employeeName,
+        new Date(a.date).toLocaleDateString(),
+        a.reason
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: absentHead,
+        body: absentBody,
+        theme: 'grid',
+        styles: { fontSize: 8 }
+      });
+      currentY = doc.lastAutoTable.finalY + 15;
+    }
+
+    // Holiday Table
+    if (holidayTable && holidayTable.length > 0) {
+      doc.setFontSize(12);
+      doc.text("Holiday Details", 14, currentY);
+      
+      const holidayHead = [['S.No', 'Holiday Date', 'Holiday Type', 'Holiday Name', 'Notes']];
+      const holidayBody = holidayTable.map((h, i) => [
+        i + 1,
+        new Date(h.date).toLocaleDateString(),
+        h.type,
+        h.name,
+        h.notes
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: holidayHead,
+        body: holidayBody,
+        theme: 'grid',
+        styles: { fontSize: 8 }
+      });
+    }
+
+    doc.save(`Attendance_Matrix_${month}_${year}.pdf`);
+  };
 
   const handleGenerateReport = async () => {
     const errorMsg = validateMonthYear(month, year);
@@ -29,9 +241,13 @@ const AdminReports = () => {
     
     try {
       setLoading(true);
-      const res = await getMonthlyAttendanceReport(month, year);
+      const res = await generateMonthlyAttendanceReport(month, year);
       if (res.data.success) {
         setReportData(res.data.reports || res.data.report || []);
+        setMatrixData(res.data.dailyAttendanceMatrix || null);
+        setAbsentTable(res.data.absentTable || []);
+        setHolidayTable(res.data.holidayTable || []);
+        setToastConfig({ message: 'Report generated successfully', type: 'success' });
       }
     } catch (e) {
       setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(e), type: 'error' });
@@ -111,6 +327,9 @@ const AdminReports = () => {
                 <button onClick={handleExport} className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(16,185,129,0.2)]">
                   <FiDownload size={16} /> Export Excel
                 </button>
+                <button onClick={handleExportPDF} className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(239,68,68,0.2)]">
+                  <FiDownload size={16} /> Download PDF
+                </button>
               </div>
             </div>
           </div>
@@ -158,6 +377,126 @@ const AdminReports = () => {
             </div>
           )}
 
+          {/* Daily Attendance Matrix */}
+          {matrixData && matrixData.days && (
+            <div className="bg-admin-surface border border-admin-border rounded-2xl overflow-hidden shadow-clay-admin animate-fadeInUp stagger-4 mt-6">
+              <div className="p-4 border-b border-admin-border bg-admin-elevated flex justify-between items-center">
+                <h3 className="text-xs font-bold text-admin-text uppercase tracking-wider">Daily Attendance</h3>
+              </div>
+              <div className="table-responsive dark-scroll">
+                <table className="min-w-full divide-y divide-white/[0.04]">
+                  <thead className="bg-admin-bg">
+                    <tr>
+                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap sticky left-0 bg-admin-bg z-10">Employee</th>
+                      {matrixData.days.map(d => (
+                        <th key={d} className="px-2 py-4 text-center text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{d}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {(() => {
+                      const sortedMatrix = [...matrixData.employees].sort((a, b) => a.name.localeCompare(b.name));
+                      return sortedMatrix.map((emp, i) => (
+                        <tr key={i} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors">
+                          <td className="px-5 py-3.5 text-xs font-bold text-admin-text whitespace-nowrap sticky left-0 bg-admin-surface z-10 border-r border-admin-border/50">
+                            {emp.name}
+                          </td>
+                          {matrixData.days.map(d => {
+                            const code = emp.days[d];
+                            return (
+                              <td key={d} className="px-2 py-3.5 text-center whitespace-nowrap">
+                                <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] ${getBadgeClass(code)}`}>
+                                  {code}
+                                </span>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Report Legend */}
+          {matrixData && (
+            <div className="bg-admin-surface border border-admin-border rounded-2xl p-6 shadow-clay-admin animate-fadeInUp stagger-5 mt-6">
+              <h3 className="text-xs font-bold text-admin-secondary uppercase tracking-wider mb-4">Report Legend</h3>
+              <div className="flex flex-wrap gap-6">
+                <div className="flex items-center gap-2"><span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] ${getBadgeClass('P')}`}>P</span> <span className="text-xs font-medium text-admin-text">Present</span></div>
+                <div className="flex items-center gap-2"><span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] ${getBadgeClass('A')}`}>A</span> <span className="text-xs font-medium text-admin-text">Absent</span></div>
+                <div className="flex items-center gap-2"><span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] ${getBadgeClass('HD')}`}>HD</span> <span className="text-xs font-medium text-admin-text">Half Day</span></div>
+                <div className="flex items-center gap-2"><span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] ${getBadgeClass('S')}`}>S</span> <span className="text-xs font-medium text-admin-text">Sunday</span></div>
+                <div className="flex items-center gap-2"><span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] ${getBadgeClass('OH')}`}>OH</span> <span className="text-xs font-medium text-admin-text">Office Holiday</span></div>
+                <div className="flex items-center gap-2"><span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] ${getBadgeClass('GH')}`}>GH</span> <span className="text-xs font-medium text-admin-text">Government Holiday</span></div>
+                <div className="flex items-center gap-2"><span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] ${getBadgeClass('L')}`}>L</span> <span className="text-xs font-medium text-admin-text">Late</span></div>
+              </div>
+            </div>
+          )}
+
+          {/* Absent Table */}
+          {absentTable && absentTable.length > 0 && (
+            <div className="bg-admin-surface border border-admin-border rounded-2xl overflow-hidden shadow-clay-admin animate-fadeInUp stagger-4 mt-6">
+              <div className="p-4 border-b border-admin-border bg-admin-elevated flex justify-between items-center">
+                <h3 className="text-xs font-bold text-admin-text uppercase tracking-wider">Employee Absent Details</h3>
+              </div>
+              <div className="table-responsive dark-scroll">
+                <table className="min-w-full divide-y divide-white/[0.04]">
+                  <thead className="bg-admin-bg">
+                    <tr>{['S.No', 'Employee ID', 'Employee Name', 'Date', 'Absent Reason'].map(h => (
+                      <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
+                    ))}</tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {absentTable.map((a, i) => (
+                      <tr key={i} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors">
+                        <td className="px-5 py-3.5 text-xs text-admin-muted font-mono whitespace-nowrap">{i + 1}</td>
+                        <td className="px-5 py-3.5 text-xs text-admin-muted font-mono whitespace-nowrap">{a.employeeId}</td>
+                        <td className="px-5 py-3.5 text-sm font-bold text-admin-text whitespace-nowrap">{a.employeeName}</td>
+                        <td className="px-5 py-3.5 text-xs text-admin-secondary whitespace-nowrap">{new Date(a.date).toLocaleDateString()}</td>
+                        <td className="px-5 py-3.5 text-xs text-admin-text whitespace-nowrap">{a.reason}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Holiday Table */}
+          {holidayTable && holidayTable.length > 0 && (
+            <div className="bg-admin-surface border border-admin-border rounded-2xl overflow-hidden shadow-clay-admin animate-fadeInUp stagger-4 mt-6">
+              <div className="p-4 border-b border-admin-border bg-admin-elevated flex justify-between items-center">
+                <h3 className="text-xs font-bold text-admin-text uppercase tracking-wider">Holiday Details</h3>
+              </div>
+              <div className="table-responsive dark-scroll">
+                <table className="min-w-full divide-y divide-white/[0.04]">
+                  <thead className="bg-admin-bg">
+                    <tr>{['S.No', 'Holiday Date', 'Holiday Type', 'Holiday Name', 'Notes'].map(h => (
+                      <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
+                    ))}</tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {holidayTable.map((h, i) => (
+                      <tr key={i} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors">
+                        <td className="px-5 py-3.5 text-xs text-admin-muted font-mono whitespace-nowrap">{i + 1}</td>
+                        <td className="px-5 py-3.5 text-xs font-bold text-blue-400 whitespace-nowrap">{new Date(h.date).toLocaleDateString()}</td>
+                        <td className="px-5 py-3.5 text-xs text-admin-secondary whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${h.type.includes('Government') ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                            {h.type}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 text-sm font-bold text-admin-text whitespace-nowrap">{h.name}</td>
+                        <td className="px-5 py-3.5 text-xs text-admin-muted max-w-xs truncate">{h.notes || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog(d => ({ ...d, isOpen: false }))} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />

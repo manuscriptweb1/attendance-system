@@ -1232,3 +1232,157 @@ body.admin-theme-dark .clear-range-cancel-btn,
   color: #94A3B8;
   border-color: #334155;
 }
+
+/* Common table horizontal scrollbar */
+.table-responsive,
+.admin-table-wrapper,
+.attendance-table-wrapper,
+.manual-attendance-table-wrapper,
+.absent-reason-table-wrapper,
+.holiday-table-wrapper,
+.payroll-table-wrapper,
+.expense-table-wrapper,
+.activity-log-table-wrapper,
+.security-log-table-wrapper,
+.table-container {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+/* Light theme scrollbar */
+.light-theme .table-responsive,
+.light-theme .admin-table-wrapper,
+.light-theme .attendance-table-wrapper,
+.light-theme .manual-attendance-table-wrapper,
+.light-theme .absent-reason-table-wrapper,
+.light-theme .holiday-table-wrapper,
+.light-theme .payroll-table-wrapper,
+.light-theme .expense-table-wrapper,
+.light-theme .activity-log-table-wrapper,
+.light-theme .security-log-table-wrapper,
+.light-theme .table-container,
+[data-theme="light"] .table-responsive,
+[data-theme="light"] .admin-table-wrapper,
+[data-theme="light"] .attendance-table-wrapper,
+[data-theme="light"] .manual-attendance-table-wrapper,
+[data-theme="light"] .absent-reason-table-wrapper,
+[data-theme="light"] .holiday-table-wrapper,
+[data-theme="light"] .payroll-table-wrapper,
+[data-theme="light"] .expense-table-wrapper,
+[data-theme="light"] .activity-log-table-wrapper,
+[data-theme="light"] .security-log-table-wrapper,
+[data-theme="light"] .table-container {
+  scrollbar-color: #64748b #e2e8f0;
+}
+
+/* Chrome / Edge / Safari */
+.light-theme .table-responsive::-webkit-scrollbar,
+.light-theme .admin-table-wrapper::-webkit-scrollbar,
+.light-theme .attendance-table-wrapper::-webkit-scrollbar,
+.light-theme .manual-attendance-table-wrapper::-webkit-scrollbar,
+.light-theme .absent-reason-table-wrapper::-webkit-scrollbar,
+.light-theme .holiday-table-wrapper::-webkit-scrollbar,
+.light-theme .payroll-table-wrapper::-webkit-scrollbar,
+.light-theme .expense-table-wrapper::-webkit-scrollbar,
+.light-theme .activity-log-table-wrapper::-webkit-scrollbar,
+.light-theme .security-log-table-wrapper::-webkit-scrollbar,
+.light-theme .table-container::-webkit-scrollbar,
+[data-theme="light"] .table-responsive::-webkit-scrollbar,
+[data-theme="light"] .admin-table-wrapper::-webkit-scrollbar,
+[data-theme="light"] .attendance-table-wrapper::-webkit-scrollbar,
+[data-theme="light"] .manual-attendance-table-wrapper::-webkit-scrollbar,
+[data-theme="light"] .absent-reason-table-wrapper::-webkit-scrollbar,
+[data-theme="light"] .holiday-table-wrapper::-webkit-scrollbar,
+[data-theme="light"] .payroll-table-wrapper::-webkit-scrollbar,
+[data-theme="light"] .expense-table-wrapper::-webkit-scrollbar,
+[data-theme="light"] .activity-log-table-wrapper::-webkit-scrollbar,
+[data-theme="light"] .security-log-table-wrapper::-webkit-scrollbar,
+[data-theme="light"] .table-container::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+.light-theme .table-responsive::-webkit-scrollbar-track,
+.light-theme .admin-table-wrapper::-webkit-scrollbar-track,
+.light-theme .attendance-table-wrapper::-webkit-scrollbar-track,
+.light-theme .manual-attendance-table-wrapper::-webkit-scrollbar-track,
+.light-theme .absent-reason-table-wrapper::-webkit-scrollbar-track,
+.light-theme .holiday-table-wrapper::-webkit-scrollbar-track,
+.light-theme .payroll-table-wrapper::-webkit-scrollbar-track,
+.light-theme .expense-table-wrapper::-webkit-scrollbar-track,
+.light-theme .activity-log-table-wrapper::-webkit-scrollbar-track,
+.light-theme .security-log-table-wrapper::-webkit-scrollbar-track,
+.light-theme .table-container::-webkit-scrollbar-track,
+[data-theme="light"] .table-responsive::-webkit-scrollbar-track,
+[data-theme="light"] .admin-table-wrapper::-webkit-scrollbar-track,
+[data-theme="light"] .attendance-table-wrapper::-webkit-scrollbar-track,
+[data-theme="light"] .manual-attendance-table-wrapper::-webkit-scrollbar-track,
+[data-theme="light"] .absent-reason-table-wrapper::-webkit-scrollbar-track,
+[data-theme="light"] .holiday-table-wrapper::-webkit-scrollbar-track,
+[data-theme="light"] .payroll-table-wrapper::-webkit-scrollbar-track,
+[data-theme="light"] .expense-table-wrapper::-webkit-scrollbar-track,
+[data-theme="light"] .activity-log-table-wrapper::-webkit-scrollbar-track,
+[data-theme="light"] .security-log-table-wrapper::-webkit-scrollbar-track,
+[data-theme="light"] .table-container::-webkit-scrollbar-track {
+  background: #e2e8f0;
+  border-radius: 999px;
+}
+
+.light-theme .table-responsive::-webkit-scrollbar-thumb,
+.light-theme .admin-table-wrapper::-webkit-scrollbar-thumb,
+.light-theme .attendance-table-wrapper::-webkit-scrollbar-thumb,
+.light-theme .manual-attendance-table-wrapper::-webkit-scrollbar-thumb,
+.light-theme .absent-reason-table-wrapper::-webkit-scrollbar-thumb,
+.light-theme .holiday-table-wrapper::-webkit-scrollbar-thumb,
+.light-theme .payroll-table-wrapper::-webkit-scrollbar-thumb,
+.light-theme .expense-table-wrapper::-webkit-scrollbar-thumb,
+.light-theme .activity-log-table-wrapper::-webkit-scrollbar-thumb,
+.light-theme .security-log-table-wrapper::-webkit-scrollbar-thumb,
+.light-theme .table-container::-webkit-scrollbar-thumb,
+[data-theme="light"] .table-responsive::-webkit-scrollbar-thumb,
+[data-theme="light"] .admin-table-wrapper::-webkit-scrollbar-thumb,
+[data-theme="light"] .attendance-table-wrapper::-webkit-scrollbar-thumb,
+[data-theme="light"] .manual-attendance-table-wrapper::-webkit-scrollbar-thumb,
+[data-theme="light"] .absent-reason-table-wrapper::-webkit-scrollbar-thumb,
+[data-theme="light"] .holiday-table-wrapper::-webkit-scrollbar-thumb,
+[data-theme="light"] .payroll-table-wrapper::-webkit-scrollbar-thumb,
+[data-theme="light"] .expense-table-wrapper::-webkit-scrollbar-thumb,
+[data-theme="light"] .activity-log-table-wrapper::-webkit-scrollbar-thumb,
+[data-theme="light"] .security-log-table-wrapper::-webkit-scrollbar-thumb,
+[data-theme="light"] .table-container::-webkit-scrollbar-thumb {
+  background: #64748b;
+  border-radius: 999px;
+  border: 2px solid #e2e8f0;
+}
+
+.light-theme .table-responsive::-webkit-scrollbar-thumb:hover,
+.light-theme .admin-table-wrapper::-webkit-scrollbar-thumb:hover,
+.light-theme .attendance-table-wrapper::-webkit-scrollbar-thumb:hover,
+.light-theme .manual-attendance-table-wrapper::-webkit-scrollbar-thumb:hover,
+.light-theme .absent-reason-table-wrapper::-webkit-scrollbar-thumb:hover,
+.light-theme .holiday-table-wrapper::-webkit-scrollbar-thumb:hover,
+.light-theme .payroll-table-wrapper::-webkit-scrollbar-thumb:hover,
+.light-theme .expense-table-wrapper::-webkit-scrollbar-thumb:hover,
+.light-theme .activity-log-table-wrapper::-webkit-scrollbar-thumb:hover,
+.light-theme .security-log-table-wrapper::-webkit-scrollbar-thumb:hover,
+.light-theme .table-container::-webkit-scrollbar-thumb:hover,
+[data-theme="light"] .table-responsive::-webkit-scrollbar-thumb:hover,
+[data-theme="light"] .admin-table-wrapper::-webkit-scrollbar-thumb:hover,
+[data-theme="light"] .attendance-table-wrapper::-webkit-scrollbar-thumb:hover,
+[data-theme="light"] .manual-attendance-table-wrapper::-webkit-scrollbar-thumb:hover,
+[data-theme="light"] .absent-reason-table-wrapper::-webkit-scrollbar-thumb:hover,
+[data-theme="light"] .holiday-table-wrapper::-webkit-scrollbar-thumb:hover,
+[data-theme="light"] .payroll-table-wrapper::-webkit-scrollbar-thumb:hover,
+[data-theme="light"] .expense-table-wrapper::-webkit-scrollbar-thumb:hover,
+[data-theme="light"] .activity-log-table-wrapper::-webkit-scrollbar-thumb:hover,
+[data-theme="light"] .security-log-table-wrapper::-webkit-scrollbar-thumb:hover,
+[data-theme="light"] .table-container::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+.dark-theme .table-responsive,
+.dark-theme .admin-table-wrapper,
+[data-theme="dark"] .table-responsive,
+[data-theme="dark"] .admin-table-wrapper {
+  scrollbar-color: #94a3b8 #1e293b;
+}

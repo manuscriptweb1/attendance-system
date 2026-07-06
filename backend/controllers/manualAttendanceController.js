@@ -91,9 +91,7 @@ const createManualAttendance = async (req, res) => {
     if (!records || !Array.isArray(records) || records.length === 0) {
       return res.status(400).json({ success: false, message: 'No records provided' });
     }
-    if (!reason || reason.trim() === '') {
-      return res.status(400).json({ success: false, message: 'Manual attendance reason is required' });
-    }
+    const finalReason = reason && reason.trim() !== '' ? reason.trim() : 'Manual attendance created';
 
     await client.query('BEGIN');
     const createdRecords = [];
@@ -108,8 +106,8 @@ const createManualAttendance = async (req, res) => {
 
       // Validate required times for Present/Late/Half Day
       if (['Present', 'Late', 'Half Day'].includes(attendance_status)) {
-        if (!login_time || !logout_time) {
-          const err = new Error(`Check-in and check-out time are required for Present, Late, or Half Day for ${employee_id}`);
+        if (!login_time) {
+          const err = new Error(`Check-in time is required for Present, Late, or Half Day for ${employee_id}`);
           err.errorCode = 'MISSING_TIME';
           throw err;
         }
@@ -269,7 +267,7 @@ const createManualAttendance = async (req, res) => {
         `INSERT INTO manual_attendance_logs (
           attendance_id, employee_id, attendance_date, action, admin_id, reason
         ) VALUES ($1, $2, $3, $4, $5, $6)`,
-        [newAttendance.id, employee_id, attendance_date, 'CREATED', adminId, reason]
+        [newAttendance.id, employee_id, attendance_date, existingRecord ? 'UPDATE' : 'CREATE', adminId, finalReason]
       );
 
       createdRecords.push(newAttendance);
@@ -284,8 +282,8 @@ const createManualAttendance = async (req, res) => {
       adminEmail: req.user.email,
       actionType: 'CREATE',
       moduleName: 'Manual Attendance',
-      description: `Created manual attendance for ${createdRecords.length} employee(s). Reason: ${reason}`,
-      newData: { count: createdRecords.length, reason },
+      description: `Created manual attendance for ${createdRecords.length} employee(s). Reason: ${finalReason}`,
+      newData: { count: createdRecords.length, reason: finalReason },
       ipAddress: getClientIP(req),
       userAgent: req.headers['user-agent']
     });
@@ -313,9 +311,7 @@ const updateManualAttendance = async (req, res) => {
     const { login_time, logout_time, attendance_status, is_wfh, reason, remarks } = req.body;
     const adminId = req.user.id;
 
-    if (!reason || reason.trim() === '') {
-      return res.status(400).json({ success: false, message: 'Reason for update is required' });
-    }
+    const finalReason = reason && reason.trim() !== '' ? reason.trim() : 'Manual attendance updated';
 
     await client.query('BEGIN');
 
@@ -355,8 +351,8 @@ const updateManualAttendance = async (req, res) => {
 
     // Validate required times for Present/Late/Half Day
     if (['Present', 'Late', 'Half Day'].includes(attendance_status)) {
-      if (!login_time || !logout_time) {
-        return res.status(400).json({ success: false, message: 'Check-in and check-out time are required for Present, Late, or Half Day' });
+      if (!login_time) {
+        return res.status(400).json({ success: false, message: 'Check-in time is required for Present, Late, or Half Day' });
       }
     }
 
@@ -457,7 +453,7 @@ const updateManualAttendance = async (req, res) => {
       `INSERT INTO manual_attendance_logs (
         attendance_id, employee_id, attendance_date, action, admin_id, reason
       ) VALUES ($1, $2, $3, $4, $5, $6)`,
-      [id, attendance.employee_id, attendance.attendance_date, 'UPDATED', adminId, reason]
+      [id, attendance.employee_id, attendance.attendance_date, 'UPDATE', adminId, finalReason]
     );
 
     await client.query('COMMIT');

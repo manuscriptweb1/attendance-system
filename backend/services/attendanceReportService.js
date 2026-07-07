@@ -347,19 +347,11 @@ async function buildMonthlyPayroll(month, year, targetEmployeeId = null) {
     let tds = parseFloat(emp.tds) || 0;
 
     const existing = existingMap[emp.employeeCode];
-    const isEdited = existing && existing.is_manual_edited === true;
 
-    if (isEdited) {
-      paidDays = parseFloat(existing.paid_days) || 0;
-      lopDays = parseFloat(existing.lop_days) || 0;
-      workingDays = parseFloat(existing.working_days) || totalDays;
-      monthlyEarning = parseFloat(existing.monthly_earning) || 0;
-      basicSalary = parseFloat(existing.basic_salary) || 0;
-      hra = parseFloat(existing.hra) || 0;
-      specialAllowance = parseFloat(existing.special_allowance) || 0;
-      staffAdvance = parseFloat(existing.staff_advance) || 0;
-      professionalTax = parseFloat(existing.professional_tax) || 0;
-      tds = parseFloat(existing.tds) || 0;
+    if (existing) {
+      staffAdvance = existing.staff_advance != null ? parseFloat(existing.staff_advance) : staffAdvance;
+      professionalTax = existing.professional_tax != null ? parseFloat(existing.professional_tax) : professionalTax;
+      tds = existing.tds != null ? parseFloat(existing.tds) : tds;
     }
 
     const perDaySalary = totalDays > 0 ? (monthlyEarning / totalDays) : 0;
@@ -396,8 +388,8 @@ async function buildMonthlyPayroll(month, year, targetEmployeeId = null) {
       professionalTax: parseFloat(professionalTax.toFixed(2)),
       tds: parseFloat(tds.toFixed(2)),
       netPayable: parseFloat(netPayable.toFixed(2)),
-      status: "pending",
-      is_manual_edited: isEdited
+      status: existing && existing.status ? existing.status : "pending",
+      is_manual_edited: false
     });
   }
 

@@ -113,13 +113,15 @@ const calculatePayroll = async (req, res) => {
           professional_tax = EXCLUDED.professional_tax,
           tds = EXCLUDED.tds,
           net_payable = EXCLUDED.net_payable,
+          status = EXCLUDED.status,
+          is_manual_edited = EXCLUDED.is_manual_edited,
           updated_at = CURRENT_TIMESTAMP`,
         [
           pr.employeeCode, pr.employeeCode, month, year,
           pr.presentDays, pr.lateDays, pr.absentDays, pr.blankUnmarkedDays, pr.holidayDays,
           pr.totalDays, pr.workingDays, pr.paidDays, pr.halfDays, pr.halfDayLossAmount,
           pr.monthlyEarning, pr.perDaySalary, pr.lopDays, pr.lopAmount, pr.netEarning,
-          pr.basicSalary, pr.hra, pr.specialAllowance, pr.staffAdvance, pr.professionalTax, pr.tds, pr.netPayable, 'pending', pr.is_manual_edited || false
+          pr.basicSalary, pr.hra, pr.specialAllowance, pr.staffAdvance, pr.professionalTax, pr.tds, pr.netPayable, pr.status || 'pending', pr.is_manual_edited || false
         ]
       );
     }
@@ -410,6 +412,8 @@ const calculateSinglePayroll = async (req, res) => {
         professional_tax = EXCLUDED.professional_tax,
         tds = EXCLUDED.tds,
         net_payable = EXCLUDED.net_payable,
+        status = EXCLUDED.status,
+        is_manual_edited = EXCLUDED.is_manual_edited,
         updated_at = CURRENT_TIMESTAMP
       RETURNING *`,
       [
@@ -417,7 +421,7 @@ const calculateSinglePayroll = async (req, res) => {
         pr.presentDays, pr.lateDays, pr.absentDays, pr.blankUnmarkedDays, pr.holidayDays,
         pr.totalDays, pr.workingDays, pr.paidDays, pr.halfDays, pr.halfDayLossAmount,
         pr.monthlyEarning, pr.perDaySalary, pr.lopDays, pr.lopAmount, pr.netEarning,
-        pr.basicSalary, pr.hra, pr.specialAllowance, pr.staffAdvance, pr.professionalTax, pr.tds, pr.netPayable, 'pending', pr.is_manual_edited || false
+        pr.basicSalary, pr.hra, pr.specialAllowance, pr.staffAdvance, pr.professionalTax, pr.tds, pr.netPayable, pr.status || 'pending', pr.is_manual_edited || false
       ]
     );
 

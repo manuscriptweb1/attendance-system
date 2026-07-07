@@ -4,6 +4,7 @@ import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
 import { getDashboardStats, getAllAttendance, getTrustedDeviceStats, getAdminActivityStats, getAdminActivityLogs, getAllHolidays, getSystemHealth, getDatabaseMonitor } from '../services/api';
 import { formatTime, formatWorkingHours, formatDate } from '../utils/formatTime';
+import { formatIndianCurrency } from '../utils/formatCurrency';
 import {
   FiUsers, FiCheckCircle, FiClock, FiXCircle, FiActivity, FiSmartphone,
   FiPlus, FiSettings, FiCalendar, FiDatabase, FiServer, FiMail,
@@ -276,7 +277,7 @@ const AdminDashboard = () => {
                 { title: 'Active Employees',value: stats.activeEmployees,icon: FiUserCheck,   baseBg: 'bg-emerald-500/5', hoverBg: 'group-hover:bg-emerald-500/20', color: 'text-emerald-400', border: 'border-emerald-500/20', iconBg: 'bg-emerald-500/10' },
                 { title: 'Currently Working',value: stats.currentlyWorking,icon: FiClock,     baseBg: 'bg-blue-500/5', hoverBg: 'group-hover:bg-blue-500/20', color: 'text-blue-400', border: 'border-blue-500/20', iconBg: 'bg-blue-500/10' },
                 { title: 'Absent Today',     value: absentCount,            icon: FiXCircle,   baseBg: 'bg-red-500/5',   hoverBg: 'group-hover:bg-red-500/20', color: 'text-red-400', border: 'border-red-500/20', iconBg: 'bg-red-500/10' },
-                { title: 'Est. Monthly Payroll', value: `₹${stats.monthlyPayroll?.toLocaleString() || 0}`, icon: FiDollarSign, baseBg: 'bg-purple-500/5', hoverBg: 'group-hover:bg-purple-500/20', color: 'text-purple-400', border: 'border-purple-500/20', iconBg: 'bg-purple-500/10' }
+                { title: 'Est. Monthly Payroll', value: formatIndianCurrency(stats.monthlyPayroll || 0), icon: FiDollarSign, baseBg: 'bg-purple-500/5', hoverBg: 'group-hover:bg-purple-500/20', color: 'text-purple-400', border: 'border-purple-500/20', iconBg: 'bg-purple-500/10' }
               ].map(card => (
                 <div key={card.title} className="bg-admin-surface border border-admin-border rounded-2xl p-5 shadow-clay-admin hover:-translate-y-1 transition-transform duration-300 relative overflow-hidden group">
                   <div className={`absolute top-0 right-0 w-24 h-24 rounded-bl-full ${card.baseBg} ${card.hoverBg} transition-all duration-300 group-hover:scale-110`} />

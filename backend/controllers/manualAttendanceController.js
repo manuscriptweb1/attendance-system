@@ -126,19 +126,6 @@ const createManualAttendance = async (req, res) => {
         throw err;
       }
 
-      const recordDate = new Date(attendance_date);
-      if (recordDate.getDay() === 0) {
-        throw new AppError('Manual attendance is not allowed on holidays or Sundays.', 400, 'HOLIDAY_BLOCKED');
-      }
-      
-      const holidayCheck = await client.query(
-        'SELECT * FROM holidays WHERE holiday_date = $1 AND is_enabled = true',
-        [attendance_date]
-      );
-      if (holidayCheck.rows.length > 0) {
-        throw new AppError('Manual attendance is not allowed on holidays or Sundays.', 400, 'HOLIDAY_BLOCKED');
-      }
-
       // Check if attendance already exists
       const checkResult = await client.query(
         'SELECT id, attendance_status FROM attendance WHERE employee_id = $1 AND attendance_date = $2::DATE',
@@ -329,24 +316,6 @@ const updateManualAttendance = async (req, res) => {
 
     if (attendance.validation_method !== 'Manual') {
       throw new Error('Only manually created attendance records can be edited from this module');
-    }
-
-    // Holiday and Sunday validation
-    const recordDate = new Date(attendance.attendance_date);
-    if (recordDate.getDay() === 0) {
-      const err = new Error(`Manual attendance is not allowed on holidays or Sundays.`);
-      err.errorCode = 'SUNDAY_BLOCKED';
-      throw err;
-    }
-    
-    const holidayCheck = await client.query(
-      'SELECT * FROM holidays WHERE holiday_date = $1 AND is_enabled = true',
-      [attendance.attendance_date]
-    );
-    if (holidayCheck.rows.length > 0) {
-      const err = new Error(`Manual attendance is not allowed on holidays or Sundays.`);
-      err.errorCode = 'HOLIDAY_BLOCKED';
-      throw err;
     }
 
     // Validate required times for Present/Late/Half Day

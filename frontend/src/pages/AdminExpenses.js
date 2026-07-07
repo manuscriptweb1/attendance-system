@@ -9,6 +9,7 @@ import api, { clearExpenseRange } from '../services/api';
 import { formatDate } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateMonthYear } from '../utils/dateValidation';
+import { formatIndianCurrency } from '../utils/formatCurrency';
 import { FiDownload, FiPlus, FiEdit, FiTrash2, FiTrendingUp, FiCreditCard, FiDollarSign, FiArchive, FiX, FiSettings, FiCheckCircle, FiMinusCircle } from 'react-icons/fi';
 
 const getBadgePalette = (str) => {
@@ -387,7 +388,7 @@ const AdminExpenses = () => {
                       <stat.icon size={18} />
                     </div>
                     <p className="text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-1">{stat.label}</p>
-                    <p className={`text-xl font-extrabold ${stat.color}`}>₹{parseFloat(stat.value).toLocaleString()}</p>
+                    <p className={`text-xl font-extrabold ${stat.color}`}>{formatIndianCurrency(stat.value)}</p>
                   </div>
                 ))}
               </div>
@@ -399,7 +400,7 @@ const AdminExpenses = () => {
                     {summary.byType.map((type, idx) => (
                       <div key={idx} className="bg-admin-surface border border-admin-border rounded-xl p-3 shadow-sm hover:shadow-md transition-all">
                         <p className="text-xs font-semibold text-admin-secondary truncate mb-1">{type.name}</p>
-                        <p className="text-lg font-bold text-admin-text">₹{type.amount.toLocaleString()}</p>
+                        <p className="text-lg font-bold text-admin-text">{formatIndianCurrency(type.amount)}</p>
                         <p className="text-[10px] text-admin-muted mt-1">{type.count} {type.count === 1 ? 'entry' : 'entries'}</p>
                       </div>
                     ))}
@@ -448,7 +449,7 @@ const AdminExpenses = () => {
                         <td className="px-5 py-4 text-sm font-bold text-admin-text whitespace-nowrap">
                           {r.name || r.title || '—'}
                         </td>
-                        <td className="px-5 py-4 text-sm font-bold text-emerald-400 whitespace-nowrap">₹{parseFloat(r.amount).toLocaleString()}</td>
+                        <td className="px-5 py-4 text-sm font-bold text-emerald-400 whitespace-nowrap">{formatIndianCurrency(r.amount)}</td>
                         <td className="px-5 py-4 whitespace-nowrap">
                           {(r.payment_status || r.status) === 'paid' ? (
                             <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400">Paid</span>

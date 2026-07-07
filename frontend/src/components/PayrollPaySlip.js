@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FiX, FiDownload } from 'react-icons/fi';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { formatIndianCurrency as formatCurrency } from '../utils/formatCurrency';
 
 const PayrollPaySlip = ({ data, onClose, logoPath }) => {
   const [isDownloading, setIsDownloading] = useState(false);
@@ -13,14 +14,7 @@ const PayrollPaySlip = ({ data, onClose, logoPath }) => {
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const monthName = monthNames[payroll.month - 1];
 
-  const formatCurrency = (val) => {
-    if (val == null || isNaN(val)) return '₹0';
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0
-    }).format(val);
-  };
+
 
   const formatDate = () => {
     const d = new Date();

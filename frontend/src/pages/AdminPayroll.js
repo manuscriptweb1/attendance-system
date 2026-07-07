@@ -10,13 +10,7 @@ import { getErrorMessage } from '../utils/errorHandler';
 import { validateMonthYear } from '../utils/dateValidation';
 import { FiDownload, FiRefreshCw, FiDollarSign, FiEdit2, FiFileText, FiX, FiTrash2 } from 'react-icons/fi';
 import { sortEmployeeRows } from '../utils/sorting';
-
-const formatCurrency = (value) => {
-  const num = parseFloat(value);
-  if (isNaN(num) || num === 0) return '₹0';
-  if (num < 0) return `-₹${Math.abs(num).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-};
+import { formatIndianCurrency as formatCurrency } from '../utils/formatCurrency';
 
 const AdminPayroll = () => {
   const [records, setRecords] = useState([]);
@@ -361,7 +355,7 @@ const AdminPayroll = () => {
                           )}
                         </td>
                         <td className="px-2 py-2 text-[11px] text-admin-text align-middle">{formatCurrency(r.monthlyEarning)}</td>
-                        <td className="px-2 py-2 text-[11px] text-admin-muted align-middle">₹{parseFloat(r.perDaySalary).toFixed(0)}</td>
+                        <td className="px-2 py-2 text-[11px] text-admin-muted align-middle">{formatCurrency(r.perDaySalary)}</td>
                         <td className="px-2 py-2 align-middle text-center">
                           {parseFloat(r.lopDays) > 0 ? (
                             <div className="flex flex-col items-center justify-center">

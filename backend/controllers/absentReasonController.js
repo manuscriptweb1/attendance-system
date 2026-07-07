@@ -72,18 +72,6 @@ const updateAbsentReason = async (req, res) => {
     if (date) {
       validateDateInput(date, { allowFuture: false, isAbsentReason: true });
       
-      const recordDate = new Date(date);
-      if (recordDate.getDay() === 0) {
-        throw new AppError('Absent reason is not allowed on holidays or Sundays.', 400, 'HOLIDAY_BLOCKED');
-      }
-      
-      const holidayCheck = await pool.query(
-        'SELECT * FROM holidays WHERE holiday_date = $1 AND is_enabled = true',
-        [date]
-      );
-      if (holidayCheck.rows.length > 0) {
-        throw new AppError('Absent reason is not allowed on holidays or Sundays.', 400, 'HOLIDAY_BLOCKED');
-      }
     }
     
     if (!reason || reason.trim() === '') {

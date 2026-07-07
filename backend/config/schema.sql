@@ -490,3 +490,372 @@ WHERE monthly_salary IS NOT NULL
 -- SCHEMA SETUP COMPLETE
 -- ============================================
 SELECT 'Database schema created successfully!' AS message;
+
+
+-- Migration: 01_add_manual_attendance_columns.sql
+
+-- Add Manual Attendance and check-in/check-out status columns safely
+ALTER TABLE attendance
+ADD COLUMN IF NOT EXISTS checkin_status VARCHAR(50),
+ADD COLUMN IF NOT EXISTS checkout_status VARCHAR(50),
+ADD COLUMN IF NOT EXISTS late_minutes INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS early_minutes INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS total_minutes INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS total_hours NUMERIC(10,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS total_working_hours NUMERIC(10,2) DEFAULT 0;
+
+
+-- Migration: 01_hr_payroll_expenses.sql
+
+-- Part 2: Employee Table additions
+ALTER TABLE employees
+ADD COLUMN IF NOT EXISTS monthly_salary NUMERIC(12,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS basic_salary NUMERIC(12,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS hra NUMERIC(12,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS special_allowance NUMERIC(12,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS staff_advance NUMERIC(12,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS professional_tax NUMERIC(12,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS tds NUMERIC(12,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active';
+
+-- Part 3: Attendance Late/Early additions
+ALTER TABLE attendance
+ADD COLUMN IF NOT EXISTS checkin_status VARCHAR(20),
+ADD COLUMN IF NOT EXISTS checkout_status VARCHAR(20),
+ADD COLUMN IF NOT EXISTS late_minutes INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS early_minutes INTEGER DEFAULT 0;
+
+-- Part 4: Payroll Records Table
+CREATE TABLE IF NOT EXISTS payroll_records (
+  id SERIAL PRIMARY KEY,
+  employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
+  employee_code VARCHAR(50),
+  payroll_month INTEGER NOT NULL,
+  payroll_year INTEGER NOT NULL,
+
+  total_days INTEGER DEFAULT 0,
+  working_days INTEGER DEFAULT 0,
+  paid_days NUMERIC(6,2) DEFAULT 0,
+  half_days NUMERIC(6,2) DEFAULT 0,
+
+  monthly_earning NUMERIC(12,2) DEFAULT 0,
+  per_day_salary NUMERIC(12,2) DEFAULT 0,
+
+  lop_days NUMERIC(6,2) DEFAULT 0,
+  lop_amount NUMERIC(12,2) DEFAULT 0,
+
+  net_earning NUMERIC(12,2) DEFAULT 0,
+
+  basic_salary NUMERIC(12,2) DEFAULT 0,
+  hra NUMERIC(12,2) DEFAULT 0,
+  special_allowance NUMERIC(12,2) DEFAULT 0,
+  staff_advance NUMERIC(12,2) DEFAULT 0,
+  professional_tax NUMERIC(12,2) DEFAULT 0,
+  tds NUMERIC(12,2) DEFAULT 0,
+
+  net_payable NUMERIC(12,2) DEFAULT 0,
+
+  status VARCHAR(20) DEFAULT 'pending',
+  paid_at TIMESTAMP NULL,
+  paid_by INTEGER NULL,
+
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE(employee_id, payroll_month, payroll_year)
+);
+
+-- Part 5: Expenses Tables
+CREATE TABLE IF NOT EXISTS expense_types (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL UNIQUE,
+  description TEXT,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS monthly_expenses (
+  id SERIAL PRIMARY KEY,
+  expense_type_id INTEGER REFERENCES expense_types(id),
+  title VARCHAR(150) NOT NULL,
+  description TEXT,
+  amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+  expense_date DATE NOT NULL,
+  expense_month INTEGER NOT NULL,
+  expense_year INTEGER NOT NULL,
+  payment_mode VARCHAR(30) DEFAULT 'cash',
+  status VARCHAR(20) DEFAULT 'paid',
+  paid_to VARCHAR(150),
+  created_by INTEGER,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- Migration: 02_add_device_tracking_columns.sql
+
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS trusted_device_id VARCHAR(255), ADD COLUMN IF NOT EXISTS device_source VARCHAR(50), ADD COLUMN IF NOT EXISTS desktop_public_key_hash TEXT;
+
+-- Migration: 02_payroll_hours_expansion.sql
+
+-- 1. ATTENDANCE REPORT & TOTAL HOURS MIGRATION
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS total_hours NUMERIC(8,2) DEFAULT 0;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS total_minutes INTEGER DEFAULT 0;
+
+UPDATE attendance
+SET 
+  total_minutes = EXTRACT(EPOCH FROM (logout_time - login_time)) / 60,
+  total_hours = ROUND((EXTRACT(EPOCH FROM (logout_time - login_time)) / 3600)::numeric, 2)
+WHERE login_time IS NOT NULL
+  AND logout_time IS NOT NULL
+  AND (total_hours IS NULL OR total_hours = 0);
+
+-- 2. PAYROLL SCHEMA EXPANSION
+ALTER TABLE payroll_records
+ADD COLUMN IF NOT EXISTS present_days NUMERIC(6,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS late_days NUMERIC(6,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS absent_days NUMERIC(6,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS blank_unmarked_days NUMERIC(6,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS holiday_days NUMERIC(6,2) DEFAULT 0;
+
+-- 3. EMPLOYEES SALARY BACKFILL (If needed)
+UPDATE employees
+SET
+  basic_salary = ROUND((monthly_salary * 0.50)::numeric, 2),
+  hra = ROUND((monthly_salary * 0.20)::numeric, 2),
+  special_allowance = ROUND((monthly_salary - (monthly_salary * 0.50) - (monthly_salary * 0.20))::numeric, 2)
+WHERE monthly_salary IS NOT NULL
+  AND monthly_salary > 0
+  AND (basic_salary IS NULL OR basic_salary = 0)
+  AND (hra IS NULL OR hra = 0)
+  AND (special_allowance IS NULL OR special_allowance = 0);
+
+
+-- Migration: 02_update_attendance_default.sql
+
+-- Drop existing check constraint if any
+ALTER TABLE attendance 
+DROP CONSTRAINT IF EXISTS attendance_attendance_status_check;
+
+-- Add updated check constraint to include 'Not Mention'
+ALTER TABLE attendance 
+ADD CONSTRAINT attendance_attendance_status_check 
+CHECK (attendance_status IN ('Present', 'Late', 'Half Day', 'Absent', 'Work From Home', 'Not Mention'));
+
+-- Update default attendance status
+ALTER TABLE attendance 
+ALTER COLUMN attendance_status SET DEFAULT 'Not Mention';
+
+-- Safe backfill of existing default absent records that haven't been acted upon
+UPDATE attendance
+SET attendance_status = 'Not Mention'
+WHERE LOWER(attendance_status) IN ('absent', 'a')
+AND login_time IS NULL
+AND logout_time IS NULL
+AND (absent_reason IS NULL OR TRIM(absent_reason) = '');
+
+SELECT 'Migration to Not Mention status completed successfully!' AS message;
+
+
+-- Migration: 03_fix_attendance_not_mention.sql
+
+-- Drop existing check constraint if any
+ALTER TABLE attendance 
+DROP CONSTRAINT IF EXISTS attendance_attendance_status_check;
+
+-- Add updated check constraint to include 'Not Mention'
+ALTER TABLE attendance 
+ADD CONSTRAINT attendance_attendance_status_check 
+CHECK (attendance_status IN ('Present', 'Late', 'Half Day', 'Absent', 'Work From Home', 'Not Mention'));
+
+-- Update default attendance status
+ALTER TABLE attendance 
+ALTER COLUMN attendance_status SET DEFAULT 'Not Mention';
+
+-- Safe backfill of existing default absent records that haven't been acted upon
+UPDATE attendance
+SET attendance_status = 'Not Mention'
+WHERE LOWER(TRIM(attendance_status)) IN ('absent', 'a')
+AND (login_time IS NULL)
+AND (logout_time IS NULL)
+AND (absent_reason IS NULL OR TRIM(absent_reason) = '');
+
+SELECT 'Migration to Not Mention status completed successfully!' AS message;
+
+
+-- Migration: 04_add_half_day_loss_amount.sql
+
+-- Add half_day_loss_amount column to payroll_records
+ALTER TABLE payroll_records
+ADD COLUMN IF NOT EXISTS half_day_loss_amount DECIMAL(10,2) DEFAULT 0;
+
+
+-- Migration: 05_add_admin_theme.sql
+
+-- Add theme_preference column
+ALTER TABLE admins
+ADD COLUMN IF NOT EXISTS theme_preference VARCHAR(10) DEFAULT 'dark';
+
+-- Update existing records
+UPDATE admins
+SET theme_preference = 'dark'
+WHERE theme_preference IS NULL
+   OR theme_preference NOT IN ('dark', 'light');
+
+-- Set not null constraint
+ALTER TABLE admins
+ALTER COLUMN theme_preference SET NOT NULL;
+
+-- Add check constraint for allowed values
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'admins_theme_preference_check'
+  ) THEN
+    ALTER TABLE admins
+    ADD CONSTRAINT admins_theme_preference_check
+    CHECK (theme_preference IN ('dark', 'light'));
+  END IF;
+END $$;
+
+
+-- Migration: 06_add_employee_joining_date.sql
+
+-- 06_add_employee_joining_date.sql
+-- Description: Adds joining_date to employees table
+
+ALTER TABLE employees
+ADD COLUMN IF NOT EXISTS joining_date DATE;
+
+
+-- Migration: 07_update_expenses.sql
+
+-- 1. Ensure default expense types exist
+INSERT INTO expense_types (name, description, is_active) VALUES 
+('Editorial Expenses', 'Expenses related to editorial work', true),
+('Freelancer', 'Payments to freelancers', true),
+('Office Staff', 'Office staff related expenses', true),
+('Rent', 'Office rent', true),
+('Reviewer Expenses', 'Payments to reviewers', true)
+ON CONFLICT (name) DO NOTHING;
+
+-- 2. Add requested columns to monthly_expenses if missing
+ALTER TABLE monthly_expenses
+ADD COLUMN IF NOT EXISTS name VARCHAR(255),
+ADD COLUMN IF NOT EXISTS payment_status VARCHAR(20) CHECK (payment_status IN ('paid', 'unpaid', NULL)),
+ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50),
+ADD COLUMN IF NOT EXISTS notes TEXT;
+
+-- 3. Migrate existing data from old columns to new columns safely
+UPDATE monthly_expenses
+SET 
+  name = COALESCE(name, title),
+  payment_status = COALESCE(payment_status, status),
+  payment_method = COALESCE(payment_method, payment_mode),
+  notes = COALESCE(notes, description)
+WHERE name IS NULL;
+
+-- 4. Alter column constraints if necessary (make new name required)
+-- We won't strictly enforce NOT NULL on new columns immediately just in case, but data should be mapped.
+
+-- 1. Ensure default expense types exist
+INSERT INTO expense_types (name, description, is_active) VALUES 
+('Editorial Expenses', 'Expenses related to editorial work', true),
+('Freelancer', 'Payments to freelancers', true),
+('Office Staff', 'Office staff related expenses', true),
+('Rent', 'Office rent', true),
+('Reviewer Expenses', 'Payments to reviewers', true)
+ON CONFLICT (name) DO NOTHING;
+
+-- 2. Add requested columns to monthly_expenses if missing
+ALTER TABLE monthly_expenses
+ADD COLUMN IF NOT EXISTS name VARCHAR(255),
+ADD COLUMN IF NOT EXISTS payment_status VARCHAR(20) CHECK (payment_status IN ('paid', 'unpaid', NULL)),
+ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50),
+ADD COLUMN IF NOT EXISTS notes TEXT;
+
+-- 3. Migrate existing data from old columns to new columns safely
+UPDATE monthly_expenses
+SET 
+  name = COALESCE(name, title),
+  payment_status = COALESCE(payment_status, status),
+  payment_method = COALESCE(payment_method, payment_mode),
+  notes = COALESCE(notes, description)
+WHERE name IS NULL;
+
+-- 4. Alter column constraints if necessary (make new name required)
+-- We won't strictly enforce NOT NULL on new columns immediately just in case, but data should be mapped.
+
+ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS is_manual_edited BOOLEAN DEFAULT false;
+
+
+
+
+-- Migration: 08_update_payroll_records.sql
+
+ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS is_manual_edited BOOLEAN DEFAULT false;
+
+
+-- Migration: 09_fix_payroll_unique_constraint.sql
+
+-- 09_fix_payroll_unique_constraint.sql
+
+-- Drop the singular unique constraint if it accidentally exists
+ALTER TABLE payroll_records DROP CONSTRAINT IF EXISTS payroll_records_employee_id_key;
+
+-- Drop the composite unique constraint if it already exists, to safely re-create it
+ALTER TABLE payroll_records DROP CONSTRAINT IF EXISTS payroll_records_employee_id_payroll_month_payroll_year_key;
+
+-- Add the correct composite unique constraint
+ALTER TABLE payroll_records ADD CONSTRAINT payroll_records_employee_id_payroll_month_payroll_year_key UNIQUE (employee_id, payroll_month, payroll_year);
+
+
+-- Migration: 10_add_report_snapshots.sql
+
+CREATE TABLE IF NOT EXISTS report_snapshots (
+  id SERIAL PRIMARY KEY,
+  month INTEGER NOT NULL,
+  year INTEGER NOT NULL,
+  report_data JSONB NOT NULL,
+  attendance_matrix JSONB,
+  absent_table JSONB,
+  holiday_table JSONB,
+  generated_by INTEGER NULL REFERENCES admins(id) ON DELETE SET NULL,
+  generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(month, year)
+);
+
+
+-- Migration: add_electron_validation_mode.sql
+
+-- Add new columns to settings for Electron Desktop Validation Mode
+ALTER TABLE settings 
+ADD COLUMN IF NOT EXISTS electron_desktop_enabled BOOLEAN DEFAULT true,
+ADD COLUMN IF NOT EXISTS electron_desktop_validation_mode VARCHAR(80) DEFAULT 'trusted_device_and_network';
+
+
+-- Migration: electron_trusted_device_migration.sql
+
+-- Add new columns to trusted_devices
+ALTER TABLE trusted_devices
+ADD COLUMN IF NOT EXISTS device_source VARCHAR(40) DEFAULT 'browser',
+ADD COLUMN IF NOT EXISTS desktop_public_key TEXT,
+ADD COLUMN IF NOT EXISTS desktop_public_key_hash TEXT,
+ADD COLUMN IF NOT EXISTS desktop_hostname TEXT,
+ADD COLUMN IF NOT EXISTS desktop_platform TEXT,
+ADD COLUMN IF NOT EXISTS electron_app_version TEXT,
+ADD COLUMN IF NOT EXISTS desktop_signature_verified_at TIMESTAMP;
+
+-- Add unique index on employee_id and desktop_public_key_hash
+CREATE UNIQUE INDEX IF NOT EXISTS idx_trusted_devices_employee_desktop_key
+ON trusted_devices(employee_id, desktop_public_key_hash)
+WHERE desktop_public_key_hash IS NOT NULL;
+
+-- Add new columns to attendance
+ALTER TABLE attendance
+ADD COLUMN IF NOT EXISTS trusted_device_id INTEGER REFERENCES trusted_devices(id) ON DELETE SET NULL,
+ADD COLUMN IF NOT EXISTS device_source VARCHAR(40) DEFAULT 'browser',
+ADD COLUMN IF NOT EXISTS desktop_public_key_hash TEXT;

@@ -315,10 +315,10 @@ async function buildMonthlyPayroll(month, year, targetEmployeeId = null) {
       const codeData = days[day];
       const code = codeData ? codeData.code || codeData : null;
 
-      if (code === 'Sun' || code === 'GovH' || code === 'OffH') {
+      if (code === 'S' || code === 'GH' || code === 'OH') {
         holidayDays++;
         fullPaidDays++;
-      } else if (code === 'P' || code === 'Late') {
+      } else if (code === 'P' || code === 'L' || code === 'Late') {
         fullPaidDays++;
       } else if (code === 'HD') {
         halfDays++;

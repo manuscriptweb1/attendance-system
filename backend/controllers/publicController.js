@@ -89,20 +89,19 @@ const getPublicHolidayInfo = async (req, res) => {
       });
     }
 
-    // 2. No upcoming found. Check for a recent completed holiday (within the last 10 days).
+    // 2. No upcoming found. Check for a recent completed holiday (within the last 1 day).
     const recentResult = await pool.query(`
       SELECT holiday_date, holiday_title as holiday_name, holiday_type, holiday_note as notes
       FROM holidays 
       WHERE is_enabled = true 
         AND holiday_date < CURRENT_DATE 
-        AND holiday_date >= CURRENT_DATE - INTERVAL '10 days'
+        AND holiday_date >= CURRENT_DATE - INTERVAL '1 day'
       ORDER BY holiday_date DESC 
       LIMIT 1
     `);
 
     if (recentResult.rows.length > 0) {
       const holiday = recentResult.rows[0];
-      holiday.status_text = "Recently Completed Holiday";
       
       return res.json({
         success: true,
@@ -112,12 +111,12 @@ const getPublicHolidayInfo = async (req, res) => {
       });
     }
 
-    // 3. If no holidays found in the past 10 days or future
+    // 3. If no holidays found in the past 1 day or future
     return res.json({
       success: true,
       mode: "none",
       holidays: [],
-      message: "No upcoming holidays announced yet. Please check back later."
+      message: "No upcoming holidays announced yet. Stay focused and keep going strong."
     });
 
   } catch (error) {

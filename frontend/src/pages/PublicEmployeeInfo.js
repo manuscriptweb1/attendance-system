@@ -2,6 +2,77 @@ import React, { useState, useEffect } from 'react';
 
 import { getPublicAttendanceMatrix, getPublicHolidayInfo } from '../services/api';
 import { FiCalendar, FiClock, FiAlertCircle } from 'react-icons/fi';
+import { getAttendanceStatusClass } from '../utils/attendanceStatusStyles';
+
+const motivationMessages = [
+  "Every day is a new chance to do your best. Keep going!",
+  "Your consistency matters. Let’s make today productive.",
+  "Small progress every day leads to big results.",
+  "Stay focused, stay positive, and keep moving forward.",
+  "Teamwork and discipline make success possible.",
+  "Your effort today builds tomorrow’s success.",
+  "Start strong, stay steady, and finish proud.",
+  "A focused mind can turn any day into progress.",
+  "Success begins with showing up consistently.",
+  "Do your best today, and let your work speak.",
+  "Positive attitude and steady effort create great results.",
+  "One good day of effort can inspire many more.",
+  "Be patient, stay disciplined, and keep improving.",
+  "Great teams grow through trust, effort, and consistency.",
+  "Your dedication makes a difference every day.",
+  "Keep learning, keep improving, and keep moving forward.",
+  "A productive day starts with a positive mindset.",
+  "Progress may be small, but every step matters.",
+  "Focus on today’s work and give it your best.",
+  "Hard work with consistency always creates value.",
+  "Stay calm, stay committed, and keep going.",
+  "Every task completed is a step toward success.",
+  "Your discipline today becomes your strength tomorrow.",
+  "Be proud of your effort and keep pushing forward.",
+  "Good work starts with good focus.",
+  "Keep your goals clear and your actions steady.",
+  "Together, we can make every day meaningful.",
+  "Your time, effort, and focus matter.",
+  "A strong team is built by consistent people.",
+  "Make today count with focus and confidence.",
+  "Challenges are chances to become better.",
+  "Keep going. Your steady effort is valuable.",
+  "Work with purpose, patience, and positivity.",
+  "Each day is an opportunity to improve.",
+  "Stay motivated, stay responsible, and stay strong.",
+  "Believe in your work and keep moving ahead.",
+  "Consistency is the key to long-term success.",
+  "A positive mindset makes work easier and better.",
+  "Do your work with care, focus, and confidence.",
+  "Let today be another step toward progress."
+];
+
+const getDailyMotivations = () => {
+  const today = new Date();
+  const dateKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+
+  let seed = 0;
+  for (let i = 0; i < dateKey.length; i++) {
+    seed += dateKey.charCodeAt(i) * (i + 1);
+  }
+
+  const selected = [];
+  let index = seed % motivationMessages.length;
+
+  while (selected.length < 3 && selected.length < motivationMessages.length) {
+    const message = motivationMessages[index];
+
+    if (!selected.includes(message)) {
+      selected.push(message);
+    }
+
+    index = (index + seed + 7) % motivationMessages.length;
+  }
+
+  return selected;
+};
+
+const dailyMotivations = getDailyMotivations();
 
 const PublicEmployeeInfo = () => {
   const [matrixData, setMatrixData] = useState(null);
@@ -41,18 +112,7 @@ const PublicEmployeeInfo = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const getStatusColor = (code) => {
-    switch (code) {
-      case 'P': return 'bg-emerald-100 text-emerald-800';
-      case 'A': return 'bg-red-100 text-red-800';
-      case 'HD': return 'bg-yellow-100 text-yellow-800';
-      case 'L': return 'bg-orange-100 text-orange-800';
-      case 'S': return 'bg-blue-100 text-blue-800 font-bold';
-      case 'OH':
-      case 'GH': return 'bg-purple-100 text-purple-800 font-bold';
-      default: return 'bg-gray-100 text-gray-500';
-    }
-  };
+
 
   return (
     <div className="public-info-page min-h-screen flex flex-col bg-slate-50">
@@ -83,6 +143,31 @@ const PublicEmployeeInfo = () => {
             )}
           </div>
 
+          <div className="public-motivation-marquee">
+            <div className="public-motivation-marquee-label">
+              ✨ Daily Motivation
+            </div>
+            <div className="public-motivation-marquee-track">
+              <div className="public-motivation-marquee-content">
+                {dailyMotivations.map((message, index) => (
+                  <React.Fragment key={index}>
+                    <span className="public-motivation-message">
+                      {message}
+                    </span>
+
+                    {index < dailyMotivations.length - 1 && (
+                      <span className="public-motivation-separator">
+                        <span className="separator-dot"></span>
+                        <span className="separator-line"></span>
+                        <span className="separator-spark">✦</span>
+                      </span>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {loading ? (
             <div className="flex justify-center items-center h-64 text-[#2563EB]">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2563EB]"></div>
@@ -109,7 +194,6 @@ const PublicEmployeeInfo = () => {
                       <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
                         <tr>
                           <th className="px-4 py-3 font-semibold text-[#0F172A] sticky left-0 bg-[#F8FAFC] z-10 border-r border-[#E2E8F0]">Employee</th>
-                          <th className="px-4 py-3 font-semibold text-[#0F172A]">Department</th>
                           {Array.from({ length: new Date(matrixData.year, matrixData.month, 0).getDate() }).map((_, i) => (
                             <th key={i} className="px-2 py-3 font-semibold text-[#475569] text-center">{i + 1}</th>
                           ))}
@@ -122,12 +206,11 @@ const PublicEmployeeInfo = () => {
                               <div className="font-semibold text-[#0F172A]">{emp.employee_name}</div>
                               <div className="text-xs text-[#475569]">{emp.employee_id}</div>
                             </td>
-                            <td className="px-4 py-3 text-[#475569]">{emp.department}</td>
                             {Array.from({ length: new Date(matrixData.year, matrixData.month, 0).getDate() }).map((_, i) => {
                               const code = emp.attendance[i + 1] || '-';
                               return (
                                 <td key={i} className="px-1 py-3 text-center">
-                                  <span className={`inline-flex items-center justify-center w-8 h-8 rounded-md text-xs font-bold ${getStatusColor(code)}`}>
+                                  <span className={getAttendanceStatusClass(code)}>
                                     {code}
                                   </span>
                                 </td>
@@ -149,7 +232,7 @@ const PublicEmployeeInfo = () => {
                       <div className="flex flex-wrap gap-4 text-xs text-[#475569] justify-center">
                         {Object.entries(matrixData.legend).map(([key, value]) => (
                           <div key={key} className="flex items-center gap-1.5">
-                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] font-bold ${getStatusColor(key)}`}>
+                            <span className={getAttendanceStatusClass(key)}>
                               {key}
                             </span>
                             <span>- {value}</span>
@@ -196,10 +279,15 @@ const PublicEmployeeInfo = () => {
                                 </td>
                                 <td className="px-4 py-4">
                                   <div className="font-medium text-[#0F172A]">{h.holiday_name}</div>
-                                  {h.status_text && (
-                                    <span className="inline-block mt-1 px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] font-bold rounded">
-                                      {h.status_text}
-                                    </span>
+                                  {holidayData.mode === 'upcoming' && (
+                                    (() => {
+                                      const isToday = new Date(h.holiday_date).toDateString() === new Date().toDateString();
+                                      return (
+                                        <div className={`public-holiday-badge ${isToday ? 'today' : 'upcoming'}`}>
+                                          {isToday ? 'Today Holiday' : 'Upcoming Holiday'}
+                                        </div>
+                                      );
+                                    })()
                                   )}
                                 </td>
                                 <td className="px-4 py-4">
@@ -212,6 +300,11 @@ const PublicEmployeeInfo = () => {
                             ))}
                           </tbody>
                         </table>
+                      </div>
+                    )}
+                    {holidayData.mode === 'recent_completed' && (
+                      <div className="mt-4 p-4 bg-blue-50 text-blue-700 text-sm text-center rounded-xl border border-blue-100 font-medium shadow-sm">
+                        “The recent holiday has passed. Let’s move forward with focus, energy, and a positive mindset.”
                       </div>
                     )}
                   </div>

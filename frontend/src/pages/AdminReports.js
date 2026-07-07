@@ -10,6 +10,7 @@ import { FiDownload, FiFileText, FiRefreshCw } from 'react-icons/fi';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { sortEmployeeRows } from '../utils/sorting';
+import { getAttendanceStatusClass } from '../utils/attendanceStatusStyles';
 
 const AdminReports = () => {
   const [loading, setLoading] = useState(false);
@@ -54,18 +55,7 @@ const AdminReports = () => {
     }
   };
 
-  const getBadgeClass = (code) => {
-    switch (code) {
-      case 'P': return 'bg-emerald-500/10 text-emerald-500 font-bold';
-      case 'A': return 'bg-red-500/10 text-red-500 font-bold';
-      case 'HD': return 'bg-amber-500/10 text-amber-600 font-bold';
-      case 'S': return 'bg-slate-500/10 text-slate-500 font-bold';
-      case 'OH': return 'bg-blue-500/10 text-blue-500 font-bold';
-      case 'GH': return 'bg-purple-500/10 text-purple-500 font-bold';
-      case 'L': return 'bg-orange-500/10 text-orange-500 font-bold';
-      default: return 'text-slate-400 font-medium';
-    }
-  };
+
 
   const handleExportPDF = async () => {
     if (!matrixData || !reportData) {
@@ -405,7 +395,7 @@ const AdminReports = () => {
                             const code = emp.days[d];
                             return (
                               <td key={d} className="px-2 py-3.5 text-center whitespace-nowrap">
-                                <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] ${getBadgeClass(code)}`}>
+                                <span className={getAttendanceStatusClass(code)}>
                                   {code}
                                 </span>
                               </td>
@@ -425,13 +415,13 @@ const AdminReports = () => {
             <div className="bg-admin-surface border border-admin-border rounded-2xl p-6 shadow-clay-admin animate-fadeInUp stagger-5 mt-6">
               <h3 className="text-xs font-bold text-admin-secondary uppercase tracking-wider mb-4">Report Legend</h3>
               <div className="flex flex-wrap gap-6">
-                <div className="flex items-center gap-2"><span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] ${getBadgeClass('P')}`}>P</span> <span className="text-xs font-medium text-admin-text">Present</span></div>
-                <div className="flex items-center gap-2"><span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] ${getBadgeClass('A')}`}>A</span> <span className="text-xs font-medium text-admin-text">Absent</span></div>
-                <div className="flex items-center gap-2"><span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] ${getBadgeClass('HD')}`}>HD</span> <span className="text-xs font-medium text-admin-text">Half Day</span></div>
-                <div className="flex items-center gap-2"><span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] ${getBadgeClass('S')}`}>S</span> <span className="text-xs font-medium text-admin-text">Sunday</span></div>
-                <div className="flex items-center gap-2"><span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] ${getBadgeClass('OH')}`}>OH</span> <span className="text-xs font-medium text-admin-text">Office Holiday</span></div>
-                <div className="flex items-center gap-2"><span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] ${getBadgeClass('GH')}`}>GH</span> <span className="text-xs font-medium text-admin-text">Government Holiday</span></div>
-                <div className="flex items-center gap-2"><span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] ${getBadgeClass('L')}`}>L</span> <span className="text-xs font-medium text-admin-text">Late</span></div>
+                <div className="flex items-center gap-2"><span className={getAttendanceStatusClass('P')}>P</span> <span className="text-xs font-medium text-admin-text">Present</span></div>
+                <div className="flex items-center gap-2"><span className={getAttendanceStatusClass('A')}>A</span> <span className="text-xs font-medium text-admin-text">Absent</span></div>
+                <div className="flex items-center gap-2"><span className={getAttendanceStatusClass('HD')}>HD</span> <span className="text-xs font-medium text-admin-text">Half Day</span></div>
+                <div className="flex items-center gap-2"><span className={getAttendanceStatusClass('S')}>S</span> <span className="text-xs font-medium text-admin-text">Sunday</span></div>
+                <div className="flex items-center gap-2"><span className={getAttendanceStatusClass('OH')}>OH</span> <span className="text-xs font-medium text-admin-text">Office Holiday</span></div>
+                <div className="flex items-center gap-2"><span className={getAttendanceStatusClass('GH')}>GH</span> <span className="text-xs font-medium text-admin-text">Government Holiday</span></div>
+                <div className="flex items-center gap-2"><span className={getAttendanceStatusClass('L')}>L</span> <span className="text-xs font-medium text-admin-text">Late</span></div>
               </div>
             </div>
           )}

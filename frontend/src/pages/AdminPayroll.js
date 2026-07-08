@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
+import { useAuth } from '../context/AuthContext';
 import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
 import PayrollPaySlip from '../components/PayrollPaySlip';
@@ -13,6 +14,7 @@ import { sortEmployeeRows } from '../utils/sorting';
 import { formatIndianCurrency as formatCurrency } from '../utils/formatCurrency';
 
 const AdminPayroll = () => {
+  const { hasPermission } = useAuth();
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
@@ -256,24 +258,30 @@ const AdminPayroll = () => {
               </div>
 
               <div className="flex flex-wrap gap-2.5">
-                <button
-                  onClick={() => setClearDialog({ isOpen: true })}
-                  className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
-                  <FiTrash2 size={16} /> Clear Month
-                </button>
-                <button
-                  onClick={handleCalculate}
-                  disabled={calculating}
-                  className="flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-glow-blue-sm disabled:opacity-50">
-                  <FiRefreshCw size={16} className={calculating ? 'animate-spin' : ''} />
-                  {calculating ? 'Calculating...' : 'Calculate All'}
-                </button>
-                <button
-                  onClick={handleExport}
-                  disabled={!isCalculated || records.length === 0}
-                  className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(16,185,129,0.2)] disabled:opacity-50">
-                  <FiDownload size={16} /> Export Excel
-                </button>
+                {hasPermission('payroll', 'can_clear') && (
+                  <button
+                    onClick={() => setClearDialog({ isOpen: true })}
+                    className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                    <FiTrash2 size={16} /> Clear Month
+                  </button>
+                )}
+                {hasPermission('payroll', 'can_calculate') && (
+                  <button
+                    onClick={handleCalculate}
+                    disabled={calculating}
+                    className="flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-glow-blue-sm disabled:opacity-50">
+                    <FiRefreshCw size={16} className={calculating ? 'animate-spin' : ''} />
+                    {calculating ? 'Calculating...' : 'Calculate All'}
+                  </button>
+                )}
+                {hasPermission('payroll', 'can_export') && (
+                  <button
+                    onClick={handleExport}
+                    disabled={!isCalculated || records.length === 0}
+                    className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(16,185,129,0.2)] disabled:opacity-50">
+                    <FiDownload size={16} /> Export Excel
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -378,10 +386,11 @@ const AdminPayroll = () => {
                           <select
                             value={r.status || 'pending'}
                             onChange={(e) => handleStatusChange(r.id, e.target.value)}
+                            disabled={!hasPermission('payroll', 'can_edit')}
                             className={`text-[11px] font-bold px-2 py-1 rounded-lg outline-none cursor-pointer border ${r.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
                               r.status === 'hold' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
                                 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-                              }`}
+                              } ${!hasPermission('payroll', 'can_edit') ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
                             <option value="pending" className="bg-admin-bg text-admin-text">Pending</option>
                             <option value="hold" className="bg-admin-bg text-admin-text">Hold</option>
@@ -390,15 +399,21 @@ const AdminPayroll = () => {
                         </td>
                         <td className="actions-column px-2 py-2 align-middle">
                           <div className="action-buttons">
-                            <button onClick={() => openEditModal(r)} className="action-icon-btn bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 transition-colors" title="Edit Payroll">
-                              <FiEdit2 size={16} />
-                            </button>
-                            <button onClick={() => handleCalculateSingle(r)} disabled={calculatingRowId === r.employeeId} className="action-icon-btn bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-colors disabled:opacity-50" title="Recalculate Payroll">
-                              <FiRefreshCw size={16} className={calculatingRowId === r.employeeId ? 'animate-spin' : ''} />
-                            </button>
-                            <button onClick={() => handleDownloadPaySlip(r)} disabled={loadingPaySlipId === r.employeeId} className="action-icon-btn bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition-colors disabled:opacity-50" title="Download Pay Slip">
-                              {loadingPaySlipId === r.employeeId ? <FiRefreshCw size={16} className="animate-spin" /> : <FiFileText size={16} />}
-                            </button>
+                            {hasPermission('payroll', 'can_edit') && (
+                              <button onClick={() => openEditModal(r)} className="action-icon-btn bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 transition-colors" title="Edit Payroll">
+                                <FiEdit2 size={16} />
+                              </button>
+                            )}
+                            {hasPermission('payroll', 'can_calculate') && (
+                              <button onClick={() => handleCalculateSingle(r)} disabled={calculatingRowId === r.employeeId} className="action-icon-btn bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-colors disabled:opacity-50" title="Recalculate Payroll">
+                                <FiRefreshCw size={16} className={calculatingRowId === r.employeeId ? 'animate-spin' : ''} />
+                              </button>
+                            )}
+                            {hasPermission('payroll', 'can_export') && (
+                              <button onClick={() => handleDownloadPaySlip(r)} disabled={loadingPaySlipId === r.employeeId} className="action-icon-btn bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition-colors disabled:opacity-50" title="Download Pay Slip">
+                                {loadingPaySlipId === r.employeeId ? <FiRefreshCw size={16} className="animate-spin" /> : <FiFileText size={16} />}
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

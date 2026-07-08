@@ -49,6 +49,47 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('device_fingerprint');
   };
 
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isSuperAdmin = user?.is_super_admin === true || user?.isSuperAdmin === true || user?.role === 'super_admin';
+  
+  const hasPageAccess = (pageKey) => {
+    if (isSuperAdmin) return true;
+    if (!user?.permissions) return false;
+    return user.permissions[pageKey] !== undefined;
+  };
+
+  const hasPermission = (pageKey, action = "can_view") => {
+    if (isSuperAdmin) return true;
+    if (!user?.permissions) return false;
+    if (!user.permissions[pageKey]) return false;
+    return user.permissions[pageKey][action] === true;
+  };
+
+  const getDefaultAdminRoute = () => {
+    if (isSuperAdmin) return '/admin/dashboard';
+    if (!user?.permissions) return '/admin/dashboard';
+    
+    // If they have dashboard view, send there
+    if (user.permissions['dashboard']?.can_view) return '/admin/dashboard';
+
+    const pages = Object.keys(user.permissions);
+    const firstAllowed = pages.find(p => user.permissions[p]?.can_view);
+    
+    if (firstAllowed) {
+       if (firstAllowed === 'manual_attendance') return '/admin/manual-attendance';
+       if (firstAllowed === 'admin_management') return '/admin/manage-admins';
+       if (firstAllowed === 'absent_reasons') return '/admin/settings/absent-reasons';
+       if (firstAllowed === 'trusted_devices') return '/admin/settings/trusted-devices';
+       if (firstAllowed === 'database_monitor') return '/admin/database-monitor';
+       if (firstAllowed === 'activity_logs') return '/admin/logs';
+       if (firstAllowed === 'security_logs') return '/admin/security-logs';
+       if (firstAllowed === 'otp_settings') return '/admin/settings/otp';
+       return `/admin/${firstAllowed}`;
+    }
+    
+    return '/admin/access-denied';
+  };
+
   const value = {
     user,
     token,
@@ -56,8 +97,12 @@ export const AuthProvider = ({ children }) => {
     logout,
     loading,
     isAuthenticated: !!token,
-    isAdmin: user?.role === 'admin',
+    isAdmin,
+    isSuperAdmin,
     isEmployee: user?.role === 'employee',
+    hasPageAccess,
+    hasPermission,
+    getDefaultAdminRoute
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

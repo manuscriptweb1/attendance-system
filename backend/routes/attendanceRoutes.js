@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { verifyToken, isAdmin, isEmployee } = require('../middleware/auth');
+const { verifyToken, isAdmin, isEmployee, requirePermission } = require('../middleware/auth');
 const { attendanceRateLimit } = require('../middleware/attendanceRateLimit');
 const {
   checkIn,
@@ -25,16 +25,17 @@ router.get('/today', verifyToken, isEmployee, getTodayAttendance);
 router.get('/monthly', verifyToken, isEmployee, getEmployeeMonthlyAttendance);
 
 // Admin routes
-router.get('/all', verifyToken, isAdmin, getAllAttendance);
-router.get('/stats', verifyToken, isAdmin, getDashboardStats);
-router.get('/absent', verifyToken, isAdmin, getAbsentEmployees);
-router.post('/reset', verifyToken, isAdmin, resetAttendance);
-router.delete('/clear-range', verifyToken, isAdmin, clearAttendanceRange);
-router.delete('/:id', verifyToken, isAdmin, deleteAttendance);
-router.post('/early-checkout', verifyToken, isAdmin, toggleEarlyCheckout);
+// Admin routes
+router.get('/all', verifyToken, isAdmin, requirePermission('attendance', 'can_view'), getAllAttendance);
+router.get('/stats', verifyToken, isAdmin, requirePermission('dashboard', 'can_view'), getDashboardStats);
+router.get('/absent', verifyToken, isAdmin, requirePermission('dashboard', 'can_view'), getAbsentEmployees);
+router.post('/reset', verifyToken, isAdmin, requirePermission('attendance', 'can_clear'), resetAttendance);
+router.delete('/clear-range', verifyToken, isAdmin, requirePermission('attendance', 'can_clear'), clearAttendanceRange);
+router.delete('/:id', verifyToken, isAdmin, requirePermission('attendance', 'can_delete'), deleteAttendance);
+router.post('/early-checkout', verifyToken, isAdmin, requirePermission('attendance', 'can_edit'), toggleEarlyCheckout);
 
 // Utility route to create daily absent records manually
-router.post('/create-daily-records', verifyToken, isAdmin, async (req, res) => {
+router.post('/create-daily-records', verifyToken, isAdmin, requirePermission('attendance', 'can_create'), async (req, res) => {
   try {
     const { date } = req.body;
     const recordsCreated = await ensureDailyAttendanceRecords(date);
@@ -54,7 +55,7 @@ router.post('/create-daily-records', verifyToken, isAdmin, async (req, res) => {
 });
 
 // Utility route to manually trigger auto-checkout (for testing)
-router.post('/trigger-auto-checkout', verifyToken, isAdmin, async (req, res) => {
+router.post('/trigger-auto-checkout', verifyToken, isAdmin, requirePermission('attendance', 'can_edit'), async (req, res) => {
   try {
     const result = await autoCheckoutEmployees();
     

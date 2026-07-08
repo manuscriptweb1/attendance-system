@@ -5,16 +5,16 @@ import { useAdminTheme } from '../context/AdminThemeContext';
 import {
   FiHome, FiUsers, FiCalendar, FiLogOut, FiUser, FiClock,
   FiSettings, FiShield, FiMenu, FiX, FiLock, FiKey,
-  FiAlertCircle, FiUmbrella, FiChevronRight, FiSmartphone, FiActivity, FiLayers,
+  FiAlertCircle, FiUmbrella, FiChevronRight, FiSmartphone, FiActivity, FiLayers, FiGrid,
   FiDollarSign, FiTrendingUp, FiPieChart, FiClipboard, FiUserX, FiSun, FiMoon
 } from 'react-icons/fi';
 
 const adminSections = [
-  { label: 'Overview',         items: [{ path: '/admin/dashboard', icon: FiHome, label: 'Dashboard' }] },
-  { label: 'People',           items: [{ path: '/admin/employees', icon: FiUsers, label: 'Employees' }, { path: '/admin/departments', icon: FiLayers, label: 'Departments' }, { path: '/admin/management', icon: FiShield, label: 'Admin Management' }] },
-  { label: 'Time & Attendance',items: [{ path: '/admin/attendance', icon: FiCalendar, label: 'Attendance' }, { path: '/admin/manual-attendance', icon: FiClipboard, label: 'Manual Attendance' }, { path: '/admin/absent-reasons', icon: FiUserX, label: 'Absent Reasons' }, { path: '/admin/holidays', icon: FiUmbrella, label: 'Holidays' }] },
-  { label: 'HR & Finance',     items: [{ path: '/admin/payroll', icon: FiDollarSign, label: 'Payroll' }, { path: '/admin/expenses', icon: FiTrendingUp, label: 'Expenses' }, { path: '/admin/reports', icon: FiPieChart, label: 'Reports' }] },
-  { label: 'System',           items: [{ path: '/admin/settings', icon: FiSettings, label: 'Settings' }, { path: '/admin/trusted-devices', icon: FiSmartphone, label: 'Trusted Devices' }, { path: '/admin/activity-logs', icon: FiActivity, label: 'Activity Logs' }, { path: '/admin/otp-settings', icon: FiKey, label: 'OTP Settings' }, { path: '/admin/security-logs', icon: FiAlertCircle, label: 'Security Logs' }] },
+  { label: 'Overview',         items: [{ path: '/admin/dashboard', icon: FiHome, label: 'Dashboard', pageKey: 'dashboard' }] },
+  { label: 'People',           items: [{ path: '/admin/employees', icon: FiUsers, label: 'Employees', pageKey: 'employees' }, { path: '/admin/departments', icon: FiLayers, label: 'Departments', pageKey: 'departments' }, { path: '/admin/management', icon: FiShield, label: 'Admin Management', pageKey: 'admin_management' }] },
+  { label: 'Time & Attendance',items: [{ path: '/admin/attendance', icon: FiCalendar, label: 'Attendance', pageKey: 'attendance' }, { path: '/admin/manual-attendance', icon: FiClipboard, label: 'Manual Attendance', pageKey: 'manual_attendance' }, { path: '/admin/absent-reasons', icon: FiUserX, label: 'Absent Reasons', pageKey: 'absent_reasons' }, { path: '/admin/holidays', icon: FiUmbrella, label: 'Holidays', pageKey: 'holidays' }] },
+  { label: 'HR & Finance',     items: [{ path: '/admin/payroll', icon: FiDollarSign, label: 'Payroll', pageKey: 'payroll' }, { path: '/admin/expenses', icon: FiTrendingUp, label: 'Expenses', pageKey: 'expenses' }, { path: '/admin/reports', icon: FiPieChart, label: 'Reports', pageKey: 'reports' }] },
+  { label: 'System',           items: [{ path: '/admin/settings', icon: FiSettings, label: 'Settings', pageKey: 'settings' }, { path: '/admin/manage', icon: FiGrid, label: 'Manage', pageKey: 'manage' }, { path: '/admin/trusted-devices', icon: FiSmartphone, label: 'Trusted Devices', pageKey: 'trusted_devices' }, { path: '/admin/activity-logs', icon: FiActivity, label: 'Activity Logs', pageKey: 'activity_logs' }, { path: '/admin/otp-settings', icon: FiKey, label: 'OTP Settings', pageKey: 'otp_settings' }, { path: '/admin/security-logs', icon: FiAlertCircle, label: 'Security Logs', pageKey: 'security_logs' }] },
 ];
 const employeeSections = [
   { label: 'Overview',   items: [{ path: '/employee/dashboard', icon: FiHome, label: 'Dashboard' }] },
@@ -61,11 +61,20 @@ const EmpNavItem = ({ path, icon: Icon, label, isActive, onClick }) => (
 const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout, isAdmin, user } = useAuth();
+  const { logout, isAdmin, user, hasPageAccess } = useAuth();
   const { theme, toggleTheme } = useAdminTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const handleLogoutClick = async () => { try { await logout(); navigate('/'); } catch (e) { console.error(e); } };
-  const sections = isAdmin ? adminSections : employeeSections;
+
+  // Filter sections based on permissions
+  const filteredAdminSections = adminSections
+    .map(section => ({
+      ...section,
+      items: section.items.filter(item => hasPageAccess(item.pageKey))
+    }))
+    .filter(section => section.items.length > 0);
+
+  const sections = isAdmin ? filteredAdminSections : employeeSections;
   const nameStr  = user?.name || user?.username || 'U';
   const initials = nameStr.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 

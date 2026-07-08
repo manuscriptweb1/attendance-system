@@ -1702,3 +1702,52 @@ body.admin-theme-dark .clear-range-cancel-btn,
     font-size: 13px;
   }
 }
+
+/* Clickable Dashboard Cards */
+.dashboard-card.clickable-card {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-card.clickable-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+}
+
+.dashboard-card.clickable-card:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 3px;
+}
+
+.dark .dashboard-card.clickable-card:hover {
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
+}
+
+.employee-name-clickable {
+  text-decoration: none;
+  cursor: pointer;
+  font-weight: 700;
+  color: #2563eb;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  padding: 4px 8px;
+  margin: -4px -8px;
+}
+
+.employee-name-clickable:hover {
+  text-decoration: none;
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.08);
+  border-radius: 8px;
+}
+
+.employee-name-clickable:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  text-decoration: none;
+  border-radius: 8px;
+}
+
+.dark .employee-name-clickable:hover {
+  background: rgba(96, 165, 250, 0.14);
+  color: #93c5fd;
+}

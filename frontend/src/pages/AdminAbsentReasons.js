@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
+import { useAuth } from '../context/AuthContext';
 import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
 import StatusBadge from '../components/ui/StatusBadge';
@@ -18,6 +19,7 @@ const getLocalYMD = () => {
 };
 
 const AdminAbsentReasons = () => {
+  const { hasPermission } = useAuth();
   const [date, setDate] = useState(getLocalYMD());
   const [departmentId, setDepartmentId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -178,9 +180,11 @@ const AdminAbsentReasons = () => {
               <p className="text-sm text-slate-400 mt-0.5">Record and track reasons for employee absences</p>
             </div>
             <div className="flex items-center">
-              <button onClick={() => setClearDialog({ isOpen: true })} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
-                <FiTrash2 size={16} /> Clear Month
-              </button>
+              {hasPermission('absent_reasons', 'can_clear') && (
+                <button onClick={() => setClearDialog({ isOpen: true })} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                  <FiTrash2 size={16} /> Clear Month
+                </button>
+              )}
             </div>
           </div>
 
@@ -253,8 +257,10 @@ const AdminAbsentReasons = () => {
                       <td className="px-4 py-3.5 text-sm text-slate-300 max-w-[200px] truncate">{emp.absent_reason || <span className="text-slate-500 italic">None</span>}</td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         <div className="flex items-center gap-3">
-                          <button onClick={() => openModal(emp)} className="text-amber-400 hover:text-amber-300 transition-colors text-sm font-medium flex items-center gap-1.5"><FiEdit size={14} /> {emp.absent_reason ? 'Edit' : 'Add'} Reason</button>
-                          {emp.absent_reason && emp.attendance_id && (
+                          {hasPermission('absent_reasons', 'can_edit') && (
+                            <button onClick={() => openModal(emp)} className="text-amber-400 hover:text-amber-300 transition-colors text-sm font-medium flex items-center gap-1.5"><FiEdit size={14} /> {emp.absent_reason ? 'Edit' : 'Add'} Reason</button>
+                          )}
+                          {hasPermission('absent_reasons', 'can_delete') && emp.absent_reason && emp.attendance_id && (
                             <button onClick={() => handleClearReason(emp)} disabled={clearingId === emp.attendance_id} className="text-red-400 hover:text-red-300 transition-colors text-sm font-medium flex items-center gap-1.5 disabled:opacity-50">
                               <FiTrash2 size={14} /> Clear
                             </button>

@@ -859,3 +859,16 @@ ALTER TABLE attendance
 ADD COLUMN IF NOT EXISTS trusted_device_id INTEGER REFERENCES trusted_devices(id) ON DELETE SET NULL,
 ADD COLUMN IF NOT EXISTS device_source VARCHAR(40) DEFAULT 'browser',
 ADD COLUMN IF NOT EXISTS desktop_public_key_hash TEXT;
+
+-- Migration: 09_add_employee_personal_details.sql
+
+ALTER TABLE employees
+ADD COLUMN IF NOT EXISTS bank_name VARCHAR(150),
+ADD COLUMN IF NOT EXISTS bank_address TEXT,
+ADD COLUMN IF NOT EXISTS account_holder_name VARCHAR(150),
+ADD COLUMN IF NOT EXISTS account_number VARCHAR(50),
+ADD COLUMN IF NOT EXISTS ifsc_code VARCHAR(20),
+ADD COLUMN IF NOT EXISTS pan_card_number VARCHAR(20),
+ADD COLUMN IF NOT EXISTS aadhar_card_number VARCHAR(20),
+ADD COLUMN IF NOT EXISTS permanent_address TEXT,
+ADD COLUMN IF NOT EXISTS alternate_phone_number VARCHAR(20);

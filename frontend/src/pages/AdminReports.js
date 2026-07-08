@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Sidebar from '../components/Sidebar';
+import { useAuth } from '../context/AuthContext';
 import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
 
@@ -13,6 +14,7 @@ import { sortEmployeeRows } from '../utils/sorting';
 import { getAttendanceStatusClass } from '../utils/attendanceStatusStyles';
 
 const AdminReports = () => {
+  const { hasPermission } = useAuth();
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [matrixData, setMatrixData] = useState(null);
@@ -22,6 +24,26 @@ const AdminReports = () => {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [sortBy, setSortBy] = useState('name_asc');
+  
+  const [treatLateAsPresent, setTreatLateAsPresent] = useState(false);
+
+  const formatLateTime = (minutes) => {
+    const total = Number(minutes || 0);
+    if (!total || total <= 0) return "-";
+  
+    const hours = Math.floor(total / 60);
+    const mins = total % 60;
+  
+    if (hours <= 0) return `${mins} min`;
+    return `${hours}h ${String(mins).padStart(2, "0")}m`;
+  };
+
+  const getReportDisplayStatus = (status) => {
+    if (treatLateAsPresent && status === 'L') {
+      return 'P';
+    }
+    return status;
+  };
   
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
@@ -311,18 +333,54 @@ const AdminReports = () => {
                 </select>
               </div>
               <div className="flex gap-2">
-                <button onClick={handleGenerateReport} disabled={loading} className="flex items-center gap-2 bg-admin-elevated hover:bg-white/10 text-admin-text px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border border-admin-border shadow-sm disabled:opacity-50">
-                  <FiRefreshCw size={16} className={loading ? 'animate-spin' : ''} /> {loading ? 'Generating...' : 'Generate'}
-                </button>
-                <button onClick={handleExport} className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(16,185,129,0.2)]">
-                  <FiDownload size={16} /> Export Excel
-                </button>
-                <button onClick={handleExportPDF} className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(239,68,68,0.2)]">
-                  <FiDownload size={16} /> Download PDF
-                </button>
+                {hasPermission('reports', 'can_calculate') && (
+                  <button onClick={handleGenerateReport} disabled={loading} className="flex items-center gap-2 bg-admin-elevated hover:bg-white/10 text-admin-text px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border border-admin-border shadow-sm disabled:opacity-50">
+                    <FiRefreshCw size={16} className={loading ? 'animate-spin' : ''} /> {loading ? 'Generating...' : 'Generate'}
+                  </button>
+                )}
+                {hasPermission('reports', 'can_export') && (
+                  <>
+                    <button onClick={handleExport} className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(16,185,129,0.2)]">
+                      <FiDownload size={16} /> Export Excel
+                    </button>
+                    <button onClick={handleExportPDF} className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(239,68,68,0.2)]">
+                      <FiDownload size={16} /> Download PDF
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="mt-6 pt-6 border-t border-admin-border flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only peer"
+                    checked={treatLateAsPresent}
+                    onChange={(e) => setTreatLateAsPresent(e.target.checked)}
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
+                </label>
+                <div>
+                  <div className="text-sm font-bold text-admin-text">HR View: Treat Late as Present</div>
+                  <div className="text-xs text-admin-muted">Late entries are shown as Present in this report view only.</div>
+                </div>
               </div>
             </div>
           </div>
+          
+          {treatLateAsPresent && reportData && (
+            <div className="mb-6 p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-start gap-3">
+              <div className="text-blue-500 mt-0.5">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <p className="text-sm text-blue-700 dark:text-blue-400 font-medium">
+                HR View is enabled: Late entries are displayed as Present on this page only. PDF/Excel exports and database records remain unchanged.
+              </p>
+            </div>
+          )}
 
           {/* Preview Table */}
           {reportData && (
@@ -334,23 +392,28 @@ const AdminReports = () => {
               <div className="table-responsive dark-scroll">
                 <table className="min-w-full divide-y divide-white/[0.04]">
                   <thead className="bg-admin-bg">
-                    <tr>{['Emp ID','Name','Department','Present','Absent','Half Day','Holiday','Late Count','Total Hours'].map(h => (
+                    <tr>{['Emp ID','Name','Department','Present','Absent','Half Day','Holiday','Late Count','Total Late Time','Total Hours'].map(h => (
                       <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
                     {(() => {
                       const sortedData = sortEmployeeRows(reportData, sortBy);
-                      return sortedData.map(r => (
+                      return sortedData.map(r => {
+                        const displayPresent = treatLateAsPresent ? (r.present + (r.lateCount || 0)) : r.present;
+                        const displayLateCount = (treatLateAsPresent && r.lateCount > 0) ? '-' : r.lateCount;
+                        
+                        return (
                         <tr key={r.employeeCode} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors">
                         <td className="px-5 py-3.5 text-xs text-admin-muted font-mono whitespace-nowrap">{r.employeeCode}</td>
                         <td className="px-5 py-3.5 text-sm font-bold text-admin-text whitespace-nowrap">{r.employeeName}</td>
                         <td className="px-5 py-3.5 text-xs text-admin-secondary whitespace-nowrap">{r.department}</td>
-                        <td className="px-5 py-3.5 text-xs font-bold text-emerald-400 whitespace-nowrap">{r.present}</td>
+                        <td className="px-5 py-3.5 text-xs font-bold text-emerald-400 whitespace-nowrap">{displayPresent}</td>
                         <td className="px-5 py-3.5 text-xs font-bold text-red-400 whitespace-nowrap">{r.absent}</td>
                         <td className="px-5 py-3.5 text-xs font-bold text-yellow-500 whitespace-nowrap">{r.halfDay}</td>
                         <td className="px-5 py-3.5 text-xs font-bold text-blue-400 whitespace-nowrap">{r.holiday}</td>
-                        <td className="px-5 py-3.5 text-xs font-bold text-amber-500 whitespace-nowrap">{r.lateCount}</td>
+                        <td className="px-5 py-3.5 text-xs font-bold text-amber-500 whitespace-nowrap">{displayLateCount}</td>
+                        <td className="px-5 py-3.5 text-xs font-bold text-amber-600 whitespace-nowrap">{formatLateTime(r.totalLateMinutes)}</td>
                         <td className="px-5 py-3.5 text-xs text-admin-text whitespace-nowrap">
                           {(() => {
                             const rawTotalHours = r.totalHours ?? r.total_hours ?? r.totalWorkingHours ?? r.total_working_hours ?? r.workingHours ?? r.working_hours ?? 0;
@@ -359,7 +422,8 @@ const AdminReports = () => {
                           })()}
                         </td>
                       </tr>
-                      ));
+                        );
+                      });
                     })()}
                   </tbody>
                 </table>
@@ -392,11 +456,12 @@ const AdminReports = () => {
                             {emp.name}
                           </td>
                           {matrixData.days.map(d => {
-                            const code = emp.days[d];
+                            const originalCode = emp.days[d];
+                            const displayCode = getReportDisplayStatus(originalCode);
                             return (
                               <td key={d} className="px-2 py-3.5 text-center whitespace-nowrap">
-                                <span className={getAttendanceStatusClass(code)}>
-                                  {code}
+                                <span className={getAttendanceStatusClass(displayCode)}>
+                                  {displayCode}
                                 </span>
                               </td>
                             );
@@ -421,7 +486,17 @@ const AdminReports = () => {
                 <div className="flex items-center gap-2"><span className={getAttendanceStatusClass('S')}>S</span> <span className="text-xs font-medium text-admin-text">Sunday</span></div>
                 <div className="flex items-center gap-2"><span className={getAttendanceStatusClass('OH')}>OH</span> <span className="text-xs font-medium text-admin-text">Office Holiday</span></div>
                 <div className="flex items-center gap-2"><span className={getAttendanceStatusClass('GH')}>GH</span> <span className="text-xs font-medium text-admin-text">Government Holiday</span></div>
-                <div className="flex items-center gap-2"><span className={getAttendanceStatusClass('L')}>L</span> <span className="text-xs font-medium text-admin-text">Late</span></div>
+                {treatLateAsPresent ? (
+                  <div className="flex items-center gap-2">
+                    <span className={getAttendanceStatusClass('L')}>L</span> 
+                    <span className="text-xs font-medium text-admin-text">Late (Shown as Present in HR View)</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className={getAttendanceStatusClass('L')}>L</span> 
+                    <span className="text-xs font-medium text-admin-text">Late</span>
+                  </div>
+                )}
               </div>
             </div>
           )}

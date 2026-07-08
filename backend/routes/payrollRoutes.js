@@ -1,15 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const { getPayrollRecords, calculatePayroll, updatePayrollStatus, exportPayroll, updatePayrollRecord, calculateSinglePayroll, getPaySlipData, clearPayrollRange } = require('../controllers/payrollController');
-const { verifyToken, isAdmin } = require('../middleware/auth');
+const { verifyToken, isAdmin, requirePermission } = require('../middleware/auth');
 
-router.get('/', verifyToken, isAdmin, getPayrollRecords);
-router.get('/payslip', verifyToken, isAdmin, getPaySlipData);
-router.post('/calculate', verifyToken, isAdmin, calculatePayroll);
-router.post('/calculate/:employeeId', verifyToken, isAdmin, calculateSinglePayroll);
-router.patch('/:id/status', verifyToken, isAdmin, updatePayrollStatus);
-router.delete('/clear-range', verifyToken, isAdmin, clearPayrollRange);
-router.put('/:id', verifyToken, isAdmin, updatePayrollRecord);
-router.get('/export', verifyToken, isAdmin, exportPayroll);
+router.get('/', verifyToken, isAdmin, requirePermission('payroll', 'can_view'), getPayrollRecords);
+router.get('/payslip', verifyToken, isAdmin, requirePermission('payroll', 'can_view'), getPaySlipData);
+router.post('/calculate', verifyToken, isAdmin, requirePermission('payroll', 'can_calculate'), calculatePayroll);
+router.post('/calculate/:employeeId', verifyToken, isAdmin, requirePermission('payroll', 'can_calculate'), calculateSinglePayroll);
+router.patch('/:id/status', verifyToken, isAdmin, requirePermission('payroll', 'can_edit'), updatePayrollStatus);
+router.delete('/clear-range', verifyToken, isAdmin, requirePermission('payroll', 'can_clear'), clearPayrollRange);
+router.put('/:id', verifyToken, isAdmin, requirePermission('payroll', 'can_edit'), updatePayrollRecord);
+router.get('/export', verifyToken, isAdmin, requirePermission('payroll', 'can_export'), exportPayroll);
 
 module.exports = router;

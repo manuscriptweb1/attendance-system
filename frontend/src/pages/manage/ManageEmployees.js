@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import Sidebar from '../components/Sidebar';
-import { useAuth } from '../context/AuthContext';
-import ConfirmDialog from '../components/ConfirmDialog';
-import AlertDialog from '../components/AlertDialog';
-import StatusBadge from '../components/ui/StatusBadge';
-import { Spinner } from '../components/Loader';
-import { getAllEmployees, getAllDepartments, addEmployee, updateEmployee, deleteEmployee, enableWFH, disableWFH, toggleEarlyCheckout } from '../services/api';
+import ConfirmDialog from '../../components/ConfirmDialog';
+import { useAuth } from '../../context/AuthContext';
+import AlertDialog from '../../components/AlertDialog';
+import StatusBadge from '../../components/ui/StatusBadge';
+import { Spinner } from '../../components/Loader';
+import { getAllEmployees, getAllDepartments, addEmployee, updateEmployee, deleteEmployee, enableWFH, disableWFH, toggleEarlyCheckout } from '../../services/api';
 import { FiPlus, FiEdit, FiTrash2, FiSearch, FiHome, FiClock, FiEye, FiEyeOff, FiX, FiUsers, FiDownload } from 'react-icons/fi';
-import { sortEmployeeRows } from '../utils/sorting';
+import { sortEmployeeRows } from '../../utils/sorting';
 
 const getMonthlySalaryValue = (employee) => {
   const value =
@@ -48,7 +47,7 @@ const formatDate = (dateStr) => {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-const AdminEmployees = () => {
+const ManageEmployees = () => {
   const { hasPermission } = useAuth();
   const [employees,    setEmployees]    = useState([]);
   const [departments,  setDepartments]  = useState([]);
@@ -281,30 +280,27 @@ const AdminEmployees = () => {
   const filteredEmployees = sortEmployeeRows(filteredEmployeesRaw, sortBy);
 
   if (loading) return (
-    <div className="flex h-screen bg-admin-bg"><Sidebar /><div className="flex-1 flex items-center justify-center"><Spinner size={36} /></div></div>
+    <div className="flex items-center justify-center p-12"><Spinner size={36} /></div>
   );
 
   return (
-    <div className="flex h-screen bg-admin-bg dark-scroll">
-      <Sidebar />
-      <div className="flex-1 overflow-y-auto min-w-0 dark-scroll">
-        <div className="px-5 py-6 lg:px-8 lg:py-8">
+    <>
+      <div className="animate-fadeIn">
+      {/* Search & Sort */}
+      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-admin-heading">Employee Management</h1>
+          <p className="text-sm text-admin-muted mt-0.5">{employees.length} total employees</p>
+        </div>
 
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pt-14 lg:pt-0">
-            <div>
-              <h1 className="text-xl font-bold text-admin-heading">Employee Management</h1>
-              <p className="text-sm text-slate-400 mt-0.5">{employees.length} total employees</p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              {hasPermission('employees', 'can_export') && (
+            <div className="flex items-center gap-3">
+              {hasPermission('manage', 'can_export') && (
                 <button onClick={handleExportEmployeesExcel}
                   className="inline-flex items-center gap-2 bg-[#10B981] hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-glow-emerald-sm hover:shadow-glow-emerald hover:-translate-y-0.5">
                   <FiDownload size={16} /> Export Excel
                 </button>
               )}
-              {hasPermission('employees', 'can_create') && (
+              {hasPermission('manage', 'can_create') && (
                 <button onClick={() => setShowModal(true)}
                   className="inline-flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-glow-blue-sm hover:shadow-glow-blue hover:-translate-y-0.5">
                   <FiPlus size={16} /> Add Employee
@@ -382,10 +378,10 @@ const AdminEmployees = () => {
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         <div className="flex items-center gap-1">
-                          {hasPermission('employees', 'can_edit') && (
+                          {hasPermission('manage', 'can_edit') && (
                             <button onClick={() => handleEdit(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#60A5FA] hover:bg-blue-500/10 transition-colors" title="Edit"><FiEdit size={14} /></button>
                           )}
-                          {hasPermission('employees', 'can_delete') && (
+                          {hasPermission('manage', 'can_delete') && (
                             <button onClick={() => handleDelete(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors" title="Delete"><FiTrash2 size={14} /></button>
                           )}
                         </div>
@@ -400,7 +396,6 @@ const AdminEmployees = () => {
               </table>
             </div>
           </div>
-        </div>
       </div>
 
       <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(d => ({ ...d, isOpen:false }))} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText={confirmDialog.type === 'danger' ? 'Delete' : 'Confirm'} />
@@ -608,7 +603,7 @@ const AdminEmployees = () => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
-export default AdminEmployees;
+export default ManageEmployees;

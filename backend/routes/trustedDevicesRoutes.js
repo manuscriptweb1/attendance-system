@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { verifyToken, isAdmin } = require('../middleware/auth');
+const { verifyToken, isAdmin, requirePermission } = require('../middleware/auth');
 const {
   getAllTrustedDevices,
   getDeviceStats,
@@ -18,30 +18,30 @@ router.use(verifyToken);
 router.use(isAdmin);
 
 // Get all trusted devices with filtering
-router.get('/', getAllTrustedDevices);
+router.get('/', requirePermission('trusted_devices', 'can_view'), getAllTrustedDevices);
 
 // Get device statistics
-router.get('/stats', getDeviceStats);
+router.get('/stats', requirePermission('trusted_devices', 'can_view'), getDeviceStats);
 
 // Approve device
-router.post('/approve', approveDevice);
+router.post('/approve', requirePermission('trusted_devices', 'can_approve'), approveDevice);
 
 // Reject device
-router.post('/reject', rejectDevice);
+router.post('/reject', requirePermission('trusted_devices', 'can_approve'), rejectDevice);
 
 // Update device alias
-router.put('/alias', updateDeviceAlias);
+router.put('/alias', requirePermission('trusted_devices', 'can_edit'), updateDeviceAlias);
 
 // Remove approval
-router.post('/remove-approval', removeApproval);
+router.post('/remove-approval', requirePermission('trusted_devices', 'can_approve'), removeApproval);
 
 // Delete device
-router.delete('/:id', deleteDevice);
+router.delete('/:id', requirePermission('trusted_devices', 'can_delete'), deleteDevice);
 
 // Block device
-router.post('/block', blockDevice);
+router.post('/block', requirePermission('trusted_devices', 'can_approve'), blockDevice);
 
 // Unblock device
-router.post('/unblock', unblockDevice);
+router.post('/unblock', requirePermission('trusted_devices', 'can_approve'), unblockDevice);
 
 module.exports = router;

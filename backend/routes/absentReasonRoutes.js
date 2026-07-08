@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { verifyToken, isAdmin } = require('../middleware/auth');
+const { verifyToken, isAdmin, requirePermission } = require('../middleware/auth');
 const {
   getAbsentEmployees,
   updateAbsentReason,
@@ -11,9 +11,9 @@ const {
 // All routes are admin-only
 router.use(verifyToken, isAdmin);
 
-router.get('/', getAbsentEmployees);
-router.put('/clear-range', clearAbsentReasonRange);
-router.put('/:attendance_id', updateAbsentReason);
-router.delete('/:attendance_id/clear', clearAbsentReason);
+router.get('/', requirePermission('absent_reasons', 'can_view'), getAbsentEmployees);
+router.put('/clear-range', requirePermission('absent_reasons', 'can_clear'), clearAbsentReasonRange);
+router.put('/:attendance_id', requirePermission('absent_reasons', 'can_edit'), updateAbsentReason);
+router.delete('/:attendance_id/clear', requirePermission('absent_reasons', 'can_clear'), clearAbsentReason);
 
 module.exports = router;

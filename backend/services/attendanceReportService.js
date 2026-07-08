@@ -1,7 +1,6 @@
 const pool = require('../config/database');
 const { getSettingsFromDB } = require('../utils/settingsHelper');
-const { parseTime } = require('../utils/timeUtils');
-
+const { parseTime, getLocalMinutesFromUTC } = require('../utils/timeUtils');
 function isSunday(year, month, day) {
   const date = new Date(year, month - 1, day);
   return date.getDay() === 0;
@@ -155,6 +154,7 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
     let lateCount = 0;
     let holidayCount = 0;
     let monthlyTotalMinutes = 0;
+    let totalLateMinutes = 0;
 
     const days = {};
 
@@ -196,6 +196,13 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
 
            const mins = getWorkedMinutes(att);
            dailyMinutes = Math.max(dailyMinutes, mins);
+
+           if (att.login_time) {
+             const loginMins = getLocalMinutesFromUTC(att.login_time);
+             if (loginMins > officeLateTimeInMinutes) {
+               totalLateMinutes += (loginMins - officeLateTimeInMinutes);
+             }
+           }
         }
       }
 
@@ -206,8 +213,8 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
         };
       }
       
-      // Only count hours if employee actually worked
-      if (['P', 'Late', 'HD', 'WFH'].includes(finalCode)) {
+      // Only count hours if employee actually worked and is not Absent
+      if (['P', 'L', 'HD', 'WFH', 'S', 'OH', 'GH'].includes(finalCode)) {
         monthlyTotalMinutes += dailyMinutes;
       }
 
@@ -238,6 +245,7 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
       halfDay,
       holiday: holidayCount,
       lateCount,
+      totalLateMinutes,
       totalHours: parseFloat(totalHours.toFixed(1))
     });
   }

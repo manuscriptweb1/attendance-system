@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import Sidebar from '../components/Sidebar';
-import { useAuth } from '../context/AuthContext';
-import ConfirmDialog from '../components/ConfirmDialog';
-import AlertDialog from '../components/AlertDialog';
-import AdminToast from '../components/AdminToast';
-import ClearRangeDialog from '../components/ClearRangeDialog';
-import { Spinner } from '../components/Loader';
+import ConfirmDialog from '../../components/ConfirmDialog';
+import AlertDialog from '../../components/AlertDialog';
+import AdminToast from '../../components/AdminToast';
+import { useAuth } from '../../context/AuthContext';
+import ClearRangeDialog from '../../components/ClearRangeDialog';
+import { Spinner } from '../../components/Loader';
 import { FiUmbrella, FiPlus, FiEdit2, FiTrash2, FiCalendar, FiSun, FiMap, FiCheckCircle } from 'react-icons/fi';
-import { getAllHolidays, addHoliday, updateHoliday, deleteHoliday, toggleHolidayStatus, clearHolidayRange } from '../services/api';
-import { formatDate } from '../utils/formatTime';
-import { getErrorMessage } from '../utils/errorHandler';
-import { validateDateString } from '../utils/dateValidation';
+import { getAllHolidays, addHoliday, updateHoliday, deleteHoliday, toggleHolidayStatus, clearHolidayRange } from '../../services/api';
+import { formatDate } from '../../utils/formatTime';
+import { getErrorMessage } from '../../utils/errorHandler';
+import { validateDateString } from '../../utils/dateValidation';
 
 /* ─── CUSTOM TOGGLE SWITCH ─── */
 const ToggleSwitch = ({ checked, onChange }) => (
@@ -69,7 +68,7 @@ const HolidayModal = ({ show, onClose, onSave, title, formData, handleInput }) =
   );
 };
 
-const AdminHolidays = () => {
+const ManageHolidays = () => {
   const { hasPermission } = useAuth();
   const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -157,33 +156,33 @@ const AdminHolidays = () => {
     return { total: holidays.length, upcoming, past, paid, restricted, weekend };
   }, [holidays]);
 
+  if (loading) return (
+    <div className="flex items-center justify-center p-12"><Spinner size={36} /></div>
+  );
+
   return (
-    <div className="flex h-screen bg-admin-bg dark-scroll selection:bg-blue-500/30">
-      <Sidebar />
-      <div className="flex-1 overflow-y-auto dark-scroll pb-24 relative">
-        <div className="px-5 py-6 lg:px-8 lg:py-8 max-w-[1600px] mx-auto pt-16 lg:pt-8 animate-fadeIn">
-          
-          <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-extrabold text-admin-heading tracking-tight drop-shadow-md">Holiday Management</h1>
-              <p className="text-sm text-admin-muted mt-1.5 font-medium">Configure organization-wide holidays and non-working days.</p>
-            </div>
-            {/* Floating Add Button for Mobile */}
-            <div className="fixed bottom-6 right-6 z-40 md:relative md:bottom-0 md:right-0 flex items-center gap-3">
-              {hasPermission('holidays', 'can_clear') && (
-                <button onClick={() => setClearDialog({ isOpen: true })} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
-                  <FiTrash2 size={16} />
-                  <span className="hidden md:inline">Clear Holidays</span>
-                </button>
-              )}
-              {hasPermission('holidays', 'can_create') && (
-                <button onClick={() => { resetForm(); setShowAddModal(true); }} className="w-14 h-14 md:w-auto md:h-auto flex items-center justify-center md:px-5 md:py-2.5 bg-blue-600 hover:bg-blue-500 text-white md:text-xs md:font-bold rounded-full md:rounded-xl shadow-[0_8px_24px_rgba(59,130,246,0.4)] hover:shadow-[0_12px_28px_rgba(59,130,246,0.5)] transition-all hover:-translate-y-1">
-                  <FiPlus size={24} className="md:w-4 md:h-4 md:mr-2" />
-                  <span className="hidden md:inline">Add Holiday</span>
-                </button>
-              )}
-            </div>
-          </div>
+    <>
+      <div className="animate-fadeIn">
+      {/* Search & Sort */}
+      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-admin-heading">Holiday Management</h1>
+          <p className="text-sm text-admin-muted mt-0.5">Configure organization-wide holidays</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {hasPermission('manage', 'can_clear') && (
+            <button onClick={() => setClearDialog({ isOpen: true })} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+              <FiTrash2 size={16} />
+              <span className="hidden md:inline">Clear Holidays</span>
+            </button>
+          )}
+          {hasPermission('manage', 'can_create') && (
+            <button onClick={() => { resetForm(); setShowAddModal(true); }} className="flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-glow-blue-sm hover:shadow-glow-blue hover:-translate-y-0.5">
+              <FiPlus size={16} /> Add Holiday
+            </button>
+          )}
+        </div>
+      </div>
 
           {/* Stat Cards - CSS Grid */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
@@ -283,10 +282,10 @@ const AdminHolidays = () => {
                           </td>
                           <td className="px-6 py-5 whitespace-nowrap text-right">
                             <div className="flex items-center gap-2 opacity-100 transition-opacity">
-                              {hasPermission('holidays', 'can_edit') && (
+                              {hasPermission('manage', 'can_edit') && (
                                 <button onClick={() => openEdit(h)} className="w-8 h-8 rounded-lg bg-admin-surface text-[#60A5FA] border border-admin-border hover:bg-blue-500/20 hover:border-blue-500/30 flex items-center justify-center transition-all shadow-sm"><FiEdit2 size={13} /></button>
                               )}
-                              {hasPermission('holidays', 'can_delete') && (
+                              {hasPermission('manage', 'can_delete') && (
                                 <button onClick={() => handleDelete(h)} className="w-8 h-8 rounded-lg bg-red-500/5 text-red-500/50 border border-red-500/10 hover:text-red-400 hover:border-red-500/20 hover:bg-red-500/10 flex items-center justify-center transition-all shadow-sm"><FiTrash2 size={13} /></button>
                               )}
                             </div>
@@ -299,8 +298,7 @@ const AdminHolidays = () => {
               )}
             </div>
           </div>
-        </div>
-      </div>
+    </div>
       
       <HolidayModal key="add" show={showAddModal} onClose={() => setShowAddModal(false)} onSave={handleAdd} title="Add New Holiday" formData={formData} handleInput={handleInput} />
       <HolidayModal key="edit" show={showEditModal} onClose={() => setShowEditModal(false)} onSave={handleEdit} title="Edit Holiday" formData={formData} handleInput={handleInput} />
@@ -322,8 +320,8 @@ const AdminHolidays = () => {
         type={toastConfig.type} 
         onClose={() => setToastConfig({ message: '', type: 'success' })} 
       />
-    </div>
+    </>
   );
 };
 
-export default AdminHolidays;
+export default ManageHolidays;

@@ -121,7 +121,28 @@ const AdminLogin = () => {
       const response = await adminLogin({ username: formData.username, password: formData.password });
       if (response.data.success) {
         login(response.data.user, response.data.token);
-        navigate('/admin/dashboard');
+        
+        const user = response.data.user;
+        let fallbackPage = '/admin/dashboard';
+        
+        if (!user.is_super_admin && user.role !== 'super_admin' && user.permissions) {
+          if (!user.permissions['dashboard']?.can_view) {
+            const pages = Object.keys(user.permissions);
+            const firstAllowed = pages.find(p => user.permissions[p]?.can_view);
+            if (firstAllowed) {
+              if (firstAllowed === 'manual_attendance') fallbackPage = '/admin/manual-attendance';
+              else if (firstAllowed === 'admin_management') fallbackPage = '/admin/manage-admins';
+              else if (firstAllowed === 'absent_reasons') fallbackPage = '/admin/settings/absent-reasons';
+              else if (firstAllowed === 'trusted_devices') fallbackPage = '/admin/settings/trusted-devices';
+              else if (firstAllowed === 'database_monitor') fallbackPage = '/admin/database-monitor';
+              else if (firstAllowed === 'activity_logs') fallbackPage = '/admin/logs';
+              else if (firstAllowed === 'security_logs') fallbackPage = '/admin/security-logs';
+              else if (firstAllowed === 'otp_settings') fallbackPage = '/admin/settings/otp';
+              else fallbackPage = `/admin/${firstAllowed}`;
+            }
+          }
+        }
+        navigate(fallbackPage);
       } else {
         setError(response.data.message || 'Invalid credentials. Please try again.');
       }

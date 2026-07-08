@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
+import { useAuth } from '../context/AuthContext';
 import AlertDialog from '../components/AlertDialog';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ClearRangeDialog from '../components/ClearRangeDialog';
@@ -14,6 +15,7 @@ import { FiCheckSquare, FiSquare, FiEdit, FiSearch, FiCalendar, FiFilter, FiSave
 import { sortEmployeeRows } from '../utils/sorting';
 
 const AdminManualAttendance = () => {
+  const { hasPermission } = useAuth();
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [departmentId, setDepartmentId] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -344,13 +346,17 @@ const AdminManualAttendance = () => {
               <p className="text-sm text-slate-400 mt-0.5">Emergency Attendance Management</p>
             </div>
             <div className="flex flex-wrap gap-2.5">
-              <button onClick={() => setClearDialog({ isOpen: true })} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
-                <FiTrash2 size={16} /> Clear Month
-              </button>
-              <button onClick={openBulkModal} disabled={selectedIds.length === 0 || isSunday}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${selectedIds.length > 0 && !isSunday ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-200 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-500 dark:text-slate-400 cursor-not-allowed'}`}>
-                <FiEdit size={16} /> Add for Selected ({selectedIds.length})
-              </button>
+              {hasPermission('manual_attendance', 'can_clear') && (
+                <button onClick={() => setClearDialog({ isOpen: true })} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                  <FiTrash2 size={16} /> Clear Month
+                </button>
+              )}
+              {hasPermission('manual_attendance', 'can_create') && (
+                <button onClick={openBulkModal} disabled={selectedIds.length === 0 || isSunday}
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${selectedIds.length > 0 && !isSunday ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-200 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-500 dark:text-slate-400 cursor-not-allowed'}`}>
+                  <FiEdit size={16} /> Add for Selected ({selectedIds.length})
+                </button>
+              )}
             </div>
           </div>
 
@@ -486,13 +492,13 @@ const AdminManualAttendance = () => {
                           const hasCheckOut = !!emp.logout_time;
                           const status = emp.attendance_status || 'Not Mention';
                           
-                          const editButton = (
+                          const editButton = hasPermission('manual_attendance', 'can_edit') ? (
                             <button type="button" onClick={(e) => { e.preventDefault(); openEditModal(emp); }} disabled={isSunday} className={`text-blue-400 hover:text-blue-300 transition-colors text-sm font-medium flex items-center gap-1.5 ${isSunday ? 'opacity-50 cursor-not-allowed' : ''}`}>
                               <FiEdit size={14} /> {emp.attendance_id ? 'Edit' : 'Add (Edit)'}
                             </button>
-                          );
+                          ) : null;
 
-                          const deleteButton = emp.attendance_id && emp.validation_method === 'Manual' ? (
+                          const deleteButton = hasPermission('manual_attendance', 'can_delete') && emp.attendance_id && emp.validation_method === 'Manual' ? (
                             <button type="button" onClick={(e) => { e.preventDefault(); handleDelete(emp); }} disabled={isSunday} className={`text-red-400 hover:text-red-300 transition-colors text-sm font-medium flex items-center gap-1.5 ${isSunday ? 'opacity-50 cursor-not-allowed' : ''}`}>
                               <FiTrash2 size={14} />
                             </button>
@@ -524,17 +530,17 @@ const AdminManualAttendance = () => {
 
                           const isLoading = rowLoadingId === emp.employee_id;
 
-                          const checkInBtn = (
+                          const checkInBtn = hasPermission('manual_attendance', 'can_edit') ? (
                             <button type="button" onClick={(e) => { e.preventDefault(); handleRowAction(emp, 'checkin'); }} disabled={isSunday || isLoading} className={`transition-colors text-sm font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${isSunday || isLoading ? 'bg-white/5 text-slate-500 border-admin-border cursor-not-allowed' : 'bg-emerald-500/10 text-emerald-400 hover:text-emerald-300 border-emerald-500/20'}`}>
                               {isLoading ? <Spinner size={14} /> : 'Check-In'}
                             </button>
-                          );
+                          ) : null;
 
-                          const checkOutBtn = (
+                          const checkOutBtn = hasPermission('manual_attendance', 'can_edit') ? (
                             <button type="button" onClick={(e) => { e.preventDefault(); handleRowAction(emp, 'checkout'); }} disabled={isSunday || isLoading} className={`transition-colors text-sm font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${isSunday || isLoading ? 'bg-white/5 text-slate-500 border-admin-border cursor-not-allowed' : 'bg-blue-500/10 text-blue-400 hover:text-blue-300 border-blue-500/20'}`}>
                               {isLoading ? <Spinner size={14} /> : 'Check-Out'}
                             </button>
-                          );
+                          ) : null;
 
                           const completedBadge = <span className="text-xs text-slate-500 font-medium px-2 py-1 bg-white/5 rounded-md border border-admin-border">Already Marked</span>;
 
@@ -543,10 +549,10 @@ const AdminManualAttendance = () => {
                           if (status === 'Absent') {
                             if (editButton) actions.push(editButton);
                           } else if (!hasCheckIn) {
-                            actions.push(checkInBtn);
+                            if (checkInBtn) actions.push(checkInBtn);
                             if (editButton) actions.push(editButton);
                           } else if (hasCheckIn && !hasCheckOut) {
-                            actions.push(checkOutBtn);
+                            if (checkOutBtn) actions.push(checkOutBtn);
                             if (editButton) actions.push(editButton);
                           } else {
                             actions.push(completedBadge);

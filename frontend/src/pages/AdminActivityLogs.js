@@ -335,25 +335,64 @@ const AdminActivityLogs = () => {
                 <div><p className="text-[10px] font-bold text-admin-secondary uppercase tracking-widest mb-1">Browser</p><p className="text-xs text-admin-secondary">{detailsDialog.log.browser_info || '—'}</p></div>
               </div>
 
-              {(detailsDialog.log.old_data || detailsDialog.log.new_data) && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {detailsDialog.log.old_data && (
-                    <div className="bg-admin-surface rounded-xl p-4 border border-red-500/20 flex flex-col max-h-[300px]">
-                      <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-3">Old Data (Removed)</p>
-                      <div className="flex-1 overflow-y-auto dark-scroll bg-red-950/20 rounded-lg p-3 border border-red-500/10">
-                        {formatJSON(detailsDialog.log.old_data)}
-                      </div>
-                    </div>
-                  )}
-                  {detailsDialog.log.new_data && (
-                    <div className="bg-admin-surface rounded-xl p-4 border border-emerald-500/20 flex flex-col max-h-[300px]">
-                      <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-3">New Data (Added)</p>
-                      <div className="flex-1 overflow-y-auto dark-scroll bg-emerald-950/20 rounded-lg p-3 border border-emerald-500/10">
-                        {formatJSON(detailsDialog.log.new_data)}
-                      </div>
-                    </div>
-                  )}
+              {/* Structured Permission Changes Table */}
+              {detailsDialog.log.new_data?.changes && Array.isArray(detailsDialog.log.new_data.changes) ? (
+                <div className="bg-admin-surface rounded-xl border border-admin-border overflow-hidden">
+                  <div className="px-4 py-3 border-b border-admin-border bg-admin-elevated">
+                    <p className="text-[10px] font-bold text-admin-secondary uppercase tracking-widest">Permission Changes Details</p>
+                  </div>
+                  <div className="overflow-x-auto dark-scroll">
+                    <table className="min-w-full text-left">
+                      <thead className="bg-admin-bg/50">
+                        <tr>
+                          <th className="px-4 py-2 text-[10px] font-bold text-admin-muted uppercase tracking-wider">Page</th>
+                          <th className="px-4 py-2 text-[10px] font-bold text-admin-muted uppercase tracking-wider">Action</th>
+                          <th className="px-4 py-2 text-[10px] font-bold text-admin-muted uppercase tracking-wider text-center">From</th>
+                          <th className="px-4 py-2 text-[10px] font-bold text-admin-muted uppercase tracking-wider text-center">To</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-admin-border">
+                        {detailsDialog.log.new_data.changes.map((change, idx) => (
+                          <tr key={idx} className="hover:bg-admin-elevated/[0.02] transition-colors">
+                            <td className="px-4 py-2.5 text-sm font-bold text-admin-text">{change.page}</td>
+                            <td className="px-4 py-2.5 text-xs text-admin-secondary">{change.action}</td>
+                            <td className="px-4 py-2.5 text-center">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${change.from ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                                {change.from ? 'Yes' : 'No'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-center">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${change.to ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                                {change.to ? 'Yes' : 'No'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
+              ) : (
+                (detailsDialog.log.old_data || detailsDialog.log.new_data) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {detailsDialog.log.old_data && (
+                      <div className="bg-admin-surface rounded-xl p-4 border border-red-500/20 flex flex-col max-h-[300px]">
+                        <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-3">Old Data (Removed)</p>
+                        <div className="flex-1 overflow-y-auto dark-scroll bg-red-950/20 rounded-lg p-3 border border-red-500/10">
+                          {formatJSON(detailsDialog.log.old_data)}
+                        </div>
+                      </div>
+                    )}
+                    {detailsDialog.log.new_data && (
+                      <div className="bg-admin-surface rounded-xl p-4 border border-emerald-500/20 flex flex-col max-h-[300px]">
+                        <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-3">New Data (Added)</p>
+                        <div className="flex-1 overflow-y-auto dark-scroll bg-emerald-950/20 rounded-lg p-3 border border-emerald-500/10">
+                          {formatJSON(detailsDialog.log.new_data)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
               )}
               
             </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
+import { useAuth } from '../context/AuthContext';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
 import ClearRangeDialog from '../components/ClearRangeDialog';
@@ -15,6 +16,7 @@ import { sortEmployeeRows } from '../utils/sorting';
 const getLocalDateString = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`; };
 
 const AdminAttendance = () => {
+  const { hasPermission } = useAuth();
   const [attendance,   setAttendance]   = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [filters,      setFilters]      = useState({ date: getLocalDateString(), status:'', employee_id:'', department:'', is_wfh:'' });
@@ -114,9 +116,11 @@ const AdminAttendance = () => {
               <p className="text-sm text-admin-muted mt-1.5 font-medium">Monitor and manage employee attendance.</p>
             </div>
             <div className="flex flex-wrap gap-2.5">
-              <button onClick={() => setClearDialog({ isOpen: true })} className="admin-btn-neutral px-4 py-2.5 rounded-xl text-sm font-semibold hover:text-red-500 hover:border-red-500/50">
-                <FiTrash2 size={16} /> Clear Month
-              </button>
+              {hasPermission('attendance', 'can_clear') && (
+                <button onClick={() => setClearDialog({ isOpen: true })} className="admin-btn-neutral px-4 py-2.5 rounded-xl text-sm font-semibold hover:text-red-500 hover:border-red-500/50">
+                  <FiTrash2 size={16} /> Clear Month
+                </button>
+              )}
             </div>
           </div>
 
@@ -263,13 +267,15 @@ const AdminAttendance = () => {
                         </td>
                         <td className="actions-column px-3 py-2.5 whitespace-nowrap">
                           <div className="action-buttons opacity-50 group-hover:opacity-100 transition-opacity">
-                            {r.login_time && (
+                            {hasPermission('attendance', 'can_edit') && r.login_time && (
                               <button onClick={() => handleResetAttendance(r, 'check-in')} title="Reset Check-In" className="action-icon-btn text-amber-500 bg-admin-elevated border border-admin-border hover:bg-amber-500/10 hover:border-amber-500/20 transition-all shadow-sm"><FiRotateCcw size={16} /></button>
                             )}
-                            {r.logout_time && (
+                            {hasPermission('attendance', 'can_edit') && r.logout_time && (
                               <button onClick={() => handleResetAttendance(r, 'check-out')} title="Reset Check-Out" className="action-icon-btn text-blue-400 bg-admin-elevated border border-admin-border hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"><FiRefreshCw size={16} /></button>
                             )}
-                            <button onClick={() => handleDeleteAttendance(r)} title="Delete Record" className="action-icon-btn text-red-500 bg-admin-elevated border border-admin-border hover:bg-red-500/10 hover:border-red-500/20 transition-all shadow-sm"><FiTrash2 size={16} /></button>
+                            {hasPermission('attendance', 'can_delete') && (
+                              <button onClick={() => handleDeleteAttendance(r)} title="Delete Record" className="action-icon-btn text-red-500 bg-admin-elevated border border-admin-border hover:bg-red-500/10 hover:border-red-500/20 transition-all shadow-sm"><FiTrash2 size={16} /></button>
+                            )}
                           </div>
                         </td>
                       </tr>

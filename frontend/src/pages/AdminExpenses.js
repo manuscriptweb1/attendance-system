@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
+import { useAuth } from '../context/AuthContext';
 import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -61,6 +62,7 @@ const getPaymentMethodBadgeStyle = (methodName) => {
 };
 
 const AdminExpenses = () => {
+  const { hasPermission } = useAuth();
   const [expenses, setExpenses] = useState([]);
   const [summary, setSummary] = useState(null);
   const [activeExpenseTypes, setActiveExpenseTypes] = useState([]);
@@ -334,18 +336,26 @@ const AdminExpenses = () => {
               <p className="text-sm text-admin-muted mt-1.5 font-medium">Track and manage company expenses.</p>
             </div>
             <div className="flex flex-wrap gap-2.5">
-              <button onClick={() => setClearDialog({ isOpen: true })} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
-                <FiTrash2 size={16} /> Clear Month
-              </button>
-              <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-glow-blue-sm">
-                <FiPlus size={16} /> Add Expense
-              </button>
-              <button onClick={openManageTypes} className="flex items-center gap-2 bg-admin-surface border border-admin-border text-admin-text hover:bg-admin-elevated px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
-                <FiSettings size={16} /> Manage Types
-              </button>
-              <button onClick={handleExport} disabled={expenses.length === 0} className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(16,185,129,0.2)] disabled:opacity-50">
-                <FiDownload size={16} /> Export
-              </button>
+              {hasPermission('expenses', 'can_clear') && (
+                <button onClick={() => setClearDialog({ isOpen: true })} className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                  <FiTrash2 size={16} /> Clear Month
+                </button>
+              )}
+              {hasPermission('expenses', 'can_create') && (
+                <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-glow-blue-sm">
+                  <FiPlus size={16} /> Add Expense
+                </button>
+              )}
+              {hasPermission('expenses', 'can_edit') && (
+                <button onClick={openManageTypes} className="flex items-center gap-2 bg-admin-surface border border-admin-border text-admin-text hover:bg-admin-elevated px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                  <FiSettings size={16} /> Manage Types
+                </button>
+              )}
+              {hasPermission('expenses', 'can_export') && (
+                <button onClick={handleExport} disabled={expenses.length === 0} className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(16,185,129,0.2)] disabled:opacity-50">
+                  <FiDownload size={16} /> Export
+                </button>
+              )}
             </div>
           </div>
 
@@ -473,8 +483,12 @@ const AdminExpenses = () => {
                         <td className="px-5 py-4 text-xs text-admin-muted truncate max-w-xs">{r.notes || r.description || '—'}</td>
                         <td className="px-5 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-1">
-                            <button onClick={() => handleEdit(r)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#60A5FA] hover:bg-blue-500/10 transition-colors"><FiEdit size={14} /></button>
-                            <button onClick={() => handleDelete(r)} className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors"><FiTrash2 size={14} /></button>
+                            {hasPermission('expenses', 'can_edit') && (
+                              <button onClick={() => handleEdit(r)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#60A5FA] hover:bg-blue-500/10 transition-colors"><FiEdit size={14} /></button>
+                            )}
+                            {hasPermission('expenses', 'can_delete') && (
+                              <button onClick={() => handleDelete(r)} className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors"><FiTrash2 size={14} /></button>
+                            )}
                           </div>
                         </td>
                       </tr>

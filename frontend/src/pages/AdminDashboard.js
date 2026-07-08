@@ -142,7 +142,7 @@ const AdminDashboard = () => {
       const localDate = getLocalDateString();
       const now = new Date();
       
-      const [statsRes, attendanceRes, deviceRes, activityRes, logsRes, holidaysRes, healthRes, dbRes] = await Promise.all([
+      const results = await Promise.allSettled([
         getDashboardStats(), 
         getAllAttendance({ date: localDate }), 
         getTrustedDeviceStats(),
@@ -153,17 +153,19 @@ const AdminDashboard = () => {
         getDatabaseMonitor()
       ]);
       
-      if (statsRes.data.success) setStats(statsRes.data.stats);
-      if (attendanceRes.data.success) setAttendanceRecords(attendanceRes.data.attendance || []);
-      if (deviceRes.data.success) setDeviceStats(deviceRes.data.stats);
-      if (activityRes.data.success) setActivityStats(activityRes.data.stats);
-      if (logsRes.data.success) setRecentActivities(logsRes.data.logs.slice(0, 5));
-      if (holidaysRes.data.success) {
-        const hols = holidaysRes.data.holidays.filter(h => h.is_enabled && new Date(h.holiday_date) >= new Date(localDate));
+      const [statsRes, attendanceRes, deviceRes, activityRes, logsRes, holidaysRes, healthRes, dbRes] = results;
+
+      if (statsRes.status === 'fulfilled' && statsRes.value?.data?.success) setStats(statsRes.value.data.stats);
+      if (attendanceRes.status === 'fulfilled' && attendanceRes.value?.data?.success) setAttendanceRecords(attendanceRes.value.data.attendance || []);
+      if (deviceRes.status === 'fulfilled' && deviceRes.value?.data?.success) setDeviceStats(deviceRes.value.data.stats);
+      if (activityRes.status === 'fulfilled' && activityRes.value?.data?.success) setActivityStats(activityRes.value.data.stats);
+      if (logsRes.status === 'fulfilled' && logsRes.value?.data?.success) setRecentActivities(logsRes.value.data.logs.slice(0, 5));
+      if (holidaysRes.status === 'fulfilled' && holidaysRes.value?.data?.success) {
+        const hols = holidaysRes.value.data.holidays.filter(h => h.is_enabled && new Date(h.holiday_date) >= new Date(localDate));
         setUpcomingHolidays(hols.slice(0, 3));
       }
-      if (healthRes.data.success) setSystemHealth(healthRes.data.health);
-      if (dbRes.data.success) setDatabaseStats(dbRes.data.database);
+      if (healthRes.status === 'fulfilled' && healthRes.value?.data?.success) setSystemHealth(healthRes.value.data.health);
+      if (dbRes.status === 'fulfilled' && dbRes.value?.data?.success) setDatabaseStats(dbRes.value.data.database);
     } catch (e) { console.error('Error fetching dashboard data:', e); }
     finally { setLoading(false); }
   };
@@ -273,13 +275,25 @@ const AdminDashboard = () => {
             <h2 className="text-[10px] font-bold text-admin-secondary uppercase tracking-widest mb-3 px-1">Overview (Today)</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
               {[
-                { title: 'Total Employees', value: stats.totalEmployees, icon: FiUsers,       baseBg: 'bg-indigo-500/5', hoverBg: 'group-hover:bg-indigo-500/20', color: 'text-indigo-400', border: 'border-indigo-500/20', iconBg: 'bg-indigo-500/10' },
-                { title: 'Active Employees',value: stats.activeEmployees,icon: FiUserCheck,   baseBg: 'bg-emerald-500/5', hoverBg: 'group-hover:bg-emerald-500/20', color: 'text-emerald-400', border: 'border-emerald-500/20', iconBg: 'bg-emerald-500/10' },
-                { title: 'Currently Working',value: stats.currentlyWorking,icon: FiClock,     baseBg: 'bg-blue-500/5', hoverBg: 'group-hover:bg-blue-500/20', color: 'text-blue-400', border: 'border-blue-500/20', iconBg: 'bg-blue-500/10' },
-                { title: 'Absent Today',     value: absentCount,            icon: FiXCircle,   baseBg: 'bg-red-500/5',   hoverBg: 'group-hover:bg-red-500/20', color: 'text-red-400', border: 'border-red-500/20', iconBg: 'bg-red-500/10' },
-                { title: 'Est. Monthly Payroll', value: formatIndianCurrency(stats.monthlyPayroll || 0), icon: FiDollarSign, baseBg: 'bg-purple-500/5', hoverBg: 'group-hover:bg-purple-500/20', color: 'text-purple-400', border: 'border-purple-500/20', iconBg: 'bg-purple-500/10' }
+                { title: 'Total Employees', value: stats.totalEmployees, icon: FiUsers,       baseBg: 'bg-indigo-500/5', hoverBg: 'group-hover:bg-indigo-500/20', color: 'text-indigo-400', border: 'border-indigo-500/20', iconBg: 'bg-indigo-500/10', path: '/admin/employees' },
+                { title: 'Active Employees',value: stats.activeEmployees,icon: FiUserCheck,   baseBg: 'bg-emerald-500/5', hoverBg: 'group-hover:bg-emerald-500/20', color: 'text-emerald-400', border: 'border-emerald-500/20', iconBg: 'bg-emerald-500/10', path: '/admin/attendance' },
+                { title: 'Currently Working',value: stats.currentlyWorking,icon: FiClock,     baseBg: 'bg-blue-500/5', hoverBg: 'group-hover:bg-blue-500/20', color: 'text-blue-400', border: 'border-blue-500/20', iconBg: 'bg-blue-500/10', path: '/admin/attendance' },
+                { title: 'Absent Today',     value: absentCount,            icon: FiXCircle,   baseBg: 'bg-red-500/5',   hoverBg: 'group-hover:bg-red-500/20', color: 'text-red-400', border: 'border-red-500/20', iconBg: 'bg-red-500/10', path: '/admin/attendance' },
+                { title: 'Est. Monthly Payroll', value: formatIndianCurrency(stats.monthlyPayroll || 0), icon: FiDollarSign, baseBg: 'bg-purple-500/5', hoverBg: 'group-hover:bg-purple-500/20', color: 'text-purple-400', border: 'border-purple-500/20', iconBg: 'bg-purple-500/10', path: '/admin/payroll' }
               ].map(card => (
-                <div key={card.title} className="bg-admin-surface border border-admin-border rounded-2xl p-5 shadow-clay-admin hover:-translate-y-1 transition-transform duration-300 relative overflow-hidden group">
+                <div 
+                  key={card.title} 
+                  className="dashboard-card clickable-card bg-admin-surface border border-admin-border rounded-2xl p-5 shadow-clay-admin relative overflow-hidden group"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate(card.path)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      navigate(card.path);
+                    }
+                  }}
+                >
                   <div className={`absolute top-0 right-0 w-24 h-24 rounded-bl-full ${card.baseBg} ${card.hoverBg} transition-all duration-300 group-hover:scale-110`} />
                   <div className="flex items-center justify-between mb-4 relative z-10">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${card.iconBg} ${card.color} ${card.border}`}>

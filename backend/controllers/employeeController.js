@@ -95,7 +95,16 @@ const addEmployee = async (req, res) => {
       password,
       date_of_birth,
       joining_date,
-      status = 'active'
+      status = 'active',
+      bank_name,
+      bank_address,
+      account_holder_name,
+      account_number,
+      ifsc_code,
+      pan_card_number,
+      aadhar_card_number,
+      permanent_address,
+      alternate_phone_number
     } = req.body;
 
     let monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds;
@@ -147,6 +156,20 @@ const addEmployee = async (req, res) => {
       });
     }
 
+    if (aadhar_card_number) {
+      const aadharStr = aadhar_card_number.replace(/\s/g, '');
+      if (aadharStr.length !== 12 || !/^\d+$/.test(aadharStr)) {
+        return res.status(400).json({ success: false, message: 'Aadhaar number must be exactly 12 digits.' });
+      }
+    }
+    
+    if (pan_card_number) {
+      const panStr = pan_card_number.toUpperCase();
+      if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panStr)) {
+        return res.status(400).json({ success: false, message: 'PAN format must be 5 letters, 4 digits, and 1 letter. Example: ABCDE1234F.' });
+      }
+    }
+
     // Check if employee already exists
     const checkExist = await pool.query(
       'SELECT * FROM employees WHERE employee_id = $1 OR email = $2',
@@ -176,18 +199,30 @@ const addEmployee = async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    const formatted_ifsc = ifsc_code ? ifsc_code.toUpperCase().substring(0, 20) : null;
+    const formatted_pan = pan_card_number ? pan_card_number.toUpperCase().substring(0, 20) : null;
+    const formatted_aadhar = aadhar_card_number ? aadhar_card_number.replace(/[^0-9\s]/g, '').substring(0, 20) : null;
+    const formatted_account = account_number ? account_number.substring(0, 50) : null;
+    const formatted_alt_phone = alternate_phone_number ? alternate_phone_number.substring(0, 20) : null;
+
     // Insert employee
     const result = await pool.query(
       `INSERT INTO employees 
        (employee_id, name, department_id, job_role, mobile, email, password, status, date_of_birth, joining_date,
-       monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) 
+       monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds,
+       bank_name, bank_address, account_holder_name, account_number, ifsc_code, pan_card_number, aadhar_card_number, permanent_address, alternate_phone_number) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26) 
        RETURNING *`,
       [employee_id, name, department_id, job_role, mobile, email, hashedPassword, status, date_of_birth, joining_date || null,
-       monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds]
+       monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds,
+       bank_name || null, bank_address || null, account_holder_name || null, formatted_account, formatted_ifsc, formatted_pan, formatted_aadhar, permanent_address || null, formatted_alt_phone]
     );
 
     // Log activity
+    const maskedAccount = formatted_account ? '*'.repeat(Math.max(0, formatted_account.length - 4)) + formatted_account.slice(-4) : null;
+    const maskedPan = formatted_pan ? '*'.repeat(Math.max(0, formatted_pan.length - 4)) + formatted_pan.slice(-4) : null;
+    const maskedAadhar = formatted_aadhar ? '*'.repeat(Math.max(0, formatted_aadhar.length - 4)) + formatted_aadhar.slice(-4) : null;
+
     await logAdminActivity({
       adminId: req.user.id,
       adminName: req.user.username,
@@ -195,7 +230,13 @@ const addEmployee = async (req, res) => {
       actionType: ADMIN_ACTION_TYPES.CREATE_EMPLOYEE,
       moduleName: MODULE_NAMES.EMPLOYEE,
       description: `Created employee ${employee_id} - ${name}`,
-      newData: { employee_id, name, job_role, email, mobile, department_id, date_of_birth, joining_date },
+      newData: { 
+        employee_id, name, job_role, email, mobile, department_id, date_of_birth, joining_date,
+        ...(bank_name && { bank_name }),
+        ...(maskedAccount && { account_number: maskedAccount }),
+        ...(maskedPan && { pan_card_number: maskedPan }),
+        ...(maskedAadhar && { aadhar_card_number: maskedAadhar })
+      },
       ipAddress: getClientIP(req),
       browserInfo: req.headers['user-agent']
     });
@@ -228,7 +269,16 @@ const updateEmployee = async (req, res) => {
       status,
       password,
       date_of_birth,
-      joining_date
+      joining_date,
+      bank_name,
+      bank_address,
+      account_holder_name,
+      account_number,
+      ifsc_code,
+      pan_card_number,
+      aadhar_card_number,
+      permanent_address,
+      alternate_phone_number
     } = req.body;
 
     let monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds;
@@ -278,6 +328,20 @@ const updateEmployee = async (req, res) => {
       });
     }
 
+    if (aadhar_card_number) {
+      const aadharStr = aadhar_card_number.replace(/\s/g, '');
+      if (aadharStr.length !== 12 || !/^\d+$/.test(aadharStr)) {
+        return res.status(400).json({ success: false, message: 'Aadhaar number must be exactly 12 digits.' });
+      }
+    }
+    
+    if (pan_card_number) {
+      const panStr = pan_card_number.toUpperCase();
+      if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panStr)) {
+        return res.status(400).json({ success: false, message: 'PAN format must be 5 letters, 4 digits, and 1 letter. Example: ABCDE1234F.' });
+      }
+    }
+
     // Check if employee exists
     const checkResult = await pool.query(
       'SELECT * FROM employees WHERE id = $1',
@@ -319,6 +383,12 @@ const updateEmployee = async (req, res) => {
     let query;
     let values;
 
+    const formatted_ifsc = ifsc_code ? ifsc_code.toUpperCase().substring(0, 20) : null;
+    const formatted_pan = pan_card_number ? pan_card_number.toUpperCase().substring(0, 20) : null;
+    const formatted_aadhar = aadhar_card_number ? aadhar_card_number.replace(/[^0-9\s]/g, '').substring(0, 20) : null;
+    const formatted_account = account_number ? account_number.substring(0, 50) : null;
+    const formatted_alt_phone = alternate_phone_number ? alternate_phone_number.substring(0, 20) : null;
+
     // If password is provided, hash it and update
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -326,35 +396,103 @@ const updateEmployee = async (req, res) => {
                SET name = $1, department_id = $2, job_role = $3, 
                    mobile = $4, email = $5, status = $6, password = $7, 
                    date_of_birth = $8, joining_date = $9, monthly_salary = $10, basic_salary = $11, hra = $12, 
-                   special_allowance = $13, staff_advance = $14, professional_tax = $15, tds = $16, updated_at = CURRENT_TIMESTAMP 
-               WHERE id = $17 
+                   special_allowance = $13, staff_advance = $14, professional_tax = $15, tds = $16,
+                   bank_name = $17, bank_address = $18, account_holder_name = $19, account_number = $20,
+                   ifsc_code = $21, pan_card_number = $22, aadhar_card_number = $23, permanent_address = $24,
+                   alternate_phone_number = $25, updated_at = CURRENT_TIMESTAMP 
+               WHERE id = $26 
                RETURNING *`;
       values = [name, department_id, job_role, mobile, email, status, hashedPassword, date_of_birth, joining_date || null,
-                monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds, id];
+                monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds,
+                bank_name || null, bank_address || null, account_holder_name || null, formatted_account, formatted_ifsc, formatted_pan, formatted_aadhar, permanent_address || null, formatted_alt_phone, id];
     } else {
       query = `UPDATE employees 
                SET name = $1, department_id = $2, job_role = $3, 
                    mobile = $4, email = $5, status = $6, 
                    date_of_birth = $7, joining_date = $8, monthly_salary = $9, basic_salary = $10, hra = $11, 
-                   special_allowance = $12, staff_advance = $13, professional_tax = $14, tds = $15, updated_at = CURRENT_TIMESTAMP 
-               WHERE id = $16 
+                   special_allowance = $12, staff_advance = $13, professional_tax = $14, tds = $15,
+                   bank_name = $16, bank_address = $17, account_holder_name = $18, account_number = $19,
+                   ifsc_code = $20, pan_card_number = $21, aadhar_card_number = $22, permanent_address = $23,
+                   alternate_phone_number = $24, updated_at = CURRENT_TIMESTAMP 
+               WHERE id = $25 
                RETURNING *`;
       values = [name, department_id, job_role, mobile, email, status, date_of_birth, joining_date || null,
-                monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds, id];
+                monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds,
+                bank_name || null, bank_address || null, account_holder_name || null, formatted_account, formatted_ifsc, formatted_pan, formatted_aadhar, permanent_address || null, formatted_alt_phone, id];
     }
 
     const result = await pool.query(query, values);
 
+    // Determine what changed for the activity log description
+    const oldEmp = checkResult.rows[0];
+    
+    const bankFieldsChanged = (
+      (oldEmp.bank_name || '') !== (bank_name || '') ||
+      (oldEmp.bank_address || '') !== (bank_address || '') ||
+      (oldEmp.account_holder_name || '') !== (account_holder_name || '') ||
+      (oldEmp.account_number || '') !== (formatted_account || '') ||
+      (oldEmp.ifsc_code || '') !== (formatted_ifsc || '')
+    );
+    
+    const personalFieldsChanged = (
+      (oldEmp.pan_card_number || '') !== (formatted_pan || '') ||
+      (oldEmp.aadhar_card_number || '') !== (formatted_aadhar || '') ||
+      (oldEmp.permanent_address || '') !== (permanent_address || '') ||
+      (oldEmp.alternate_phone_number || '') !== (formatted_alt_phone || '')
+    );
+
+    const normalFieldsChanged = (
+      (oldEmp.name || '') !== (name || '') ||
+      String(oldEmp.department_id || '') !== String(department_id || '') ||
+      (oldEmp.job_role || '') !== (job_role || '') ||
+      (oldEmp.mobile || '') !== (mobile || '') ||
+      (oldEmp.email || '') !== (email || '') ||
+      (oldEmp.status || '') !== (status || '') ||
+      Number(oldEmp.monthly_salary || 0) !== Number(monthly_salary || 0) ||
+      !!password
+    );
+
+    let logDescription = `Updated employee ${oldEmp.employee_id} - ${name}`;
+    if (bankFieldsChanged && personalFieldsChanged && !normalFieldsChanged) {
+      logDescription = `Updated bank account and personal details for ${oldEmp.employee_id} - ${name}`;
+    } else if (bankFieldsChanged && !personalFieldsChanged && !normalFieldsChanged) {
+      logDescription = `Updated bank account details for ${oldEmp.employee_id} - ${name}`;
+    } else if (personalFieldsChanged && !bankFieldsChanged && !normalFieldsChanged) {
+      logDescription = `Updated personal details for ${oldEmp.employee_id} - ${name}`;
+    } else if ((bankFieldsChanged || personalFieldsChanged) && normalFieldsChanged) {
+      logDescription = `Updated employee and account/personal details for ${oldEmp.employee_id} - ${name}`;
+    }
+
     // Log activity
+    const maskedAccount = formatted_account ? '*'.repeat(Math.max(0, formatted_account.length - 4)) + formatted_account.slice(-4) : null;
+    const maskedPan = formatted_pan ? '*'.repeat(Math.max(0, formatted_pan.length - 4)) + formatted_pan.slice(-4) : null;
+    const maskedAadhar = formatted_aadhar ? '*'.repeat(Math.max(0, formatted_aadhar.length - 4)) + formatted_aadhar.slice(-4) : null;
+
+    const newMaskedData = { 
+      name, email, job_role, mobile, department_id, status, date_of_birth, joining_date, passwordChanged: !!password 
+    };
+
+    if (bankFieldsChanged) {
+      newMaskedData.bank_details_updated = true;
+      if (bank_name) newMaskedData.bank_name = bank_name;
+      if (maskedAccount) newMaskedData.account_number = maskedAccount;
+    }
+    
+    if (personalFieldsChanged) {
+      newMaskedData.personal_details_updated = true;
+      if (maskedPan) newMaskedData.pan_card_number = maskedPan;
+      if (maskedAadhar) newMaskedData.aadhar_card_number = maskedAadhar;
+    }
+
     await logAdminActivity({
       adminId: req.user.id,
       adminName: req.user.username,
       adminEmail: req.user.email || '',
       actionType: ADMIN_ACTION_TYPES.UPDATE_EMPLOYEE,
       moduleName: MODULE_NAMES.EMPLOYEE,
-      description: `Updated employee ${checkResult.rows[0].employee_id} - ${name}`,
+      description: logDescription,
       oldData,
-      newData: { name, email, job_role, mobile, department_id, status, date_of_birth, joining_date, passwordChanged: !!password },
+      newData: newMaskedData,
       ipAddress: getClientIP(req),
       browserInfo: req.headers['user-agent']
     });

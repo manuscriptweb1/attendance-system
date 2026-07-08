@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { verifyToken, isAdmin } = require('../middleware/auth');
+const { verifyToken, isAdmin, requirePermission } = require('../middleware/auth');
 const {
   getAllEmployees,
   getEmployeeById,
@@ -15,21 +15,21 @@ router.use(verifyToken);
 router.use(isAdmin);
 
 // Get all employees
-router.get('/', getAllEmployees);
+router.get('/', requirePermission('employees', 'can_view'), getAllEmployees);
 
-// Get all departments
-router.get('/departments', getAllDepartments);
+// Get all departments (needed for Add/Edit dropdowns, so can_view is sufficient)
+router.get('/departments', requirePermission('employees', 'can_view'), getAllDepartments);
 
 // Get single employee
-router.get('/:id', getEmployeeById);
+router.get('/:id', requirePermission('employees', 'can_view'), getEmployeeById);
 
 // Add employee
-router.post('/', addEmployee);
+router.post('/', requirePermission('employees', 'can_create'), addEmployee);
 
 // Update employee
-router.put('/:id', updateEmployee);
+router.put('/:id', requirePermission('employees', 'can_edit'), updateEmployee);
 
 // Delete employee
-router.delete('/:id', deleteEmployee);
+router.delete('/:id', requirePermission('employees', 'can_delete'), deleteEmployee);
 
 module.exports = router;

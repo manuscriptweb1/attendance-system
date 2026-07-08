@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import Sidebar from '../components/Sidebar';
-import { useAuth } from '../context/AuthContext';
-import ConfirmDialog from '../components/ConfirmDialog';
-import AlertDialog from '../components/AlertDialog';
-import AdminToast from '../components/AdminToast';
-import StatusBadge from '../components/ui/StatusBadge';
-import { Spinner } from '../components/Loader';
-import { getAllDepartments, addDepartment, updateDepartment, deleteDepartment } from '../services/api';
-import { formatDate } from '../utils/formatTime';
+
+import ConfirmDialog from '../../components/ConfirmDialog';
+import { useAuth } from '../../context/AuthContext';
+import AlertDialog from '../../components/AlertDialog';
+import AdminToast from '../../components/AdminToast';
+import StatusBadge from '../../components/ui/StatusBadge';
+import { Spinner } from '../../components/Loader';
+import { getAllDepartments, addDepartment, updateDepartment, deleteDepartment } from '../../services/api';
+import { formatDate } from '../../utils/formatTime';
 import { FiPlus, FiEdit, FiTrash2, FiSearch, FiX, FiLayers, FiCheckCircle, FiActivity, FiXCircle } from 'react-icons/fi';
 
-const AdminDepartments = () => {
+const ManageDepartments = () => {
   const { hasPermission } = useAuth();
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -101,30 +101,13 @@ const AdminDepartments = () => {
   }, [departments]);
 
   if (loading) return (
-    <div className="flex h-screen bg-admin-bg"><Sidebar /><div className="flex-1 flex items-center justify-center"><Spinner size={36} /></div></div>
+    <div className="flex items-center justify-center p-12"><Spinner size={36} /></div>
   );
 
   return (
-    <div className="flex h-screen bg-admin-bg dark-scroll">
-      <Sidebar />
-      <div className="flex-1 overflow-y-auto min-w-0 dark-scroll">
-        <div className="px-5 py-6 lg:px-8 lg:py-8">
-
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pt-14 lg:pt-0">
-            <div>
-              <h1 className="text-xl font-bold text-admin-heading">Department Management</h1>
-              <p className="text-sm text-slate-400 mt-0.5">Manage company departments and structures</p>
-            </div>
-            {hasPermission('departments', 'can_create') && (
-              <button onClick={() => setShowModal(true)}
-                className="inline-flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-glow-blue-sm hover:shadow-glow-blue hover:-translate-y-0.5">
-                <FiPlus size={16} /> Add Department
-              </button>
-            )}
-          </div>
-
-          {/* Top Cards */}
+    <>
+      <div className="animate-fadeIn">
+      {/* Top Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {[
               { label: 'Total Departments', value: stats.total, icon: FiLayers, color: 'text-blue-400', bg: 'bg-blue-500/10' },
@@ -146,11 +129,18 @@ const AdminDepartments = () => {
             ))}
           </div>
 
-          {/* Search */}
-          <div className="relative mb-5">
-            <FiSearch size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-admin-secondary pointer-events-none" />
-            <input type="text" placeholder="Search departments by name or description..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-              className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-3 pl-12 pr-4 text-sm placeholder:text-admin-secondary focus:outline-none focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/15 transition-all" />
+          <div className="flex flex-col sm:flex-row gap-4 mb-5 items-center justify-between">
+            <div className="relative flex-1 max-w-md">
+              <FiSearch size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-admin-secondary pointer-events-none" />
+              <input type="text" placeholder="Search departments..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-2.5 pl-12 pr-4 text-sm placeholder:text-admin-secondary focus:outline-none focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/15 transition-all" />
+            </div>
+            {hasPermission('manage', 'can_create') && (
+              <button onClick={() => { setEditMode(false); setFormData({ id: '', name: '', description: '', status: 'Active' }); setShowModal(true); }}
+                className="inline-flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-glow-blue-sm hover:shadow-glow-blue hover:-translate-y-0.5">
+                <FiPlus size={16} /> Add Department
+              </button>
+            )}
           </div>
 
           {/* Table */}
@@ -175,10 +165,10 @@ const AdminDepartments = () => {
                       <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{dept.updated_at ? formatDate(dept.updated_at) : '—'}</td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         <div className="flex items-center gap-1">
-                          {hasPermission('departments', 'can_edit') && (
+                          {hasPermission('manage', 'can_edit') && (
                             <button onClick={() => handleEdit(dept)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#60A5FA] hover:bg-blue-500/10 transition-colors" title="Edit"><FiEdit size={14} /></button>
                           )}
-                          {hasPermission('departments', 'can_delete') && (
+                          {hasPermission('manage', 'can_delete') && (
                             <button onClick={() => handleDelete(dept)} className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors" title="Delete"><FiTrash2 size={14} /></button>
                           )}
                         </div>
@@ -193,9 +183,7 @@ const AdminDepartments = () => {
               </table>
             </div>
           </div>
-
-        </div>
-      </div>
+          </div>
 
       <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(d => ({ ...d, isOpen: false }))} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText={confirmDialog.type === 'danger' ? 'Delete' : 'Confirm'} />
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog(d => ({ ...d, isOpen: false }))} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
@@ -246,8 +234,8 @@ const AdminDepartments = () => {
         type={toastConfig.type} 
         onClose={() => setToastConfig({ message: '', type: 'success' })} 
       />
-    </div>
+    </>
   );
 };
 
-export default AdminDepartments;
+export default ManageDepartments;

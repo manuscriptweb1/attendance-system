@@ -47,10 +47,35 @@ const adminLogin = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: admin.id, username: admin.username, role: 'admin' },
+      { 
+        id: admin.id, 
+        username: admin.username, 
+        role: admin.role || 'admin',
+        is_super_admin: admin.is_super_admin 
+      },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRE }
     );
+
+    // Fetch permissions
+    const permissionsResult = await pool.query(
+      'SELECT * FROM admin_permissions WHERE admin_id = $1',
+      [admin.id]
+    );
+
+    const permissions = {};
+    permissionsResult.rows.forEach(p => {
+      permissions[p.page_key] = {
+        can_view: p.can_view,
+        can_create: p.can_create,
+        can_edit: p.can_edit,
+        can_delete: p.can_delete,
+        can_export: p.can_export,
+        can_clear: p.can_clear,
+        can_calculate: p.can_calculate,
+        can_approve: p.can_approve
+      };
+    });
 
     // Log admin login
     try {
@@ -91,8 +116,10 @@ const adminLogin = async (req, res) => {
         id: admin.id,
         username: admin.username,
         email: admin.email,
-        role: 'admin',
-        theme_preference: admin.theme_preference || 'dark'
+        role: admin.role || 'admin',
+        is_super_admin: admin.is_super_admin,
+        theme_preference: admin.theme_preference || 'dark',
+        permissions: permissions
       }
     });
 

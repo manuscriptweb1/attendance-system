@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { verifyToken, isAdmin } = require('../middleware/auth');
+const { verifyToken, isAdmin, requirePermission } = require('../middleware/auth');
 const {
   getAllDepartments,
   addDepartment,
@@ -15,8 +15,8 @@ router.use(verifyToken);
 router.get('/', getAllDepartments);
 
 // Admin-only routes for managing departments
-router.post('/', isAdmin, addDepartment);
-router.put('/:id', isAdmin, updateDepartment);
-router.delete('/:id', isAdmin, deleteDepartment);
+router.post('/', isAdmin, requirePermission('departments', 'can_create'), addDepartment);
+router.put('/:id', isAdmin, requirePermission('departments', 'can_edit'), updateDepartment);
+router.delete('/:id', isAdmin, requirePermission('departments', 'can_delete'), deleteDepartment);
 
 module.exports = router;

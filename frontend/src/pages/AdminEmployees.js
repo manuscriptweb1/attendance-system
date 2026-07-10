@@ -6,9 +6,10 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
-import { getAllEmployees, getAllDepartments, addEmployee, updateEmployee, deleteEmployee, enableWFH, disableWFH, toggleEarlyCheckout } from '../services/api';
+import { getAllEmployees, getAllDepartments, addEmployee, updateEmployee, deleteEmployee, enableWFH, disableWFH, toggleEarlyCheckout, clearDataByDate } from '../services/api';
 import { FiPlus, FiEdit, FiTrash2, FiSearch, FiHome, FiClock, FiEye, FiEyeOff, FiX, FiUsers, FiDownload } from 'react-icons/fi';
 import { sortEmployeeRows } from '../utils/sorting';
+import ClearDataModal from '../components/ClearDataModal';
 
 const getMonthlySalaryValue = (employee) => {
   const value =
@@ -56,6 +57,9 @@ const AdminEmployees = () => {
   const [showModal,    setShowModal]    = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [editMode,     setEditMode]     = useState(false);
   const [searchTerm,   setSearchTerm]   = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -141,6 +145,24 @@ const AdminEmployees = () => {
         fetchData(); closeModal();
       }
     } catch (error) { setAlertDialog({ isOpen:true, title:'Error', message: error.response?.data?.message || 'Operation failed.', type:'error' }); }
+  };
+
+  const handleClearData = async ({ fromDate, toDate }) => {
+    try {
+      setClearing(true);
+      const res = await clearDataByDate('employees', { fromDate, toDate, confirmation: 'DELETE' });
+      if (res.data.success) {
+        setAlertDialog({ isOpen: true, title: 'Success', message: res.data.message || 'Data cleared successfully', type: 'success' });
+        setShowClearModal(false);
+        fetchData();
+      } else {
+        setAlertDialog({ isOpen: true, title: 'Error', message: res.data.message || 'Failed to clear data', type: 'error' });
+      }
+    } catch (error) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Failed to clear data', type: 'error' });
+    } finally {
+      setClearing(false);
+    }
   };
 
   const handleEdit = emp => {
@@ -302,6 +324,12 @@ const AdminEmployees = () => {
                 <button onClick={handleExportEmployeesExcel}
                   className="inline-flex items-center gap-2 bg-[#10B981] hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-glow-emerald-sm hover:shadow-glow-emerald hover:-translate-y-0.5">
                   <FiDownload size={16} /> Export Excel
+                </button>
+              )}
+              {hasPermission('employees', 'can_clear') && (
+                <button onClick={() => setShowClearModal(true)}
+                  className="inline-flex items-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200">
+                  <FiTrash2 size={16} /> Clear Data
                 </button>
               )}
               {hasPermission('employees', 'can_create') && (
@@ -608,6 +636,15 @@ const AdminEmployees = () => {
           </div>
         </div>
       )}
+
+      <ClearDataModal 
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={handleClearData}
+        loading={clearing}
+        title="Clear Employee Records"
+        description="This will permanently delete employees who joined between the selected dates. This action cannot be undone."
+      />
     </div>
   );
 };

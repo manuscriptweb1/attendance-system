@@ -91,7 +91,9 @@ const createManualAttendance = async (req, res) => {
     if (!records || !Array.isArray(records) || records.length === 0) {
       return res.status(400).json({ success: false, message: 'No records provided' });
     }
-    const finalReason = reason && reason.trim() !== '' ? reason.trim() : 'Manual attendance created';
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({ success: false, message: 'Manual attendance reason is required' });
+    }
 
     await client.query('BEGIN');
     const createdRecords = [];
@@ -106,8 +108,8 @@ const createManualAttendance = async (req, res) => {
 
       // Validate required times for Present/Late/Half Day
       if (['Present', 'Late', 'Half Day'].includes(attendance_status)) {
-        if (!login_time) {
-          const err = new Error(`Check-in time is required for Present, Late, or Half Day for ${employee_id}`);
+        if (!login_time || !logout_time) {
+          const err = new Error(`Check-in and check-out time are required for Present, Late, or Half Day for ${employee_id}`);
           err.errorCode = 'MISSING_TIME';
           throw err;
         }
@@ -126,9 +128,22 @@ const createManualAttendance = async (req, res) => {
         throw err;
       }
 
+      const recordDate = new Date(attendance_date);
+      if (recordDate.getDay() === 0) {
+        throw new AppError('Manual attendance is not allowed on holidays or Sundays.', 400, 'HOLIDAY_BLOCKED');
+      }
+      
+      const holidayCheck = await client.query(
+        'SELECT * FROM holidays WHERE holiday_date = $1 AND is_enabled = true',
+        [attendance_date]
+      );
+      if (holidayCheck.rows.length > 0) {
+        throw new AppError('Manual attendance is not allowed on holidays or Sundays.', 400, 'HOLIDAY_BLOCKED');
+      }
+
       // Check if attendance already exists
       const checkResult = await client.query(
-        'SELECT id, attendance_status FROM attendance WHERE employee_id = $1 AND attendance_date = $2::DATE',
+        'SELECT id, attendance_status FROM attendance WHERE employee_id = $1 AND attendance_date = $2',
         [employee_id, attendance_date]
       );
 
@@ -154,7 +169,7 @@ const createManualAttendance = async (req, res) => {
 
       if (login_time) {
         const inStatusObj = calculateCheckInStatus(login_time, officeTimes.startTime, officeTimes.lateTime);
-        checkinStatus = inStatusObj.checkin_status === 'Late' ? 'late' : (inStatusObj.checkin_status === 'Early Check-In' ? 'early' : 'on_time');
+        checkinStatus = inStatusObj.checkin_status === 'Late' ? 'late' : 'on_time';
         lateMinutes = inStatusObj.late_minutes;
       }
 
@@ -165,7 +180,7 @@ const createManualAttendance = async (req, res) => {
       }
 
       if (login_time && logout_time) {
-        totalMinutes = calculateWorkedMinutes(login_time, logout_time);
+        totalMinutes = calculateWorkedMinutes(login_time, logout_time, officeTimes.startTime);
         totalHours = parseFloat((totalMinutes / 60).toFixed(2));
         workingHours = totalHours;
       }
@@ -213,31 +228,14 @@ const createManualAttendance = async (req, res) => {
         );
         newAttendance = updateResult.rows[0];
       } else {
-        // Insert new attendance with Upsert fallback
+        // Insert new attendance
         const insertResult = await client.query(
           `INSERT INTO attendance (
             employee_id, attendance_date, login_time, logout_time, 
             total_working_hours, attendance_status, is_wfh, 
             validation_method, device_info,
             total_minutes, total_hours, checkin_status, checkout_status, late_minutes, early_minutes, absent_reason
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-          ON CONFLICT (employee_id, attendance_date) DO UPDATE SET
-            login_time = EXCLUDED.login_time,
-            logout_time = EXCLUDED.logout_time,
-            total_working_hours = EXCLUDED.total_working_hours,
-            attendance_status = EXCLUDED.attendance_status,
-            is_wfh = EXCLUDED.is_wfh,
-            validation_method = EXCLUDED.validation_method,
-            device_info = EXCLUDED.device_info,
-            total_minutes = EXCLUDED.total_minutes,
-            total_hours = EXCLUDED.total_hours,
-            checkin_status = EXCLUDED.checkin_status,
-            checkout_status = EXCLUDED.checkout_status,
-            late_minutes = EXCLUDED.late_minutes,
-            early_minutes = EXCLUDED.early_minutes,
-            absent_reason = EXCLUDED.absent_reason,
-            updated_at = CURRENT_TIMESTAMP
-          RETURNING *`,
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *`,
           [
             employee_id, attendance_date, login_time || null, logout_time || null,
             workingHours, finalResolvedStatus, is_wfh || false,
@@ -254,7 +252,7 @@ const createManualAttendance = async (req, res) => {
         `INSERT INTO manual_attendance_logs (
           attendance_id, employee_id, attendance_date, action, admin_id, reason
         ) VALUES ($1, $2, $3, $4, $5, $6)`,
-        [newAttendance.id, employee_id, attendance_date, existingRecord ? 'UPDATE' : 'CREATE', adminId, finalReason]
+        [newAttendance.id, employee_id, attendance_date, 'CREATED', adminId, reason]
       );
 
       createdRecords.push(newAttendance);
@@ -269,8 +267,8 @@ const createManualAttendance = async (req, res) => {
       adminEmail: req.user.email,
       actionType: 'CREATE',
       moduleName: 'Manual Attendance',
-      description: `Created manual attendance for ${createdRecords.length} employee(s). Reason: ${finalReason}`,
-      newData: { count: createdRecords.length, reason: finalReason },
+      description: `Created manual attendance for ${createdRecords.length} employee(s). Reason: ${reason}`,
+      newData: { count: createdRecords.length, reason },
       ipAddress: getClientIP(req),
       userAgent: req.headers['user-agent']
     });
@@ -298,7 +296,9 @@ const updateManualAttendance = async (req, res) => {
     const { login_time, logout_time, attendance_status, is_wfh, reason, remarks } = req.body;
     const adminId = req.user.id;
 
-    const finalReason = reason && reason.trim() !== '' ? reason.trim() : 'Manual attendance updated';
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({ success: false, message: 'Reason for update is required' });
+    }
 
     await client.query('BEGIN');
 
@@ -318,10 +318,28 @@ const updateManualAttendance = async (req, res) => {
       throw new Error('Only manually created attendance records can be edited from this module');
     }
 
+    // Holiday and Sunday validation
+    const recordDate = new Date(attendance.attendance_date);
+    if (recordDate.getDay() === 0) {
+      const err = new Error(`Manual attendance is not allowed on holidays or Sundays.`);
+      err.errorCode = 'SUNDAY_BLOCKED';
+      throw err;
+    }
+    
+    const holidayCheck = await client.query(
+      'SELECT * FROM holidays WHERE holiday_date = $1 AND is_enabled = true',
+      [attendance.attendance_date]
+    );
+    if (holidayCheck.rows.length > 0) {
+      const err = new Error(`Manual attendance is not allowed on holidays or Sundays.`);
+      err.errorCode = 'HOLIDAY_BLOCKED';
+      throw err;
+    }
+
     // Validate required times for Present/Late/Half Day
     if (['Present', 'Late', 'Half Day'].includes(attendance_status)) {
-      if (!login_time) {
-        return res.status(400).json({ success: false, message: 'Check-in time is required for Present, Late, or Half Day' });
+      if (!login_time || !logout_time) {
+        return res.status(400).json({ success: false, message: 'Check-in and check-out time are required for Present, Late, or Half Day' });
       }
     }
 
@@ -359,7 +377,7 @@ const updateManualAttendance = async (req, res) => {
 
     if (finalLoginTime) {
       const inStatusObj = calculateCheckInStatus(finalLoginTime, officeTimes.startTime, officeTimes.lateTime);
-      checkinStatus = inStatusObj.checkin_status === 'Late' ? 'late' : (inStatusObj.checkin_status === 'Early Check-In' ? 'early' : 'on_time');
+      checkinStatus = inStatusObj.checkin_status === 'Late' ? 'late' : 'on_time';
       lateMinutes = inStatusObj.late_minutes;
     }
 
@@ -370,7 +388,7 @@ const updateManualAttendance = async (req, res) => {
     }
 
     if (finalLoginTime && finalLogoutTime) {
-      totalMinutes = calculateWorkedMinutes(finalLoginTime, finalLogoutTime);
+      totalMinutes = calculateWorkedMinutes(finalLoginTime, finalLogoutTime, officeTimes.startTime);
       totalHours = parseFloat((totalMinutes / 60).toFixed(2));
       workingHours = totalHours;
     }
@@ -422,7 +440,7 @@ const updateManualAttendance = async (req, res) => {
       `INSERT INTO manual_attendance_logs (
         attendance_id, employee_id, attendance_date, action, admin_id, reason
       ) VALUES ($1, $2, $3, $4, $5, $6)`,
-      [id, attendance.employee_id, attendance.attendance_date, 'UPDATE', adminId, finalReason]
+      [id, attendance.employee_id, attendance.attendance_date, 'UPDATED', adminId, reason]
     );
 
     await client.query('COMMIT');
@@ -563,7 +581,7 @@ const checkInRow = async (req, res) => {
     const officeTimes = getOfficeTimes(settings);
 
     const inStatusObj = calculateCheckInStatus(login_time, officeTimes.startTime, officeTimes.lateTime);
-    const checkinStatus = inStatusObj.checkin_status === 'Late' ? 'late' : (inStatusObj.checkin_status === 'Early Check-In' ? 'early' : 'on_time');
+    const checkinStatus = inStatusObj.checkin_status === 'Late' ? 'late' : 'on_time';
     const lateMinutes = inStatusObj.late_minutes;
     const attendanceStatus = inStatusObj.checkin_status === 'Late' ? 'Late' : 'Present';
 
@@ -645,7 +663,7 @@ const checkOutRow = async (req, res) => {
     const checkoutStatus = outStatusObj.checkout_status === 'Late Check-Out' ? 'late' : (outStatusObj.checkout_status === 'Early Check-Out' ? 'early' : 'on_time');
     const earlyMinutes = outStatusObj.early_minutes;
 
-    const totalMinutes = calculateWorkedMinutes(record.login_time, logout_time);
+    const totalMinutes = calculateWorkedMinutes(record.login_time, logout_time, officeTimes.startTime);
     const totalHours = parseFloat((totalMinutes / 60).toFixed(2));
     const workingHours = totalHours;
 
@@ -688,6 +706,7 @@ const checkOutRow = async (req, res) => {
     client.release();
   }
 };
+
 /**
  * @desc    Clear manual attendance records for a date range
  * @route   DELETE /api/manual-attendance/clear-range
@@ -764,3 +783,4 @@ module.exports = {
   checkOutRow,
   clearManualAttendanceRange
 };
+

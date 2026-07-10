@@ -75,7 +75,8 @@ const requirePermission = (pageKey, action) => {
       if (result.rows.length === 0) {
         return res.status(403).json({
           success: false,
-          message: 'You do not have permission to perform this action.'
+          message: 'You do not have permission to perform this action',
+          code: 'PERMISSION_DENIED'
         });
       }
 
@@ -85,7 +86,8 @@ const requirePermission = (pageKey, action) => {
       if (action && !permissions[action]) {
         return res.status(403).json({
           success: false,
-          message: 'You do not have permission to perform this action.'
+          message: 'You do not have permission to perform this action',
+          code: 'PERMISSION_DENIED'
         });
       }
 

@@ -130,8 +130,84 @@ const clearMonthlyAttendance = async (req, res) => {
   }
 };
 
+const clearDataByDate = async (req, res) => {
+  try {
+    const { module, fromDate, toDate, confirmation } = req.body;
+    
+    if (confirmation !== 'DELETE') {
+      return res.status(400).json({ success: false, message: 'Invalid confirmation string' });
+    }
+    
+    if (!fromDate || !toDate) {
+      return res.status(400).json({ success: false, message: 'From Date and To Date are required' });
+    }
+    
+    if (new Date(toDate) < new Date(fromDate)) {
+      return res.status(400).json({ success: false, message: 'To Date cannot be before From Date' });
+    }
+    
+    const tableConfig = {
+      attendance: { table: 'attendance', dateCol: 'attendance_date' },
+      manual_attendance: { table: 'manual_attendance_logs', dateCol: 'created_at' },
+      holidays: { table: 'holidays', dateCol: 'holiday_date' },
+      payroll: { table: 'payroll_records', dateCol: 'created_at' },
+      expenses: { table: 'monthly_expenses', dateCol: 'expense_date' },
+      reports: { table: 'report_snapshots', dateCol: 'generated_at' },
+      activity_logs: { table: 'admin_activity_logs', dateCol: 'created_at' },
+      security_logs: { table: 'audit_logs', dateCol: 'created_at' },
+      employees: { table: 'employees', dateCol: 'created_at' },
+      departments: { table: 'departments', dateCol: 'created_at' },
+      assign_work: { table: 'works', dateCol: 'created_at' },
+      workflow_templates: { table: 'workflow_templates', dateCol: 'created_at' },
+      work_pipeline: { table: 'works', dateCol: 'created_at' },
+      work_monitoring: { table: 'works', dateCol: 'created_at' },
+      hold_works: { table: 'works', dateCol: 'created_at' },
+      completed_works: { table: 'works', dateCol: 'created_at' },
+      admin_management: { table: 'admins', dateCol: 'created_at' }
+    };
+
+    const config = tableConfig[module];
+    if (!config) {
+      return res.status(400).json({ success: false, message: 'Invalid module for clear operation' });
+    }
+
+    const { table, dateCol } = config;
+    const toDateEnd = `${toDate} 23:59:59`;
+
+    const result = await pool.query(
+      `DELETE FROM ${table} WHERE ${dateCol} >= $1 AND ${dateCol} <= $2`,
+      [fromDate, toDateEnd]
+    );
+
+    // Log admin activity
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: `Clear ${module} Data`,
+      moduleName: MODULE_NAMES.ADMIN || module,
+      description: `Cleared ${result.rowCount} records from ${table} between ${fromDate} and ${toDate}`,
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
+    });
+
+    res.json({
+      success: true,
+      message: `Successfully cleared ${result.rowCount} records.`,
+      deletedCount: result.rowCount
+    });
+  } catch (error) {
+    console.error(`Clear data error for ${req.body?.module}:`, error);
+    if (error.code === '42P01') { 
+       return res.json({ success: true, message: 'No records found to delete (table not initialized)', deletedCount: 0 });
+    }
+    res.status(500).json({ success: false, message: 'Failed to clear data' });
+  }
+};
+
 module.exports = {
   clearEmployeeAuditLogs,
   clearAdminActivityLogs,
-  clearMonthlyAttendance
+  clearMonthlyAttendance,
+  clearDataByDate
 };

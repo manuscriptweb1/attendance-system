@@ -295,6 +295,14 @@ export const deleteExpense = (id) => api.delete(`/expenses/${id}`);
 export const clearExpenseRange = (data) => api.delete('/expenses/clear-range', { data });
 export const exportExpenses = (month, year) => api.get('/expenses/export', { params: { month, year }, responseType: 'blob' });
 
+// --- Permissions ---
+export const getPermissions = (month, year, employee_id) => api.get('/permissions', { params: { month, year, employee_id } });
+export const getPermissionSummary = (month, year) => api.get('/permissions/summary', { params: { month, year } });
+export const createPermission = (data) => api.post('/permissions', data);
+export const updatePermission = (id, data) => api.put(`/permissions/${id}`, data);
+export const deletePermission = (id) => api.delete(`/permissions/${id}`);
+export const clearPermissionRange = (data) => api.delete('/permissions/clear-range', { data });
+
 // --- Manual Attendance ---
 export const getEmployeesForManualAttendance = (params) => api.get('/manual-attendance/employees', { params });
 export const createManualAttendance = (data) => api.post('/manual-attendance', data);
@@ -353,3 +361,5 @@ export const getPublicAttendanceMatrix = (month, year) =>
 
 export const getPublicHolidayInfo = () => 
   api.get('/public/holiday-info');
+
+export const clearDataByDate = (module, data) => api.post(`/clear-data/${module}`, data);

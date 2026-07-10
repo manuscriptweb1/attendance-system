@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import DetailsDialog from '../components/DetailsDialog';
-import ClearRangeDialog from '../components/ClearRangeDialog';
+import ClearDataModal from '../components/ClearDataModal';
 import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
 import { Spinner } from '../components/Loader';
 import { FiShield, FiEye, FiEdit2, FiSave, FiX, FiRefreshCw, FiMonitor, FiList, FiAlertCircle, FiTrash2, FiSearch, FiCalendar } from 'react-icons/fi';
 import axios from 'axios';
-import { updateDeviceAlias, clearSecurityLogRange } from '../services/api';
+import { updateDeviceAlias, clearDataByDate } from '../services/api';
 import { formatDate, formatTime } from '../utils/formatTime';
 
 const TABS = [
@@ -140,13 +140,13 @@ const AdminSecurityLogs = () => {
     finally { setSavingAlias(false); }
   };
 
-  const handleClearRange = async (data) => {
+  const handleClearRange = async ({ fromDate, toDate }) => {
     try {
       setClearDialog(prev => ({ ...prev, isLoading: true }));
-      const response = await clearSecurityLogRange(data);
+      const response = await clearDataByDate('security_logs', { fromDate, toDate, confirmation: 'DELETE' });
       if (response.data.success) {
         setClearDialog({ isOpen: false, isLoading: false });
-        setToastConfig({ message: response.data.message || 'Logs cleared successfully', type: 'success' });
+        setToastConfig({ message: response.data.message || 'Records cleared successfully.', type: 'success' });
         fetchData();
       } else {
         setClearDialog(prev => ({ ...prev, isLoading: false }));
@@ -382,13 +382,13 @@ const AdminSecurityLogs = () => {
       </div>
 
       <DetailsDialog isOpen={detailsDialog.isOpen} onClose={() => setDetailsDialog({ isOpen:false, title:'', details:null })} title={detailsDialog.title} details={detailsDialog.details} />
-      <ClearRangeDialog 
-        isOpen={clearDialog.isOpen} 
-        onClose={() => setClearDialog({ isOpen: false })} 
-        onConfirm={handleClearRange} 
-        title="Clear Security Logs Range" 
-        message="⚠️ WARNING: This will permanently delete ALL security logs for the selected date range. This action cannot be undone." 
-        isLoading={clearDialog.isLoading}
+      <ClearDataModal
+        isOpen={clearDialog.isOpen}
+        onClose={() => setClearDialog({ isOpen: false, isLoading: false })}
+        onConfirm={handleClearRange}
+        loading={clearDialog.isLoading}
+        title="Clear Security Logs"
+        description="This will permanently delete security audit logs between the selected dates. This action cannot be undone."
       />
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
       <AdminToast 

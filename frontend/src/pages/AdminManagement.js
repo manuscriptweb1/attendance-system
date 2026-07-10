@@ -17,23 +17,24 @@ const TABS = [
 const PAGE_SECTIONS = [
   { label: 'Overview', pages: ['dashboard'] },
   { label: 'People', pages: ['employees', 'departments', 'admin_management'] },
-  { label: 'Time & Attendance', pages: ['attendance', 'manual_attendance', 'absent_reasons', 'holidays'] },
+  { label: 'Time & Attendance', pages: ['attendance', 'manual_attendance', 'absent_reasons', 'holidays', 'permissions'] },
   { label: 'HR & Finance', pages: ['payroll', 'expenses', 'reports'] },
   { label: 'System', pages: ['settings', 'manage', 'database_monitor', 'trusted_devices', 'activity_logs', 'otp_settings', 'security_logs'] }
 ];
 
 const PERMISSION_MAPPING = {
   dashboard: ['can_view'],
-  employees: ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_export'],
-  departments: ['can_view', 'can_create', 'can_edit', 'can_delete'],
+  employees: ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_clear', 'can_export'],
+  departments: ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_clear'],
   admin_management: ['can_view', 'can_create', 'can_edit', 'can_delete'],
   attendance: ['can_view', 'can_edit', 'can_delete', 'can_clear'],
   manual_attendance: ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_clear'],
   absent_reasons: ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_clear'],
   holidays: ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_clear'],
+  permissions: ['can_view', 'can_create', 'can_edit', 'can_delete'],
   payroll: ['can_view', 'can_edit', 'can_calculate', 'can_clear', 'can_export'],
   expenses: ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_clear', 'can_export'],
-  reports: ['can_view', 'can_calculate', 'can_export'],
+  reports: ['can_view', 'can_calculate', 'can_clear', 'can_export'],
   settings: ['can_view', 'can_edit'],
   manage: ['can_view', 'can_create', 'can_edit', 'can_delete'],
   database_monitor: ['can_view'],
@@ -52,6 +53,7 @@ const PAGE_DESCRIPTIONS = {
   manual_attendance: 'Create and update manual attendance records.',
   absent_reasons: 'Manage employee absent reasons.',
   holidays: 'Manage office and government holidays.',
+  permissions: 'Manage employee special permissions and early logouts.',
   payroll: 'Calculate and manage employee payroll.',
   expenses: 'Track and manage company expenses.',
   reports: 'Generate and export attendance reports.',

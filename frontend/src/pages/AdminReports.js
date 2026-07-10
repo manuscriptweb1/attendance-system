@@ -12,6 +12,8 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { sortEmployeeRows } from '../utils/sorting';
 import { getAttendanceStatusClass } from '../utils/attendanceStatusStyles';
+import ClearDataModal from '../components/ClearDataModal';
+import { clearDataByDate } from '../services/api';
 
 const AdminReports = () => {
   const { hasPermission } = useAuth();
@@ -47,6 +49,8 @@ const AdminReports = () => {
   
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   React.useEffect(() => {
     fetchSnapshot(month, year);
@@ -131,12 +135,12 @@ const AdminReports = () => {
     currentY += 10;
 
     // Report Summary Table
-    const summaryHead = [['Emp ID','Name','Department','Present','Absent','Half Day','Holiday','Late Count','Total Hours']];
+    const summaryHead = [['Emp ID','Name','Department','Present','Absent','Half Day','Holiday','Late Count','Late Time','Permission Time','Late+Perm Time','Total Hours']];
     const summaryBody = sortEmployeeRows(reportData, sortBy).map(r => {
       const rawTotalHours = r.totalHours ?? r.total_hours ?? r.totalWorkingHours ?? r.total_working_hours ?? r.workingHours ?? r.working_hours ?? 0;
       const displayTotalHours = Number(rawTotalHours || 0);
       const hoursStr = displayTotalHours % 1 === 0 ? displayTotalHours.toString() : displayTotalHours.toFixed(1);
-      return [r.employeeCode, r.employeeName, r.department, r.present, r.absent, r.halfDay, r.holiday, r.lateCount, hoursStr];
+      return [r.employeeCode, r.employeeName, r.department, r.present, r.absent, r.halfDay, r.holiday, r.lateCount, formatLateTime(r.totalLateMinutes), formatLateTime(r.totalPermissionMinutes), formatLateTime(r.totalLateAndPermissionMinutes), hoursStr];
     });
 
     autoTable(doc, {
@@ -255,16 +259,33 @@ const AdminReports = () => {
       setLoading(true);
       const res = await generateMonthlyAttendanceReport(month, year);
       if (res.data.success) {
-        setReportData(res.data.reports || res.data.report || []);
-        setMatrixData(res.data.dailyAttendanceMatrix || null);
-        setAbsentTable(res.data.absentTable || []);
-        setHolidayTable(res.data.holidayTable || []);
         setToastConfig({ message: 'Report generated successfully', type: 'success' });
+        fetchSnapshot(month, year);
+      } else {
+        setAlertDialog({ isOpen: true, title: 'Error', message: res.data.message || 'Failed to generate report', type: 'error' });
       }
-    } catch (e) {
-      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(e), type: 'error' });
+    } catch (error) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClearData = async ({ fromDate, toDate }) => {
+    try {
+      setClearing(true);
+      const res = await clearDataByDate('reports', { fromDate, toDate, confirmation: 'DELETE' });
+      if (res.data.success) {
+        setToastConfig({ message: res.data.message || 'Data cleared successfully', type: 'success' });
+        setShowClearModal(false);
+        fetchSnapshot(month, year);
+      } else {
+        setAlertDialog({ isOpen: true, title: 'Error', message: res.data.message || 'Failed to clear data', type: 'error' });
+      }
+    } catch (error) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(error), type: 'error' });
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -348,6 +369,11 @@ const AdminReports = () => {
                     </button>
                   </>
                 )}
+                {hasPermission('reports', 'can_clear') && (
+                  <button onClick={() => setShowClearModal(true)} className="flex items-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all">
+                    Clear Data
+                  </button>
+                )}
               </div>
             </div>
             <div className="mt-6 pt-6 border-t border-admin-border flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -392,7 +418,7 @@ const AdminReports = () => {
               <div className="table-responsive dark-scroll">
                 <table className="min-w-full divide-y divide-white/[0.04]">
                   <thead className="bg-admin-bg">
-                    <tr>{['Emp ID','Name','Department','Present','Absent','Half Day','Holiday','Late Count','Total Late Time','Total Hours'].map(h => (
+                    <tr>{['Emp ID','Name','Department','Present','Absent','Half Day','Holiday','Late Count','Total Late Time','Total Permission Time','Total Late + Permission Time','Total Hours'].map(h => (
                       <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}</tr>
                   </thead>
@@ -414,6 +440,8 @@ const AdminReports = () => {
                         <td className="px-5 py-3.5 text-xs font-bold text-blue-400 whitespace-nowrap">{r.holiday}</td>
                         <td className="px-5 py-3.5 text-xs font-bold text-amber-500 whitespace-nowrap">{displayLateCount}</td>
                         <td className="px-5 py-3.5 text-xs font-bold text-amber-600 whitespace-nowrap">{formatLateTime(r.totalLateMinutes)}</td>
+                        <td className="px-5 py-3.5 text-xs font-bold text-indigo-400 whitespace-nowrap">{formatLateTime(r.totalPermissionMinutes)}</td>
+                        <td className="px-5 py-3.5 text-xs font-bold text-rose-500 whitespace-nowrap">{formatLateTime(r.totalLateAndPermissionMinutes)}</td>
                         <td className="px-5 py-3.5 text-xs text-admin-text whitespace-nowrap">
                           {(() => {
                             const rawTotalHours = r.totalHours ?? r.total_hours ?? r.totalWorkingHours ?? r.total_working_hours ?? r.workingHours ?? r.working_hours ?? 0;
@@ -564,6 +592,15 @@ const AdminReports = () => {
           )}
         </div>
       </div>
+      <ClearDataModal 
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={handleClearData}
+        loading={clearing}
+        title="Clear Report Snapshots"
+        description="This will permanently delete report snapshots between the selected dates. This action cannot be undone."
+      />
+
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog(d => ({ ...d, isOpen: false }))} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
       <AdminToast 
         message={toastConfig.message} 

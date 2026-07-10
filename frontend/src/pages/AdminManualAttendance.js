@@ -3,11 +3,11 @@ import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
 import AlertDialog from '../components/AlertDialog';
 import ConfirmDialog from '../components/ConfirmDialog';
-import ClearRangeDialog from '../components/ClearRangeDialog';
+import ClearDataModal from '../components/ClearDataModal';
 import AdminToast from '../components/AdminToast';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
-import { getAllDepartments, getEmployeesForManualAttendance, createManualAttendance, updateManualAttendance, deleteManualAttendance, checkInRowManualAttendance, checkOutRowManualAttendance, clearManualAttendanceRange } from '../services/api';
+import { getAllDepartments, getEmployeesForManualAttendance, createManualAttendance, updateManualAttendance, deleteManualAttendance, checkInRowManualAttendance, checkOutRowManualAttendance, clearDataByDate } from '../services/api';
 import { formatTime, format24To12Hour } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateDateString } from '../utils/dateValidation';
@@ -309,13 +309,13 @@ const AdminManualAttendance = () => {
     }
   };
 
-  const handleClearRange = async (data) => {
+  const handleClearRange = async ({ fromDate, toDate }) => {
     try {
       setClearDialog(prev => ({ ...prev, isLoading: true }));
-      const response = await clearManualAttendanceRange(data);
+      const response = await clearDataByDate('manual_attendance', { fromDate, toDate, confirmation: 'DELETE' });
       if (response.data.success) {
         setClearDialog({ isOpen: false, isLoading: false });
-        setToastConfig({ message: response.data.message || 'Records cleared successfully', type: 'success' });
+        setToastConfig({ message: response.data.message || 'Records cleared successfully.', type: 'success' });
         fetchData();
       } else {
         setClearDialog(prev => ({ ...prev, isLoading: false }));
@@ -457,8 +457,8 @@ const AdminManualAttendance = () => {
                           <div>
                             <span className="block font-medium text-admin-text">{formatTime(emp.login_time)}</span>
                             {emp.checkin_status && (
-                              <span className={`block text-[10px] font-bold mt-0.5 ${emp.checkin_status === 'late' ? 'text-amber-500' : emp.checkin_status === 'early' ? 'text-purple-400' : 'text-emerald-400'}`}>
-                                {emp.checkin_status === 'late' ? `Late ${Number(emp.late_minutes || 0)}m` : emp.checkin_status === 'early' ? 'Early Check-In' : 'On Time'}
+                              <span className={`block text-[10px] font-bold mt-0.5 ${emp.checkin_status === 'late' ? 'text-amber-500' : emp.checkin_status === 'early' ? 'text-emerald-400' : 'text-emerald-400'}`}>
+                                {emp.checkin_status === 'late' ? `Late ${Number(emp.late_minutes || 0)}m` : emp.checkin_status === 'early' ? 'On Time' : 'On Time'}
                               </span>
                             )}
                           </div>
@@ -594,13 +594,13 @@ const AdminManualAttendance = () => {
         confirmText={confirmDialog.confirmText || 'Confirm'}
       />
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog(d => ({ ...d, isOpen: false }))} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
-      <ClearRangeDialog 
-        isOpen={clearDialog.isOpen} 
-        onClose={() => setClearDialog({ isOpen: false })} 
-        onConfirm={handleClearRange} 
-        title="Clear Manual Attendance Range" 
-        message="⚠️ WARNING: This will permanently delete ALL manual attendance records for the selected date range. This action cannot be undone." 
-        isLoading={clearDialog.isLoading}
+      <ClearDataModal
+        isOpen={clearDialog.isOpen}
+        onClose={() => setClearDialog({ isOpen: false, isLoading: false })}
+        onConfirm={handleClearRange}
+        loading={clearDialog.isLoading}
+        title="Clear Manual Attendance Logs"
+        description="This will permanently delete manual attendance logs between the selected dates. This action cannot be undone."
       />
 
       {/* Add/Edit Modal */}

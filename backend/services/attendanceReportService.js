@@ -44,7 +44,26 @@ function getFinalAttendanceCode(record, isSun, isGovH, isOffH) {
   return '-';
 }
 
-function getWorkedMinutes(att) {
+function getWorkedMinutes(att, officeStartTimeMins = null) {
+  if (att.login_time && att.logout_time) {
+    const login = new Date(att.login_time);
+    const logout = new Date(att.logout_time);
+    
+    let effectiveLogin = login;
+    if (officeStartTimeMins !== null) {
+      const loginMins = getLocalMinutesFromUTC(att.login_time);
+      if (loginMins < officeStartTimeMins) {
+        effectiveLogin = new Date(effectiveLogin.getTime() + (officeStartTimeMins - loginMins) * 60000);
+      }
+    }
+    
+    const diff = (logout - effectiveLogin) / 60000;
+    if (Number.isFinite(diff) && diff > 0) {
+      return Math.round(diff);
+    }
+  }
+
+  // Fallback to saved hours if raw time isn't calculable
   const totalWorkingHours = Number(att.total_working_hours || 0);
   if (Number.isFinite(totalWorkingHours) && totalWorkingHours > 0) {
     return Math.round(totalWorkingHours * 60);
@@ -65,21 +84,13 @@ function getWorkedMinutes(att) {
     return Math.round(workingHours * 60);
   }
 
-  if (att.login_time && att.logout_time) {
-    const login = new Date(att.login_time);
-    const logout = new Date(att.logout_time);
-    const diff = (logout - login) / 60000;
-    if (Number.isFinite(diff) && diff > 0) {
-      return Math.round(diff);
-    }
-  }
-
   return 0;
 }
 
 async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmployeeId = null) {
   const settings = await getSettingsFromDB();
   const officeLateTimeInMinutes = parseTime(settings.workingHours.lateAfterTime);
+  const officeStartTimeMins = parseTime(settings.workingHours.officeStartTime || settings.workingHours.start_time || '09:30 AM');
 
   let employeesQuery = `
      SELECT e.id, e.employee_id as "employeeCode", e.name as "employeeName", d.name as department,
@@ -114,6 +125,22 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
   const matrixRows = [];
   const summaryRows = [];
   const attendanceData = [];
+
+  // Fetch approved permissions for the month
+  const permissionsResult = await pool.query(
+    `SELECT employee_id, SUM(duration_minutes) as total_duration
+     FROM employee_permissions
+     WHERE EXTRACT(MONTH FROM permission_date) = $1 
+       AND EXTRACT(YEAR FROM permission_date) = $2
+       AND status = 'approved'
+     GROUP BY employee_id`,
+    [month, year]
+  );
+  
+  const permissionsMap = {};
+  permissionsResult.rows.forEach(p => {
+    permissionsMap[p.employee_id] = parseInt(p.total_duration || 0);
+  });
 
   const daysInMonth = new Date(year, month, 0).getDate();
   const today = new Date();
@@ -194,7 +221,7 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
               finalRecord = att;
            }
 
-           const mins = getWorkedMinutes(att);
+           const mins = getWorkedMinutes(att, officeStartTimeMins);
            dailyMinutes = Math.max(dailyMinutes, mins);
 
            if (att.login_time) {
@@ -226,6 +253,8 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
     }
 
     const totalHours = Number((monthlyTotalMinutes / 60).toFixed(1));
+    const totalPermissionMinutes = permissionsMap[emp.employeeCode] || 0;
+    const totalLateAndPermissionMinutes = totalLateMinutes + totalPermissionMinutes;
 
     matrixRows.push({
       id: emp.id,
@@ -246,6 +275,8 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
       holiday: holidayCount,
       lateCount,
       totalLateMinutes,
+      totalPermissionMinutes,
+      totalLateAndPermissionMinutes,
       totalHours: parseFloat(totalHours.toFixed(1))
     });
   }

@@ -39,6 +39,7 @@ import AdminTrustedDevices from './pages/AdminTrustedDevices';
 import AdminActivityLogs from './pages/AdminActivityLogs';
 import AdminPayroll from './pages/AdminPayroll';
 import AdminExpenses from './pages/AdminExpenses';
+import AdminPermissions from './pages/AdminPermissions';
 import AdminReports from './pages/AdminReports';
 import AdminDatabaseMonitor from './pages/AdminDatabaseMonitor';
 import AdminAccessDenied from './pages/AdminAccessDenied';
@@ -295,6 +296,10 @@ function App() {
             <Route
               path="/admin/expenses"
               element={<ProtectedRoute requiredRole="admin" requiredPageKey="expenses"><AdminExpenses /></ProtectedRoute>}
+            />
+            <Route
+              path="/admin/permissions"
+              element={<ProtectedRoute requiredRole="admin" requiredPageKey="permissions"><AdminPermissions /></ProtectedRoute>}
             />
             <Route
               path="/admin/reports"

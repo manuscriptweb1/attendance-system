@@ -3,15 +3,15 @@ import { FiActivity, FiDownload, FiFilter, FiSearch, FiX, FiEye, FiTrash2, FiSet
 import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
-import ClearRangeDialog from '../components/ClearRangeDialog';
+import ClearDataModal from '../components/ClearDataModal';
 import { Spinner } from '../components/Loader';
 import { 
   getAdminActivityLogs, 
   exportAdminActivityLogs,
   getAdminActionTypes,
   getAdminModuleNames,
-  clearAdminActivityLogRange,
-  getAdminActivityStats
+  getAdminActivityStats,
+  clearDataByDate
 } from '../services/api';
 
 import { formatDate, formatTime } from '../utils/formatTime';
@@ -94,14 +94,14 @@ const AdminActivityLogs = () => {
     finally { setExporting(false); }
   };
 
-  const handleClearRange = async (data) => {
+  const handleClearRange = async ({ fromDate, toDate }) => {
     try {
       setClearDialog(prev => ({ ...prev, isLoading: true }));
-      const response = await clearAdminActivityLogRange(data);
+      const response = await clearDataByDate('activity_logs', { fromDate, toDate, confirmation: 'DELETE' });
       if (response.data.success) {
         setClearDialog({ isOpen: false, isLoading: false });
-        setToastConfig({ message: response.data.message || 'Logs cleared successfully', type: 'success' });
-        fetchLogs(); 
+        setToastConfig({ message: response.data.message || 'Records cleared successfully.', type: 'success' });
+        fetchLogs();
         fetchStats();
       } else {
         setClearDialog(prev => ({ ...prev, isLoading: false }));
@@ -109,7 +109,7 @@ const AdminActivityLogs = () => {
       }
     } catch (error) {
       setClearDialog(prev => ({ ...prev, isLoading: false }));
-      setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to clear activity logs', type: 'error' });
+      setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to clear logs', type: 'error' });
     }
   };
 
@@ -401,13 +401,13 @@ const AdminActivityLogs = () => {
       )}
 
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
-      <ClearRangeDialog 
-        isOpen={clearDialog.isOpen} 
-        onClose={() => setClearDialog({ isOpen: false })} 
-        onConfirm={handleClearRange} 
-        title="Clear Admin Logs Range" 
-        message="⚠️ WARNING: This will permanently delete ALL admin activity records for the selected date range. This action cannot be undone." 
-        isLoading={clearDialog.isLoading}
+      <ClearDataModal
+        isOpen={clearDialog.isOpen}
+        onClose={() => setClearDialog({ isOpen: false, isLoading: false })}
+        onConfirm={handleClearRange}
+        loading={clearDialog.isLoading}
+        title="Clear Activity Logs"
+        description="This will permanently delete admin activity logs between the selected dates. This action cannot be undone."
       />
       <AdminToast 
         message={toastConfig.message} 

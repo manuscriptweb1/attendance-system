@@ -3,10 +3,10 @@ import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
-import ClearRangeDialog from '../components/ClearRangeDialog';
+import ClearDataModal from '../components/ClearDataModal';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
-import { getAllAttendance, resetAttendance, deleteAttendance, clearAttendanceRange } from '../services/api';
+import { getAllAttendance, resetAttendance, deleteAttendance, clearDataByDate } from '../services/api';
 import { formatTime, formatDate, formatWorkingHours } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateDateString } from '../utils/dateValidation';
@@ -71,10 +71,10 @@ const AdminAttendance = () => {
     },
   });
 
-  const handleClearRange = async (data) => {
+  const handleClearRange = async ({ fromDate, toDate }) => {
     try {
       setClearDialog(prev => ({ ...prev, isLoading: true }));
-      const response = await clearAttendanceRange(data);
+      const response = await clearDataByDate('attendance', { fromDate, toDate, confirmation: 'DELETE' });
       if (response.data.success) {
         setClearDialog({ isOpen: false, isLoading: false });
         setAlertDialog({ isOpen: true, title: 'Success', message: response.data.message || 'Records cleared successfully.', type: 'success' });
@@ -238,7 +238,7 @@ const AdminAttendance = () => {
                         <td className="px-3 py-2.5 whitespace-nowrap">
                           {(() => {
                             if (r.checkin_status === 'late') return <span className="block text-[10px] text-amber-500 font-bold">Late {r.late_minutes}m</span>;
-                            if (r.checkin_status === 'early') return <span className="block text-[10px] text-purple-400 font-bold">Early</span>;
+                            if (r.checkin_status === 'early') return <span className="block text-[10px] text-emerald-400 font-bold">On Time</span>;
                             if (r.login_time) return <span className="block text-[10px] text-emerald-400 font-bold">On Time</span>;
                             return <span className="block text-[10px] text-admin-muted font-bold">—</span>;
                           })()}
@@ -304,16 +304,15 @@ const AdminAttendance = () => {
       {/* ═══ DIALOGS ═══ */}
       <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(d => ({ ...d, isOpen:false }))} onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(d => ({ ...d, isOpen:false })); }} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText={confirmDialog.type === 'danger' ? 'Delete' : 'Confirm'} />
       <AlertDialog   isOpen={alertDialog.isOpen}   onClose={() => setAlertDialog(d => ({ ...d, isOpen:false }))}   title={alertDialog.title}   message={alertDialog.message}   type={alertDialog.type} />
-      <ClearRangeDialog 
-        isOpen={clearDialog.isOpen} 
-        onClose={() => setClearDialog({ isOpen: false })} 
-        onConfirm={handleClearRange} 
-        title="Clear Attendance Range" 
-        message="⚠️ WARNING: This will permanently delete ALL attendance records for the selected date range. This action cannot be undone." 
-        isLoading={clearDialog.isLoading}
+      <ClearDataModal
+        isOpen={clearDialog.isOpen}
+        onClose={() => setClearDialog({ isOpen: false, isLoading: false })}
+        onConfirm={handleClearRange}
+        loading={clearDialog.isLoading}
+        title="Clear Attendance Logs"
+        description="This will permanently delete attendance records between the selected dates. This action cannot be undone."
       />
     </div>
   );
 };
 export default AdminAttendance;
-

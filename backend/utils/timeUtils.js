@@ -84,10 +84,13 @@ const calculateCheckInStatus = (loginTimeStr, officeStartTimeMins, lateAfterTime
   let late_minutes = 0;
   let early_checkin_minutes = 0;
 
-  if (checkInMins < officeStartTimeMins) {
-    checkin_status = 'Early Check-In';
-    early_checkin_minutes = officeStartTimeMins - checkInMins;
-  } else if (checkInMins > lateAfterTimeMins) {
+  if (checkInMins <= lateAfterTimeMins) {
+    // If checkInMins < officeStartTimeMins, it's early but we mark as 'On Time'
+    checkin_status = 'On Time';
+    if (checkInMins < officeStartTimeMins) {
+      early_checkin_minutes = officeStartTimeMins - checkInMins;
+    }
+  } else {
     checkin_status = 'Late';
     late_minutes = checkInMins - lateAfterTimeMins;
   }
@@ -115,11 +118,20 @@ const calculateCheckOutStatus = (logoutTimeStr, officeEndTimeMins) => {
   return { checkout_status, early_minutes, late_checkout_minutes };
 };
 
-const calculateWorkedMinutes = (loginTimeStr, logoutTimeStr) => {
+const calculateWorkedMinutes = (loginTimeStr, logoutTimeStr, officeStartTimeMins = null) => {
   if (!loginTimeStr || !logoutTimeStr) return 0;
   
-  const d1 = new Date(loginTimeStr);
+  let d1 = new Date(loginTimeStr);
   const d2 = new Date(logoutTimeStr);
+  
+  // If officeStartTimeMins is provided, calculate effective login time
+  if (officeStartTimeMins !== null) {
+    const loginMins = getLocalTimeMinutes(loginTimeStr);
+    if (loginMins < officeStartTimeMins) {
+      const earlyMs = (officeStartTimeMins - loginMins) * 60 * 1000;
+      d1 = new Date(d1.getTime() + earlyMs);
+    }
+  }
   
   const ms = d2.getTime() - d1.getTime();
   if (ms <= 0) return 0;

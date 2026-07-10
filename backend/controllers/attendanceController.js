@@ -2,7 +2,7 @@ const pool = require('../config/database');
 const crypto = require('crypto');
 const { validateAttendance, calculateAttendanceStatus } = require('../utils/attendanceValidator');
 const { getSettingsFromDB } = require('../utils/settingsHelper');
-const { parseTime, getOfficeTimes, getLocalMinutesFromUTC } = require('../utils/timeUtils');
+const { parseTime, getOfficeTimes, getLocalMinutesFromUTC, calculateWorkedMinutes } = require('../utils/timeUtils');
 const { logDeviceFingerprint, registerTrustedDevice, isTrustedDeviceApproved, generateFingerprint, validateTrustedDevice, parseDeviceInfo } = require('../services/deviceFingerprintService');
 const { getClientIP, validateNetwork } = require('../services/networkValidationService');
 const { logAudit, AUDIT_ACTIONS, AUDIT_STATUS } = require('../services/auditService');
@@ -930,11 +930,10 @@ const checkOut = async (req, res) => {
     }
 
     // Calculate working hours
-    const loginTime = new Date(attendance.login_time);
-    const logoutTime = new Date();
-    const totalMinutes = Math.floor((logoutTime - loginTime) / (1000 * 60));
+    const { startTime } = getOfficeTimes(settings);
+    const totalMinutes = calculateWorkedMinutes(attendance.login_time, (new Date()).toISOString(), startTime);
     const totalHours = parseFloat((totalMinutes / 60).toFixed(2));
-    const workingHours = ((logoutTime - loginTime) / (1000 * 60 * 60)).toFixed(2);
+    const workingHours = (totalMinutes / 60).toFixed(2);
 
     // Update attendance status based on working hours (from database)
     const halfDayThreshold = settings.workingHours.halfDayThreshold;

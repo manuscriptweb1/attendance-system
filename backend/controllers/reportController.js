@@ -160,6 +160,9 @@ const exportMonthlyAttendanceReport = async (req, res) => {
       { header: 'Half Day', key: 'halfDay', width: 10 },
       { header: 'Holiday', key: 'holiday', width: 10 },
       { header: 'Late Count', key: 'lateCount', width: 12 },
+      { header: 'Total Late Time', key: 'totalLateMinutesFormatted', width: 15 },
+      { header: 'Total Permission Time', key: 'totalPermissionMinutesFormatted', width: 20 },
+      { header: 'Total Late + Permission Time', key: 'totalLateAndPermissionMinutesFormatted', width: 25 },
       { header: 'Total Hours', key: 'totalHours', width: 12 }
     ];
 
@@ -170,9 +173,23 @@ const exportMonthlyAttendanceReport = async (req, res) => {
 
     worksheet.columns = [...baseColumns, ...dayColumns];
 
+    const formatDuration = (minutes) => {
+      const total = Number(minutes || 0);
+      if (!total || total <= 0) return "-";
+      const hours = Math.floor(total / 60);
+      const mins = total % 60;
+      if (hours <= 0) return `${mins} min`;
+      return `${hours}h ${String(mins).padStart(2, "0")}m`;
+    };
+
     const rows = summaryRows.map(row => {
       const matrixRow = matrixRows.find(m => m.employeeCode === row.employeeCode);
-      const rowData = { ...row };
+      const rowData = { 
+        ...row,
+        totalLateMinutesFormatted: formatDuration(row.totalLateMinutes),
+        totalPermissionMinutesFormatted: formatDuration(row.totalPermissionMinutes),
+        totalLateAndPermissionMinutesFormatted: formatDuration(row.totalLateAndPermissionMinutes)
+      };
       if (matrixRow) {
         for (let i = 1; i <= daysInMonth; i++) {
           rowData[`day_${i}`] = matrixRow.days[i] ? matrixRow.days[i].code : '-';

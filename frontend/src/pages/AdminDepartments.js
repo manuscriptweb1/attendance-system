@@ -9,6 +9,8 @@ import { Spinner } from '../components/Loader';
 import { getAllDepartments, addDepartment, updateDepartment, deleteDepartment } from '../services/api';
 import { formatDate } from '../utils/formatTime';
 import { FiPlus, FiEdit, FiTrash2, FiSearch, FiX, FiLayers, FiCheckCircle, FiActivity, FiXCircle } from 'react-icons/fi';
+import ClearDataModal from '../components/ClearDataModal';
+import { clearDataByDate } from '../services/api';
 
 const AdminDepartments = () => {
   const { hasPermission } = useAuth();
@@ -22,6 +24,8 @@ const AdminDepartments = () => {
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
   const [formData, setFormData] = useState({ id: '', name: '', description: '', status: 'Active' });
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -80,6 +84,24 @@ const AdminDepartments = () => {
     },
   });
 
+  const handleClearData = async ({ fromDate, toDate }) => {
+    try {
+      setClearing(true);
+      const res = await clearDataByDate('departments', { fromDate, toDate, confirmation: 'DELETE' });
+      if (res.data.success) {
+        setToastConfig({ message: res.data.message || 'Data cleared successfully', type: 'success' });
+        setShowClearModal(false);
+        fetchData();
+      } else {
+        setAlertDialog({ isOpen: true, title: 'Error', message: res.data.message || 'Failed to clear data', type: 'error' });
+      }
+    } catch (error) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Failed to clear data', type: 'error' });
+    } finally {
+      setClearing(false);
+    }
+  };
+
   const closeModal = () => {
     setShowModal(false);
     setEditMode(false);
@@ -116,12 +138,20 @@ const AdminDepartments = () => {
               <h1 className="text-xl font-bold text-admin-heading">Department Management</h1>
               <p className="text-sm text-slate-400 mt-0.5">Manage company departments and structures</p>
             </div>
-            {hasPermission('departments', 'can_create') && (
-              <button onClick={() => setShowModal(true)}
-                className="inline-flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-glow-blue-sm hover:shadow-glow-blue hover:-translate-y-0.5">
-                <FiPlus size={16} /> Add Department
-              </button>
-            )}
+            <div className="flex gap-2">
+              {hasPermission('departments', 'can_clear') && (
+                <button onClick={() => setShowClearModal(true)}
+                  className="inline-flex items-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200">
+                  <FiTrash2 size={16} /> Clear Data
+                </button>
+              )}
+              {hasPermission('departments', 'can_create') && (
+                <button onClick={() => setShowModal(true)}
+                  className="inline-flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-glow-blue-sm hover:shadow-glow-blue hover:-translate-y-0.5">
+                  <FiPlus size={16} /> Add Department
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Top Cards */}
@@ -199,6 +229,15 @@ const AdminDepartments = () => {
 
       <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(d => ({ ...d, isOpen: false }))} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText={confirmDialog.type === 'danger' ? 'Delete' : 'Confirm'} />
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog(d => ({ ...d, isOpen: false }))} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
+      <AdminToast message={toastConfig.message} type={toastConfig.type} onClose={() => setToastConfig({ message: '', type: 'success' })} />
+      <ClearDataModal 
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={handleClearData}
+        loading={clearing}
+        title="Clear Departments"
+        description="This will permanently delete departments created between the selected dates. This action cannot be undone."
+      />
 
       {/* Add/Edit Modal */}
       {showModal && (

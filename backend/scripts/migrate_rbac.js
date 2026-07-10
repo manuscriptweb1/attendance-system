@@ -74,13 +74,14 @@ async function migrate() {
       ('payroll', 'Payroll', '/admin/payroll', 'HR & Finance', 9),
       ('expenses', 'Expenses', '/admin/expenses', 'HR & Finance', 10),
       ('reports', 'Reports', '/admin/reports', 'HR & Finance', 11),
-      ('settings', 'Settings', '/admin/settings', 'System', 12),
-      ('manage', 'Manage', '/admin/manage', 'System', 13),
-      ('database_monitor', 'Database Monitor', '/admin/database-monitor', 'System', 14),
-      ('trusted_devices', 'Trusted Devices', '/admin/trusted-devices', 'System', 15),
-      ('activity_logs', 'Activity Logs', '/admin/activity-logs', 'System', 16),
-      ('otp_settings', 'OTP Settings', '/admin/otp-settings', 'System', 17),
-      ('security_logs', 'Security Logs', '/admin/security-logs', 'System', 18)
+      ('permissions', 'Permissions', '/admin/permissions', 'Time & Attendance', 12),
+      ('settings', 'Settings', '/admin/settings', 'System', 13),
+      ('manage', 'Manage', '/admin/manage', 'System', 14),
+      ('database_monitor', 'Database Monitor', '/admin/database-monitor', 'System', 15),
+      ('trusted_devices', 'Trusted Devices', '/admin/trusted-devices', 'System', 16),
+      ('activity_logs', 'Activity Logs', '/admin/activity-logs', 'System', 17),
+      ('otp_settings', 'OTP Settings', '/admin/otp-settings', 'System', 18),
+      ('security_logs', 'Security Logs', '/admin/security-logs', 'System', 19)
       ON CONFLICT (page_key) DO NOTHING;
     `);
 

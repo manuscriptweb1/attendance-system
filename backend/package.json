@@ -4,7 +4,6 @@
   "description": "Employee Attendance Management Backend",
   "main": "server.js",
   "scripts": {
-    "prestart": "node runAllMigrations.js && node scripts/migrate_rbac.js",
     "start": "node server.js",
     "dev": "nodemon server.js"
   },

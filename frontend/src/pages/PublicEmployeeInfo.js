@@ -56,20 +56,16 @@ const getDailyMotivations = () => {
     seed += dateKey.charCodeAt(i) * (i + 1);
   }
 
-  const selected = [];
-  let index = seed % motivationMessages.length;
+  const shuffled = [...motivationMessages];
+  let random = seed || 1;
 
-  while (selected.length < 3 && selected.length < motivationMessages.length) {
-    const message = motivationMessages[index];
-
-    if (!selected.includes(message)) {
-      selected.push(message);
-    }
-
-    index = (index + seed + 7) % motivationMessages.length;
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    random = (random * 1664525 + 1013904223) >>> 0;
+    const j = random % (i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
-  return selected;
+  return shuffled.slice(0, 3);
 };
 
 const dailyMotivations = getDailyMotivations();

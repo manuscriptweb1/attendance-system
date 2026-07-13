@@ -131,13 +131,13 @@ const AdminLogin = () => {
             const firstAllowed = pages.find(p => user.permissions[p]?.can_view);
             if (firstAllowed) {
               if (firstAllowed === 'manual_attendance') fallbackPage = '/admin/manual-attendance';
-              else if (firstAllowed === 'admin_management') fallbackPage = '/admin/manage-admins';
-              else if (firstAllowed === 'absent_reasons') fallbackPage = '/admin/settings/absent-reasons';
-              else if (firstAllowed === 'trusted_devices') fallbackPage = '/admin/settings/trusted-devices';
+              else if (firstAllowed === 'admin_management') fallbackPage = '/admin/management';
+              else if (firstAllowed === 'absent_reasons') fallbackPage = '/admin/absent-reasons';
+              else if (firstAllowed === 'trusted_devices') fallbackPage = '/admin/trusted-devices';
               else if (firstAllowed === 'database_monitor') fallbackPage = '/admin/database-monitor';
-              else if (firstAllowed === 'activity_logs') fallbackPage = '/admin/logs';
+              else if (firstAllowed === 'activity_logs') fallbackPage = '/admin/activity-logs';
               else if (firstAllowed === 'security_logs') fallbackPage = '/admin/security-logs';
-              else if (firstAllowed === 'otp_settings') fallbackPage = '/admin/settings/otp';
+              else if (firstAllowed === 'otp_settings') fallbackPage = '/admin/otp-settings';
               else fallbackPage = `/admin/${firstAllowed}`;
             }
           }

@@ -21,8 +21,14 @@ export const AuthProvider = ({ children }) => {
     const storedUser = sessionStorage.getItem('user');
 
     if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      try {
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
+      } catch (error) {
+        console.error('Invalid saved session. Clearing session storage.', error);
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
+      }
     }
     setLoading(false);
   }, []);
@@ -77,13 +83,13 @@ export const AuthProvider = ({ children }) => {
     
     if (firstAllowed) {
        if (firstAllowed === 'manual_attendance') return '/admin/manual-attendance';
-       if (firstAllowed === 'admin_management') return '/admin/manage-admins';
-       if (firstAllowed === 'absent_reasons') return '/admin/settings/absent-reasons';
-       if (firstAllowed === 'trusted_devices') return '/admin/settings/trusted-devices';
+       if (firstAllowed === 'admin_management') return '/admin/management';
+       if (firstAllowed === 'absent_reasons') return '/admin/absent-reasons';
+       if (firstAllowed === 'trusted_devices') return '/admin/trusted-devices';
        if (firstAllowed === 'database_monitor') return '/admin/database-monitor';
-       if (firstAllowed === 'activity_logs') return '/admin/logs';
+       if (firstAllowed === 'activity_logs') return '/admin/activity-logs';
        if (firstAllowed === 'security_logs') return '/admin/security-logs';
-       if (firstAllowed === 'otp_settings') return '/admin/settings/otp';
+       if (firstAllowed === 'otp_settings') return '/admin/otp-settings';
        return `/admin/${firstAllowed}`;
     }
     

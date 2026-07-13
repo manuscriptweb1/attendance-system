@@ -67,6 +67,18 @@
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+    <div id="root">
+      <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f8fafc;color:#0f172a;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+        <div style="text-align:center;padding:24px;">
+          <div style="width:42px;height:42px;margin:0 auto 16px;border:4px solid #dbeafe;border-top-color:#2563eb;border-radius:999px;animation:attendnest-spin 1s linear infinite;"></div>
+          <div style="font-size:16px;font-weight:700;">Loading AttendNest...</div>
+        </div>
+      </div>
+      <style>
+        @keyframes attendnest-spin {
+          to { transform: rotate(360deg); }
+        }
+      </style>
+    </div>
   </body>
 </html>

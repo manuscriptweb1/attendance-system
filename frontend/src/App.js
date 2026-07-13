@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AdminThemeProvider } from './context/AdminThemeContext';
@@ -7,47 +7,48 @@ import LogoutWarningDialog from './components/LogoutWarningDialog';
 import GlobalErrorDialog from './components/GlobalErrorDialog';
 
 // Public Pages
-import LandingPage from './pages/LandingPage';
-import AboutPage from './pages/AboutPage';
-import FeaturesPage from './pages/FeaturesPage';
-import FAQPage from './pages/FAQPage';
-import ContactPage from './pages/ContactPage';
-import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
-import TermsAndConditionsPage from './pages/TermsAndConditionsPage';
-import SupportPage from './pages/SupportPage';
-import PublicEmployeeInfo from './pages/PublicEmployeeInfo';
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const AboutPage = lazy(() => import('./pages/AboutPage'));
+const FeaturesPage = lazy(() => import('./pages/FeaturesPage'));
+const FAQPage = lazy(() => import('./pages/FAQPage'));
+const ContactPage = lazy(() => import('./pages/ContactPage'));
+const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
+const TermsAndConditionsPage = lazy(() => import('./pages/TermsAndConditionsPage'));
+const SupportPage = lazy(() => import('./pages/SupportPage'));
+const PublicEmployeeInfo = lazy(() => import('./pages/PublicEmployeeInfo'));
 
 // Auth Pages
-import AdminLogin from './pages/AdminLogin';
-import EmployeeLogin from './pages/EmployeeLogin';
-import ForgotPassword from './pages/ForgotPassword';
+const AdminLogin = lazy(() => import('./pages/AdminLogin'));
+const EmployeeLogin = lazy(() => import('./pages/EmployeeLogin'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 
 // Admin Pages
-import AdminDashboard from './pages/AdminDashboard';
-import AdminEmployees from './pages/AdminEmployees';
-import AdminDepartments from './pages/AdminDepartments';
-import AdminAttendance from './pages/AdminAttendance';
-import AdminSettings from './pages/AdminSettings';
-import AdminManage from './pages/AdminManage';
-import AdminManagement from './pages/AdminManagement';
-import AdminHolidays from './pages/AdminHolidays';
-import AdminManualAttendance from './pages/AdminManualAttendance';
-import AdminAbsentReasons from './pages/AdminAbsentReasons';
-import AdminOTPSettings from './pages/AdminOTPSettings';
-import AdminSecurityLogs from './pages/AdminSecurityLogs';
-import AdminTrustedDevices from './pages/AdminTrustedDevices';
-import AdminActivityLogs from './pages/AdminActivityLogs';
-import AdminPayroll from './pages/AdminPayroll';
-import AdminExpenses from './pages/AdminExpenses';
-import AdminPermissions from './pages/AdminPermissions';
-import AdminReports from './pages/AdminReports';
-import AdminDatabaseMonitor from './pages/AdminDatabaseMonitor';
-import AdminAccessDenied from './pages/AdminAccessDenied';
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const AdminEmployees = lazy(() => import('./pages/AdminEmployees'));
+const AdminDepartments = lazy(() => import('./pages/AdminDepartments'));
+const AdminAttendance = lazy(() => import('./pages/AdminAttendance'));
+const AdminSettings = lazy(() => import('./pages/AdminSettings'));
+const AdminManage = lazy(() => import('./pages/AdminManage'));
+const AdminManagement = lazy(() => import('./pages/AdminManagement'));
+const AdminHolidays = lazy(() => import('./pages/AdminHolidays'));
+const AdminManualAttendance = lazy(() => import('./pages/AdminManualAttendance'));
+const AdminAbsentReasons = lazy(() => import('./pages/AdminAbsentReasons'));
+const AdminOTPSettings = lazy(() => import('./pages/AdminOTPSettings'));
+const AdminSecurityLogs = lazy(() => import('./pages/AdminSecurityLogs'));
+const AdminTrustedDevices = lazy(() => import('./pages/AdminTrustedDevices'));
+const AdminActivityLogs = lazy(() => import('./pages/AdminActivityLogs'));
+const AdminPayroll = lazy(() => import('./pages/AdminPayroll'));
+const AdminExpenses = lazy(() => import('./pages/AdminExpenses'));
+const AdminPermissions = lazy(() => import('./pages/AdminPermissions'));
+const AdminReports = lazy(() => import('./pages/AdminReports'));
+const AdminDatabaseMonitor = lazy(() => import('./pages/AdminDatabaseMonitor'));
+const AdminAccessDenied = lazy(() => import('./pages/AdminAccessDenied'));
+
 // Employee Pages
-import EmployeeDashboard from './pages/EmployeeDashboard';
-import EmployeeAttendance from './pages/EmployeeAttendance';
-import EmployeeProfile from './pages/EmployeeProfile';
-import ChangePassword from './pages/ChangePassword';
+const EmployeeDashboard = lazy(() => import('./pages/EmployeeDashboard'));
+const EmployeeAttendance = lazy(() => import('./pages/EmployeeAttendance'));
+const EmployeeProfile = lazy(() => import('./pages/EmployeeProfile'));
+const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 
 // Protected Route Component with custom logout warning dialog
 const ProtectedRoute = ({ children, requiredRole, requiredPageKey }) => {
@@ -185,6 +186,7 @@ function App() {
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <ScrollToTop />
           <GlobalErrorDialog />
+          <Suspense fallback={<Loader />}>
           <Routes>
             {/* Public Landing Page */}
             <Route path="/" element={<LandingPage />} />
@@ -343,6 +345,7 @@ function App() {
             {/* 404 Route */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
         </Router>
       </AdminThemeProvider>
     </AuthProvider>

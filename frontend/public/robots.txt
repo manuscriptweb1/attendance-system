@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Allow: /employee/login
+
+Disallow: /admin
+Disallow: /admin/
+Disallow: /employee/dashboard
+Disallow: /employee/attendance
+Disallow: /employee/profile
+Disallow: /employee/change-password
+
+Sitemap: https://attendance-system-rho-five.vercel.app/sitemap.xml

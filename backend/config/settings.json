@@ -1,0 +1,33 @@
+{
+  "companyLocation": {
+    "name": "Company Office",
+    "latitude": 12.966000,
+    "longitude": 77.606400,
+    "allowedRadius": 100,
+    "gpsAccuracyThreshold": 150,
+    "note": "Change latitude and longitude to your office location. Radius is in meters."
+  },
+  "messages": {
+    "locationPermissionTitle": "Location Permission Required",
+    "locationPermissionMessage": "This app needs access to your location to verify your attendance. Please allow location access to continue.",
+    "locationDeniedTitle": "Location Access Denied",
+    "locationDeniedMessage": "You have denied location access. Please enable location permission in your browser settings to use attendance features.",
+    "locationUnavailableTitle": "Location Unavailable",
+    "locationUnavailableMessage": "Unable to retrieve your location. Please check if GPS is enabled on your device.",
+    "locationTimeoutTitle": "Location Timeout",
+    "locationTimeoutMessage": "Location request timed out. Please try again.",
+    "outsideRadiusTitle": "Outside Office Area",
+    "outsideRadiusMessage": "You are outside the allowed office area. Please move closer to the office to check in.",
+    "lowAccuracyTitle": "Low GPS Accuracy",
+    "lowAccuracyMessage": "GPS accuracy is too low. Please enable high accuracy mode in your device settings."
+  },
+  "workingHours": {
+    "lateAfterTime": "10:30",
+    "halfDayThreshold": 4,
+    "officeStartTime": "09:30",
+    "officeEndTime": "17:30",
+    "checkInEnabled": true,
+    "checkOutEnabled": true,
+    "note": "All times in HH:MM (24-hour format). halfDayThreshold is in hours. Enable/disable check-in and check-out buttons."
+  }
+}

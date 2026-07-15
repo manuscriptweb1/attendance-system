@@ -1770,3 +1770,30 @@ body.admin-theme-dark .clear-range-cancel-btn,
   color: #ffffff !important;
   background-color: #1C2540 !important;
 }
+
+
+/* Report Summary Table - Fixed Layout */
+.reports-summary-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.reports-summary-table th,
+.reports-summary-table td {
+  padding: 10px 8px !important;
+  font-size: 12px !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: anywhere !important;
+}
+
+.reports-summary-table th {
+  font-size: 11px !important;
+  line-height: 1.25 !important;
+}
+
+.reports-summary-table .employee-name-cell {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+}

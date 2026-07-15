@@ -58,7 +58,7 @@ const AdminReports = () => {
   const yearOptions = generateYearOptions();
   
   const [treatLateAsPresent, setTreatLateAsPresent] = useState(false);
-  const [hideActualLateTime, setHideActualLateTime] = useState(false);
+  const [hideActualLateTime, setHideActualLateTime] = useState(true);
 
   const formatLateTime = (minutes) => {
     const total = Number(minutes || 0);
@@ -166,12 +166,14 @@ const AdminReports = () => {
     currentY += 10;
 
     // Report Summary Table
-    const summaryHead = [['Emp ID','Name','Department','Present','Absent','Half Day','Holiday','Late Count','Actual Late Time','Counted Late Time','Total Permission Time','Counted Late + Permission Time','Total Hours']];
+    const summaryHead = [['Emp ID','Name','Department','Present','Absent','Half Day','Holiday','Late Count','Counted Late Time','Total Permission Time','Counted Late + Permission Time','Total Hours']];
     const summaryBody = sortEmployeeRows(reportData, sortBy).map(r => {
       const rawTotalHours = r.totalHours ?? r.total_hours ?? r.totalWorkingHours ?? r.total_working_hours ?? r.workingHours ?? r.working_hours ?? 0;
       const displayTotalHours = Number(rawTotalHours || 0);
       const hoursStr = displayTotalHours % 1 === 0 ? displayTotalHours.toString() : displayTotalHours.toFixed(1);
-      return [r.employeeCode, r.employeeName, r.department, r.present, r.absent, r.halfDay, r.holiday, r.lateCount, formatLateTime(r.totalActualLateMinutes !== undefined ? r.totalActualLateMinutes : r.totalLateMinutes), formatLateTime(r.totalCountedLateMinutes), formatLateTime(r.totalPermissionMinutes), formatLateTime(r.countedLateAndPermissionMinutes), hoursStr];
+      const countedLate = Number(r.totalCountedLateMinutes || 0);
+      const permTime = Number(r.totalPermissionMinutes || 0);
+      return [r.employeeCode, r.employeeName, r.department, r.present, r.absent, r.halfDay, r.holiday, r.lateCount, formatLateTime(countedLate), formatLateTime(permTime), formatLateTime(countedLate + permTime), hoursStr];
     });
 
     autoTable(doc, {
@@ -464,22 +466,22 @@ const AdminReports = () => {
                 <span className="text-[10px] font-bold text-admin-secondary uppercase tracking-widest">{reportData.length} Records</span>
               </div>
               <div className="table-responsive dark-scroll">
-                <table className="min-w-full divide-y divide-white/[0.04]">
+                <table className="reports-summary-table min-w-full divide-y divide-white/[0.04]">
                   <thead className="bg-admin-bg">
                     <tr>
-                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Emp ID</th>
-                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Name</th>
-                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Department</th>
-                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Present</th>
-                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Absent</th>
-                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Half Day</th>
-                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Holiday</th>
-                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Late Count</th>
-                      {!hideActualLateTime && <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Actual Late Time</th>}
-                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Counted Late Time</th>
-                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Total Permission Time</th>
-                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Counted Late + Permission Time</th>
-                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Total Hours</th>
+                      <th style={{ width: '70px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Emp ID</th>
+                      <th style={{ width: '140px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Name</th>
+                      <th style={{ width: '110px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Department</th>
+                      <th style={{ width: '60px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Present</th>
+                      <th style={{ width: '60px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Absent</th>
+                      <th style={{ width: '70px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Half Day</th>
+                      <th style={{ width: '60px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Holiday</th>
+                      <th style={{ width: '70px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Late Count</th>
+                      {!hideActualLateTime && <th style={{ width: '100px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Actual Late Time</th>}
+                      <th style={{ width: '100px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Counted Late Time</th>
+                      <th style={{ width: '110px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Total Permission Time</th>
+                      <th style={{ width: '120px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Counted Late + Permission Time</th>
+                      <th style={{ width: '80px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Total Hours</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
@@ -491,21 +493,21 @@ const AdminReports = () => {
                         
                         return (
                         <tr key={r.employeeCode} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors">
-                        <td className="px-5 py-3.5 text-xs text-admin-muted font-mono whitespace-nowrap">{r.employeeCode}</td>
-                        <td className="px-5 py-3.5 text-sm font-bold text-admin-text whitespace-nowrap">{r.employeeName}</td>
-                        <td className="px-5 py-3.5 text-xs text-admin-secondary whitespace-nowrap">{r.department}</td>
-                        <td className="px-5 py-3.5 text-xs font-bold text-emerald-400 whitespace-nowrap">{displayPresent}</td>
-                        <td className="px-5 py-3.5 text-xs font-bold text-red-400 whitespace-nowrap">{r.absent}</td>
-                        <td className="px-5 py-3.5 text-xs font-bold text-yellow-500 whitespace-nowrap">{r.halfDay}</td>
-                        <td className="px-5 py-3.5 text-xs font-bold text-blue-400 whitespace-nowrap">{r.holiday}</td>
-                        <td className="px-5 py-3.5 text-xs font-bold text-amber-500 whitespace-nowrap">{displayLateCount}</td>
+                        <td className="text-admin-muted font-mono">{r.employeeCode}</td>
+                        <td className="employee-name-cell text-admin-text">{r.employeeName}</td>
+                        <td className="text-admin-secondary">{r.department}</td>
+                        <td className="font-bold text-emerald-400">{displayPresent}</td>
+                        <td className="font-bold text-red-400">{r.absent}</td>
+                        <td className="font-bold text-yellow-500">{r.halfDay}</td>
+                        <td className="font-bold text-blue-400">{r.holiday}</td>
+                        <td className="font-bold text-amber-500">{displayLateCount}</td>
                         {!hideActualLateTime && (
-                          <td className="px-5 py-3.5 text-xs font-bold text-amber-600 whitespace-nowrap">{formatLateTime(r.totalActualLateMinutes !== undefined ? r.totalActualLateMinutes : r.totalLateMinutes)}</td>
+                          <td className="font-bold text-amber-600">{formatLateTime(r.totalActualLateMinutes !== undefined ? r.totalActualLateMinutes : r.totalLateMinutes)}</td>
                         )}
-                        <td className="px-5 py-3.5 text-xs font-bold text-orange-500 whitespace-nowrap">{formatLateTime(r.totalCountedLateMinutes)}</td>
-                        <td className="px-5 py-3.5 text-xs font-bold text-indigo-400 whitespace-nowrap">{formatLateTime(r.totalPermissionMinutes)}</td>
-                        <td className="px-5 py-3.5 text-xs font-bold text-rose-500 whitespace-nowrap">{formatLateTime(r.countedLateAndPermissionMinutes)}</td>
-                        <td className="px-5 py-3.5 text-xs text-admin-text whitespace-nowrap">
+                        <td className="font-bold text-orange-500">{formatLateTime(r.totalCountedLateMinutes)}</td>
+                        <td className="font-bold text-indigo-400">{formatLateTime(r.totalPermissionMinutes)}</td>
+                        <td className="font-bold text-rose-500">{formatLateTime(r.countedLateAndPermissionMinutes)}</td>
+                        <td className="text-admin-text">
                           {(() => {
                             const rawTotalHours = r.totalHours ?? r.total_hours ?? r.totalWorkingHours ?? r.total_working_hours ?? r.workingHours ?? r.working_hours ?? 0;
                             const displayTotalHours = Number(rawTotalHours || 0);

@@ -160,9 +160,9 @@ const exportMonthlyAttendanceReport = async (req, res) => {
       { header: 'Half Day', key: 'halfDay', width: 10 },
       { header: 'Holiday', key: 'holiday', width: 10 },
       { header: 'Late Count', key: 'lateCount', width: 12 },
-      { header: 'Total Late Time', key: 'totalLateMinutesFormatted', width: 15 },
+      { header: 'Counted Late Time', key: 'countedLateMinutesFormatted', width: 15 },
       { header: 'Total Permission Time', key: 'totalPermissionMinutesFormatted', width: 20 },
-      { header: 'Total Late + Permission Time', key: 'totalLateAndPermissionMinutesFormatted', width: 25 },
+      { header: 'Counted Late + Permission Time', key: 'countedLateAndPermissionMinutesFormatted', width: 25 },
       { header: 'Total Hours', key: 'totalHours', width: 12 }
     ];
 
@@ -184,11 +184,15 @@ const exportMonthlyAttendanceReport = async (req, res) => {
 
     const rows = summaryRows.map(row => {
       const matrixRow = matrixRows.find(m => m.employeeCode === row.employeeCode);
+      const countedLate = Number(row.totalCountedLateMinutes || 0);
+      const permTime = Number(row.totalPermissionMinutes || 0);
+      const countedLateAndPerm = countedLate + permTime;
+
       const rowData = { 
         ...row,
-        totalLateMinutesFormatted: formatDuration(row.totalLateMinutes),
-        totalPermissionMinutesFormatted: formatDuration(row.totalPermissionMinutes),
-        totalLateAndPermissionMinutesFormatted: formatDuration(row.totalLateAndPermissionMinutes)
+        countedLateMinutesFormatted: formatDuration(countedLate),
+        totalPermissionMinutesFormatted: formatDuration(permTime),
+        countedLateAndPermissionMinutesFormatted: formatDuration(countedLateAndPerm)
       };
       if (matrixRow) {
         for (let i = 1; i <= daysInMonth; i++) {

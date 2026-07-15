@@ -8,6 +8,7 @@ import { Spinner } from '../../components/Loader';
 import { FiUmbrella, FiPlus, FiEdit2, FiTrash2, FiCalendar, FiSun, FiMap, FiCheckCircle } from 'react-icons/fi';
 import { getAllHolidays, addHoliday, updateHoliday, deleteHoliday, toggleHolidayStatus, clearHolidayRange } from '../../services/api';
 import { formatDate } from '../../utils/formatTime';
+import { toDateInputValue, formatDisplayDate } from '../../utils/dateUtils';
 import { getErrorMessage } from '../../utils/errorHandler';
 import { validateDateString } from '../../utils/dateValidation';
 
@@ -119,7 +120,7 @@ const ManageHolidays = () => {
       catch (e) { setAlertDialog({ isOpen:true, title:'Error', message: getErrorMessage(e), type:'error' }); }
     },
   });
-  const openEdit = holiday => { setSelectedHoliday(holiday); setFormData({ holiday_date: holiday.holiday_date.split('T')[0], holiday_type: holiday.holiday_type, holiday_title: holiday.holiday_title, holiday_note: holiday.holiday_note || '', is_enabled: holiday.is_enabled }); setShowEditModal(true); };
+  const openEdit = holiday => { setSelectedHoliday(holiday); setFormData({ holiday_date: toDateInputValue(holiday.holiday_date), holiday_type: holiday.holiday_type, holiday_title: holiday.holiday_title, holiday_note: holiday.holiday_note || '', is_enabled: holiday.is_enabled }); setShowEditModal(true); };
 
   const handleClearRange = async (data) => {
     try {
@@ -260,8 +261,8 @@ const ManageHolidays = () => {
                       {holidays.map((h) => (
                         <tr key={h.id} className="group border-b border-admin-border hover:bg-admin-elevated/[0.02] transition-colors">
                           <td className="px-6 py-5 whitespace-nowrap">
-                            <span className="block text-sm font-bold text-admin-text">{formatDate(h.holiday_date)}</span>
-                            <span className="text-[10px] text-admin-secondary font-mono">{new Date(h.holiday_date).toLocaleDateString('en-US', { weekday: 'long' })}</span>
+                            <span className="block text-sm font-bold text-admin-text">{formatDisplayDate(h.holiday_date)}</span>
+                            <span className="text-[10px] text-admin-secondary font-mono">{new Date(toDateInputValue(h.holiday_date)).toLocaleDateString('en-US', { weekday: 'long' })}</span>
                           </td>
                           <td className="px-6 py-5 whitespace-nowrap">
                             <span className="text-sm font-extrabold text-admin-secondary group-hover:text-blue-400 transition-colors">{h.holiday_title}</span>

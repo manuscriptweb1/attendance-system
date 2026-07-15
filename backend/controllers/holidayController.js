@@ -17,7 +17,7 @@ const getAllHolidays = async (req, res) => {
   try {
     const { year, month } = req.query;
     
-    let query = 'SELECT * FROM holidays';
+    let query = "SELECT id, TO_CHAR(holiday_date, 'YYYY-MM-DD') AS holiday_date, holiday_type, holiday_title, holiday_note, is_enabled, created_at, created_by, updated_at FROM holidays";
     const params = [];
     
     if (year) {
@@ -53,7 +53,7 @@ const getHolidayByDate = async (req, res) => {
     const { date } = req.params;
     
     const result = await pool.query(
-      'SELECT * FROM holidays WHERE holiday_date = $1',
+      "SELECT id, TO_CHAR(holiday_date, 'YYYY-MM-DD') AS holiday_date, holiday_type, holiday_title, holiday_note, is_enabled, created_at, created_by, updated_at FROM holidays WHERE holiday_date = $1",
       [date]
     );
     

@@ -197,7 +197,7 @@ const createManualAttendance = async (req, res) => {
 
       // Final status resolution based on calculations
       let finalResolvedStatus = attendance_status;
-      if (finalResolvedStatus !== 'Absent') {
+      if (finalResolvedStatus !== 'Absent' && finalResolvedStatus !== 'Half Day') {
         if (logout_time && totalHours > 0 && totalHours <= officeTimes.halfDayThreshold) {
           finalResolvedStatus = 'Half Day';
         } else if (checkinStatus === 'late') {
@@ -405,7 +405,7 @@ const updateManualAttendance = async (req, res) => {
 
     // Final status resolution based on calculations
     let finalResolvedStatus = finalStatus;
-    if (finalResolvedStatus !== 'Absent') {
+    if (finalResolvedStatus !== 'Absent' && finalResolvedStatus !== 'Half Day') {
       if (finalLogoutTime && totalHours > 0 && totalHours <= officeTimes.halfDayThreshold) {
         finalResolvedStatus = 'Half Day';
       } else if (checkinStatus === 'late') {

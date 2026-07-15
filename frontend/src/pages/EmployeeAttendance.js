@@ -4,6 +4,7 @@ import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
 import { getEmployeeMonthlyAttendance } from '../services/api';
 import { formatTime, formatDate, formatWorkingHours } from '../utils/formatTime';
+import { toDateInputValue } from '../utils/dateUtils';
 import {
   FiCalendar, FiInfo, FiCheckCircle, FiAlertCircle, FiClock, FiTrendingUp,
   FiBarChart2
@@ -28,8 +29,8 @@ const EmployeeAttendance = () => {
 
   const isSunday = dateString => new Date(dateString).getDay() === 0;
   const getHolidayInfo = dateString => holidays.find(h => {
-    const hd = new Date(h.holiday_date).toISOString().split('T')[0];
-    const rd = new Date(dateString).toISOString().split('T')[0];
+    const hd = toDateInputValue(h.holiday_date);
+    const rd = toDateInputValue(dateString);
     return hd === rd;
   });
   const getDisplayStatus = record => {
@@ -64,8 +65,8 @@ const EmployeeAttendance = () => {
     for (let d = 1; d <= maxDay; d++) {
       const date = new Date(selectedYear, selectedMonth - 1, d);
       if (date.getDay() === 0) continue;
-      const dateStr = date.toISOString().split('T')[0];
-      const isHol = holidays.some(h => new Date(h.holiday_date).toISOString().split('T')[0] === dateStr);
+      const dateStr = toDateInputValue(date);
+      const isHol = holidays.some(h => toDateInputValue(h.holiday_date) === dateStr);
       if (!isHol) workingDays++;
     }
     const totalPresent = stats.present + stats.halfDay;

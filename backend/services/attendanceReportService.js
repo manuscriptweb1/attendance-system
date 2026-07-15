@@ -92,6 +92,17 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
   const officeLateTimeInMinutes = parseTime(settings.workingHours.lateAfterTime);
   const officeStartTimeMins = parseTime(settings.workingHours.officeStartTime || settings.workingHours.start_time || '09:30 AM');
 
+  // Shift Settings
+  const shiftSettings = settings.shiftSettings || {};
+  const morningShiftStart = parseTime(shiftSettings.morningShiftStartTime || '09:30');
+  const morningLateAfter = parseTime(shiftSettings.morningLateAfterTime || '09:45');
+  const morningShiftEnd = parseTime(shiftSettings.morningShiftEndTime || '13:30');
+  const lunchStart = parseTime(shiftSettings.lunchStartTime || '13:30');
+  const lunchEnd = parseTime(shiftSettings.lunchEndTime || '14:00');
+  const eveningShiftStart = parseTime(shiftSettings.eveningShiftStartTime || '14:00');
+  const eveningLateAfter = parseTime(shiftSettings.eveningLateAfterTime || '14:00');
+  const eveningShiftEnd = parseTime(shiftSettings.eveningShiftEndTime || '17:30');
+
   let employeesQuery = `
      SELECT e.id, e.employee_id as "employeeCode", e.name as "employeeName", d.name as department,
             e.monthly_salary, e.basic_salary, e.hra, e.special_allowance, e.staff_advance, e.professional_tax, e.tds
@@ -182,6 +193,7 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
     let holidayCount = 0;
     let monthlyTotalMinutes = 0;
     let totalLateMinutes = 0;
+    let totalCountedLateMinutes = 0;
 
     const days = {};
 
@@ -229,6 +241,24 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
              if (loginMins > officeLateTimeInMinutes) {
                totalLateMinutes += (loginMins - officeLateTimeInMinutes);
              }
+             
+             // Counted Late Time Logic
+             const statusStr = String(att.attendance_status || att.status || '').trim().toLowerCase();
+             const isAbsentStatus = statusStr === 'a' || statusStr === 'absent' || statusStr === 'not mention' || statusStr === 'not mentioned' || statusStr === 'not_mention' || statusStr === 'not_mentioned' || statusStr === '';
+             
+             if (!isSun && !isGovH && !isOffH && !isAbsentStatus) {
+               if (loginMins < morningShiftEnd) {
+                 if (loginMins > morningLateAfter) {
+                   totalCountedLateMinutes += (loginMins - morningLateAfter);
+                 }
+               } else if (loginMins >= lunchStart && loginMins <= lunchEnd) {
+                 // Transition period, counted late = 0
+               } else if (loginMins >= eveningShiftStart) {
+                 if (loginMins > eveningLateAfter) {
+                   totalCountedLateMinutes += (loginMins - eveningLateAfter);
+                 }
+               }
+             }
            }
         }
       }
@@ -254,7 +284,13 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
 
     const totalHours = Number((monthlyTotalMinutes / 60).toFixed(1));
     const totalPermissionMinutes = permissionsMap[emp.employeeCode] || 0;
+    
+    // Legacy mapping (if any frontend uses it still)
     const totalLateAndPermissionMinutes = totalLateMinutes + totalPermissionMinutes;
+    
+    // New fields
+    const totalActualLateMinutes = totalLateMinutes;
+    const countedLateAndPermissionMinutes = totalCountedLateMinutes + totalPermissionMinutes;
 
     matrixRows.push({
       id: emp.id,
@@ -275,8 +311,11 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
       holiday: holidayCount,
       lateCount,
       totalLateMinutes,
+      totalActualLateMinutes,
+      totalCountedLateMinutes,
       totalPermissionMinutes,
       totalLateAndPermissionMinutes,
+      countedLateAndPermissionMinutes,
       totalHours: parseFloat(totalHours.toFixed(1))
     });
   }

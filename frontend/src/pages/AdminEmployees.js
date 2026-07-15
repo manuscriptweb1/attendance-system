@@ -9,6 +9,7 @@ import { Spinner } from '../components/Loader';
 import { getAllEmployees, getAllDepartments, addEmployee, updateEmployee, deleteEmployee, enableWFH, disableWFH, toggleEarlyCheckout, clearDataByDate } from '../services/api';
 import { FiPlus, FiEdit, FiTrash2, FiSearch, FiHome, FiClock, FiEye, FiEyeOff, FiX, FiUsers, FiDownload } from 'react-icons/fi';
 import { sortEmployeeRows } from '../utils/sorting';
+import { toDateInputValue } from '../utils/dateUtils';
 import ClearDataModal from '../components/ClearDataModal';
 
 const getMonthlySalaryValue = (employee) => {
@@ -167,8 +168,8 @@ const AdminEmployees = () => {
 
   const handleEdit = emp => {
     // Format date_of_birth to YYYY-MM-DD for the date input if it exists
-    const dob = emp.date_of_birth ? new Date(emp.date_of_birth).toISOString().split('T')[0] : '';
-    const joinDate = emp.joining_date ? new Date(emp.joining_date).toISOString().split('T')[0] : '';
+    const dob = emp.date_of_birth ? toDateInputValue(emp.date_of_birth) : '';
+    const joinDate = emp.joining_date ? toDateInputValue(emp.joining_date) : '';
     setFormData({ ...emp, password:'', date_of_birth: dob, joining_date: joinDate });
     setEditMode(true);
     setShowModal(true);
@@ -281,7 +282,7 @@ const AdminEmployees = () => {
 
     XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = toDateInputValue(new Date());
     XLSX.writeFile(workbook, `employees_export_${today}.xlsx`);
   };
 
@@ -450,11 +451,11 @@ const AdminEmployees = () => {
                 {[
                   { label:'Employee ID', name:'employee_id', type:'text', disabled:editMode },
                   { label:'Full Name',   name:'name',        type:'text' },
-                  { label:'Date of Birth', name:'date_of_birth', type:'date', max: new Date().toISOString().split('T')[0] },
+                  { label:'Date of Birth', name:'date_of_birth', type:'date', max: toDateInputValue(new Date()) },
                   { label:'Job Role',    name:'job_role',    type:'text' },
                   { label:'Mobile',      name:'mobile',      type:'tel'  },
                   { label:'Email',       name:'email',       type:'email'},
-                  { label:'Joining Date', name:'joining_date', type:'date', max: new Date().toISOString().split('T')[0], required: false },
+                  { label:'Joining Date', name:'joining_date', type:'date', max: toDateInputValue(new Date()), required: false },
                 ].map(({ label, name, type, disabled, required = true, ...rest }) => (
                   <div key={name}>
                     <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">{label}</label>

@@ -1751,3 +1751,22 @@ body.admin-theme-dark .clear-range-cancel-btn,
   background: rgba(96, 165, 250, 0.14);
   color: #93c5fd;
 }
+
+.admin-select, .admin-select option { color: var(--text-primary, #111827) !important; background-color: var(--card-bg, #ffffff) !important; opacity: 1 !important; }
+.admin-theme-dark .admin-select, .admin-theme-dark .admin-select option { color: #ffffff !important; background-color: #1C2540 !important; opacity: 1 !important; }
+
+
+/* Admin Reports Safe CSS */
+.report-filter-select {
+  color: var(--admin-text, #111827) !important;
+  background-color: var(--admin-surface, #ffffff) !important;
+  opacity: 1 !important;
+}
+.report-filter-select option {
+  color: #111827 !important;
+  background-color: #ffffff !important;
+}
+.admin-theme-dark .report-filter-select option {
+  color: #ffffff !important;
+  background-color: #1C2540 !important;
+}

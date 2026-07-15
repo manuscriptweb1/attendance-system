@@ -33,12 +33,22 @@ async function getSettingsFromDB() {
         gpsAccuracyThreshold: dbSettings.gps_accuracy_threshold
       },
       workingHours: {
-        lateAfterTime: dbSettings.late_after_time.substring(0, 5),  // Format: HH:MM
+        lateAfterTime: dbSettings.late_after_time ? dbSettings.late_after_time.substring(0, 5) : '09:30',
         halfDayThreshold: parseFloat(dbSettings.half_day_threshold),
-        officeStartTime: dbSettings.office_start_time.substring(0, 5),  // Format: HH:MM
-        officeEndTime: dbSettings.office_end_time.substring(0, 5),  // Format: HH:MM
+        officeStartTime: dbSettings.office_start_time ? dbSettings.office_start_time.substring(0, 5) : '09:00',
+        officeEndTime: dbSettings.office_end_time ? dbSettings.office_end_time.substring(0, 5) : '18:00',
         checkInEnabled: dbSettings.check_in_enabled,
         checkOutEnabled: dbSettings.check_out_enabled
+      },
+      shiftSettings: {
+        morningShiftStartTime: dbSettings.morning_shift_start_time ? dbSettings.morning_shift_start_time.substring(0, 5) : '09:30',
+        morningLateAfterTime: dbSettings.morning_late_after_time ? dbSettings.morning_late_after_time.substring(0, 5) : '09:45',
+        morningShiftEndTime: dbSettings.morning_shift_end_time ? dbSettings.morning_shift_end_time.substring(0, 5) : '13:30',
+        lunchStartTime: dbSettings.lunch_start_time ? dbSettings.lunch_start_time.substring(0, 5) : '13:30',
+        lunchEndTime: dbSettings.lunch_end_time ? dbSettings.lunch_end_time.substring(0, 5) : '14:00',
+        eveningShiftStartTime: dbSettings.evening_shift_start_time ? dbSettings.evening_shift_start_time.substring(0, 5) : '14:00',
+        eveningLateAfterTime: dbSettings.evening_late_after_time ? dbSettings.evening_late_after_time.substring(0, 5) : '14:00',
+        eveningShiftEndTime: dbSettings.evening_shift_end_time ? dbSettings.evening_shift_end_time.substring(0, 5) : '17:30'
       },
       network: {
         officePublicIP: dbSettings.office_public_ip,

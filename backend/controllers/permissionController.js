@@ -5,7 +5,7 @@ const { logAdminActivity, MODULE_NAMES } = require('../services/adminActivitySer
 const getPermissions = async (req, res) => {
   try {
     const { month, year, employee_id } = req.query;
-    let query = `SELECT * FROM employee_permissions WHERE 1=1`;
+    let query = `SELECT *, TO_CHAR(permission_date, 'YYYY-MM-DD') AS permission_date FROM employee_permissions WHERE 1=1`;
     const values = [];
     let paramCount = 1;
 
@@ -21,7 +21,7 @@ const getPermissions = async (req, res) => {
       paramCount++;
     }
 
-    query += ' ORDER BY permission_date DESC, from_time DESC';
+    query += ' ORDER BY employee_permissions.permission_date DESC, from_time DESC';
 
     const result = await pool.query(query, values);
     res.json({ success: true, permissions: result.rows });

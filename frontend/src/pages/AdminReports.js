@@ -26,8 +26,39 @@ const AdminReports = () => {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [sortBy, setSortBy] = useState('name_asc');
+
+  const monthOptions = [
+    { value: 1, label: "January" },
+    { value: 2, label: "February" },
+    { value: 3, label: "March" },
+    { value: 4, label: "April" },
+    { value: 5, label: "May" },
+    { value: 6, label: "June" },
+    { value: 7, label: "July" },
+    { value: 8, label: "August" },
+    { value: 9, label: "September" },
+    { value: 10, label: "October" },
+    { value: 11, label: "November" },
+    { value: 12, label: "December" }
+  ];
+
+  const sortOptions = [
+    { value: "name_asc", label: "Name A-Z" },
+    { value: "name_desc", label: "Name Z-A" }
+  ];
+
+  const generateYearOptions = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let i = 0; i < 5; i++) {
+      years.push(currentYear - 2 + i);
+    }
+    return years;
+  };
+  const yearOptions = generateYearOptions();
   
   const [treatLateAsPresent, setTreatLateAsPresent] = useState(false);
+  const [hideActualLateTime, setHideActualLateTime] = useState(false);
 
   const formatLateTime = (minutes) => {
     const total = Number(minutes || 0);
@@ -135,12 +166,12 @@ const AdminReports = () => {
     currentY += 10;
 
     // Report Summary Table
-    const summaryHead = [['Emp ID','Name','Department','Present','Absent','Half Day','Holiday','Late Count','Late Time','Permission Time','Late+Perm Time','Total Hours']];
+    const summaryHead = [['Emp ID','Name','Department','Present','Absent','Half Day','Holiday','Late Count','Actual Late Time','Counted Late Time','Total Permission Time','Counted Late + Permission Time','Total Hours']];
     const summaryBody = sortEmployeeRows(reportData, sortBy).map(r => {
       const rawTotalHours = r.totalHours ?? r.total_hours ?? r.totalWorkingHours ?? r.total_working_hours ?? r.workingHours ?? r.working_hours ?? 0;
       const displayTotalHours = Number(rawTotalHours || 0);
       const hoursStr = displayTotalHours % 1 === 0 ? displayTotalHours.toString() : displayTotalHours.toFixed(1);
-      return [r.employeeCode, r.employeeName, r.department, r.present, r.absent, r.halfDay, r.holiday, r.lateCount, formatLateTime(r.totalLateMinutes), formatLateTime(r.totalPermissionMinutes), formatLateTime(r.totalLateAndPermissionMinutes), hoursStr];
+      return [r.employeeCode, r.employeeName, r.department, r.present, r.absent, r.halfDay, r.holiday, r.lateCount, formatLateTime(r.totalActualLateMinutes !== undefined ? r.totalActualLateMinutes : r.totalLateMinutes), formatLateTime(r.totalCountedLateMinutes), formatLateTime(r.totalPermissionMinutes), formatLateTime(r.countedLateAndPermissionMinutes), hoursStr];
     });
 
     autoTable(doc, {
@@ -323,37 +354,36 @@ const AdminReports = () => {
           </div>
 
           {/* Report Generator Box */}
-          <div className="bg-admin-modal text-admin-modal-text border border-admin-border rounded-2xl p-6 mb-6 shadow-clay-admin animate-fadeInUp stagger-2 max-w-3xl">
+          <div className="bg-admin-modal text-admin-modal-text border border-admin-border rounded-2xl p-6 mb-6 shadow-clay-admin animate-fadeInUp stagger-2 w-full">
             <h2 className="text-sm font-bold text-admin-text mb-4 flex items-center gap-2">
               <FiFileText className="text-blue-400" /> Monthly Attendance Report
             </h2>
-            <div className="flex flex-col sm:flex-row gap-4 items-end">
-              <div className="flex-1">
+            <div className="flex flex-col lg:flex-row gap-4 lg:items-end flex-wrap">
+              <div className="flex-1 min-w-[120px]">
                 <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Month</label>
-                <select value={month} onChange={e => setMonth(parseInt(e.target.value))} className="admin-select py-2.5 text-sm text-admin-muted">
-                  {[...Array(12).keys()].map(m => (
-                    <option key={m+1} value={m+1}>{new Date(0, m).toLocaleString('default', { month: 'long' })}</option>
+                <select value={month} onChange={e => setMonth(Number(e.target.value))} className="admin-select report-filter-select w-full py-2.5 text-sm font-semibold">
+                  {monthOptions.map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
                   ))}
                 </select>
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-[120px]">
                 <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Year</label>
-                <select value={year} onChange={e => setYear(parseInt(e.target.value))} className="admin-select py-2.5 text-sm text-admin-muted">
-                  {[...Array(5).keys()].map(y => {
-                    const yearVal = new Date().getFullYear() - 2 + y;
-                    return <option key={yearVal} value={yearVal}>{yearVal}</option>
-                  })}
+                <select value={year} onChange={e => setYear(Number(e.target.value))} className="admin-select report-filter-select w-full py-2.5 text-sm font-semibold">
+                  {yearOptions.map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
                 </select>
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-[150px]">
                 <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Sort By</label>
-                <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="admin-select py-2.5 text-sm text-admin-muted cursor-pointer">
-                  <option value="name_asc" className="bg-admin-elevated text-slate-900">Name A-Z</option>
-                  <option value="name_desc" className="bg-admin-elevated text-slate-900">Name Z-A</option>
-
+                <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="admin-select report-filter-select w-full py-2.5 text-sm font-semibold cursor-pointer">
+                  {sortOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
                 </select>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 mt-2 lg:mt-0">
                 {hasPermission('reports', 'can_calculate') && (
                   <button onClick={handleGenerateReport} disabled={loading} className="flex items-center gap-2 bg-admin-elevated hover:bg-white/10 text-admin-text px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border border-admin-border shadow-sm disabled:opacity-50">
                     <FiRefreshCw size={16} className={loading ? 'animate-spin' : ''} /> {loading ? 'Generating...' : 'Generate'}
@@ -377,19 +407,37 @@ const AdminReports = () => {
               </div>
             </div>
             <div className="mt-6 pt-6 border-t border-admin-border flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer"
-                    checked={treatLateAsPresent}
-                    onChange={(e) => setTreatLateAsPresent(e.target.checked)}
-                  />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
-                </label>
-                <div>
-                  <div className="text-sm font-bold text-admin-text">HR View: Treat Late as Present</div>
-                  <div className="text-xs text-admin-muted">Late entries are shown as Present in this report view only.</div>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+                <div className="flex items-center gap-3">
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={treatLateAsPresent}
+                      onChange={(e) => setTreatLateAsPresent(e.target.checked)}
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
+                  </label>
+                  <div>
+                    <div className="text-sm font-bold text-admin-text">HR View: Treat Late as Present</div>
+                    <div className="text-xs text-admin-muted">Late entries are shown as Present in this report view only.</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={hideActualLateTime}
+                      onChange={(e) => setHideActualLateTime(e.target.checked)}
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-amber-500"></div>
+                  </label>
+                  <div>
+                    <div className="text-sm font-bold text-admin-text">Hide Actual Late Time</div>
+                    <div className="text-xs text-admin-muted">Hides actual late time from the preview table. Counted late time remains visible.</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -418,9 +466,21 @@ const AdminReports = () => {
               <div className="table-responsive dark-scroll">
                 <table className="min-w-full divide-y divide-white/[0.04]">
                   <thead className="bg-admin-bg">
-                    <tr>{['Emp ID','Name','Department','Present','Absent','Half Day','Holiday','Late Count','Total Late Time','Total Permission Time','Total Late + Permission Time','Total Hours'].map(h => (
-                      <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
-                    ))}</tr>
+                    <tr>
+                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Emp ID</th>
+                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Name</th>
+                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Department</th>
+                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Present</th>
+                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Absent</th>
+                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Half Day</th>
+                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Holiday</th>
+                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Late Count</th>
+                      {!hideActualLateTime && <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Actual Late Time</th>}
+                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Counted Late Time</th>
+                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Total Permission Time</th>
+                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Counted Late + Permission Time</th>
+                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Total Hours</th>
+                    </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
                     {(() => {
@@ -439,9 +499,12 @@ const AdminReports = () => {
                         <td className="px-5 py-3.5 text-xs font-bold text-yellow-500 whitespace-nowrap">{r.halfDay}</td>
                         <td className="px-5 py-3.5 text-xs font-bold text-blue-400 whitespace-nowrap">{r.holiday}</td>
                         <td className="px-5 py-3.5 text-xs font-bold text-amber-500 whitespace-nowrap">{displayLateCount}</td>
-                        <td className="px-5 py-3.5 text-xs font-bold text-amber-600 whitespace-nowrap">{formatLateTime(r.totalLateMinutes)}</td>
+                        {!hideActualLateTime && (
+                          <td className="px-5 py-3.5 text-xs font-bold text-amber-600 whitespace-nowrap">{formatLateTime(r.totalActualLateMinutes !== undefined ? r.totalActualLateMinutes : r.totalLateMinutes)}</td>
+                        )}
+                        <td className="px-5 py-3.5 text-xs font-bold text-orange-500 whitespace-nowrap">{formatLateTime(r.totalCountedLateMinutes)}</td>
                         <td className="px-5 py-3.5 text-xs font-bold text-indigo-400 whitespace-nowrap">{formatLateTime(r.totalPermissionMinutes)}</td>
-                        <td className="px-5 py-3.5 text-xs font-bold text-rose-500 whitespace-nowrap">{formatLateTime(r.totalLateAndPermissionMinutes)}</td>
+                        <td className="px-5 py-3.5 text-xs font-bold text-rose-500 whitespace-nowrap">{formatLateTime(r.countedLateAndPermissionMinutes)}</td>
                         <td className="px-5 py-3.5 text-xs text-admin-text whitespace-nowrap">
                           {(() => {
                             const rawTotalHours = r.totalHours ?? r.total_hours ?? r.totalWorkingHours ?? r.total_working_hours ?? r.workingHours ?? r.working_hours ?? 0;

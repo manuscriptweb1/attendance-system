@@ -12,10 +12,10 @@ import { validateDateString } from '../utils/dateValidation';
 import { FiEdit, FiSearch, FiCalendar, FiFilter, FiSave, FiX, FiLayers, FiTrash2 } from 'react-icons/fi';
 import { sortEmployeeRows } from '../utils/sorting';
 
+import { toDateInputValue } from '../utils/dateUtils';
+
 const getLocalYMD = () => {
-  const d = new Date();
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().split('T')[0];
+  return toDateInputValue(new Date());
 };
 
 const AdminAbsentReasons = () => {
@@ -193,7 +193,7 @@ const AdminAbsentReasons = () => {
               <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Date</label>
               <div className="relative">
                 <FiCalendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-admin-secondary pointer-events-none" />
-                <input type="date" value={date} onChange={e => setDate(e.target.value)} max={new Date().toISOString().split('T')[0]}
+                <input type="date" value={date} onChange={e => setDate(e.target.value)} max={toDateInputValue(new Date())}
                   className="w-full bg-white/5 border border-admin-border text-admin-text rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-[#3B82F6]" />
               </div>
             </div>

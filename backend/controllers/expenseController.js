@@ -141,7 +141,7 @@ const getExpenses = async (req, res) => {
   try {
     const { month, year } = req.query;
     let query = `
-      SELECT e.*, et.name as expense_type_name 
+      SELECT e.*, TO_CHAR(e.expense_date, 'YYYY-MM-DD') AS expense_date, et.name as expense_type_name 
       FROM monthly_expenses e
       LEFT JOIN expense_types et ON e.expense_type_id = et.id
     `;

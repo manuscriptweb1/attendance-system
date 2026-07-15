@@ -12,6 +12,7 @@ import { getDailyMotivation, getEventMotivation, CATEGORIES } from '../utils/mot
 import { mapErrorToDialogConfig } from '../utils/errorMapper';
 import { getCurrentLocation, getDeviceInfo, getDeviceFingerprintData, getIPAddress } from '../utils/location';
 import { formatTime, formatWorkingHours, format24To12Hour, formatDate } from '../utils/formatTime';
+import { toDateInputValue, formatDisplayDate } from '../utils/dateUtils';
 import {
   FiLogIn, FiLogOut, FiClock, FiCheckCircle, FiAlertCircle, FiInfo,
   FiCalendar, FiTrendingUp, FiSun, FiMoon, FiSunrise, FiActivity,
@@ -427,11 +428,11 @@ const EmployeeDashboard = () => {
     today.setHours(0, 0, 0, 0);
     return monthlyHolidays
       .filter(h => {
-        const hd = new Date(h.holiday_date);
+        const hd = new Date(toDateInputValue(h.holiday_date));
         hd.setHours(0, 0, 0, 0);
         return hd >= today;
       })
-      .sort((a, b) => new Date(a.holiday_date) - new Date(b.holiday_date));
+      .sort((a, b) => new Date(toDateInputValue(a.holiday_date)) - new Date(toDateInputValue(b.holiday_date)));
   }, [monthlyHolidays]);
 
   /* ─── Recent Attendance (last 7 records with login) ─── */
@@ -977,23 +978,25 @@ const EmployeeDashboard = () => {
                 {upcomingHolidays.length > 0 ? (
                   <div className="space-y-2.5">
                     {upcomingHolidays.map(holiday => {
-                      const holidayDate = new Date(holiday.holiday_date);
+                      const dateOnly = toDateInputValue(holiday.holiday_date);
+                      const [y, m, d] = dateOnly.split('-');
+                      const safeLocalDate = new Date(y, m - 1, d); // Local midnight
+                      
                       const today = new Date();
                       today.setHours(0, 0, 0, 0);
-                      holidayDate.setHours(0, 0, 0, 0);
-                      const daysLeft = Math.ceil((holidayDate - today) / 86400000);
-                      const dayName = new Date(holiday.holiday_date).toLocaleDateString('en-US', { weekday: 'long' });
-                      const displayDate = new Date(holiday.holiday_date);
+                      
+                      const daysLeft = Math.ceil((safeLocalDate - today) / 86400000);
+                      const dayName = safeLocalDate.toLocaleDateString('en-US', { weekday: 'long' });
 
                       return (
                         <div key={holiday.id} className="clay-holiday-item flex items-center gap-3.5">
                           {/* Date circle */}
                           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-50 to-purple-100 flex flex-col items-center justify-center flex-shrink-0 border border-purple-100/80">
                             <span className="text-[9px] font-bold text-purple-500 uppercase leading-none">
-                              {displayDate.toLocaleDateString('en-US', { month: 'short' })}
+                              {safeLocalDate.toLocaleDateString('en-US', { month: 'short' })}
                             </span>
                             <span className="text-lg font-bold text-purple-700 leading-none mt-0.5">
-                              {displayDate.getDate()}
+                              {safeLocalDate.getDate()}
                             </span>
                           </div>
                           {/* Info */}

@@ -13,10 +13,11 @@ import { getErrorMessage } from '../utils/errorHandler';
 import { validateDateString } from '../utils/dateValidation';
 import { FiCheckSquare, FiSquare, FiEdit, FiSearch, FiCalendar, FiFilter, FiSave, FiX, FiLayers, FiTrash2 } from 'react-icons/fi';
 import { sortEmployeeRows } from '../utils/sorting';
+import { toDateInputValue } from '../utils/dateUtils';
 
 const AdminManualAttendance = () => {
   const { hasPermission } = useAuth();
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(toDateInputValue(new Date()));
   const [departmentId, setDepartmentId] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');

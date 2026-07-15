@@ -27,13 +27,23 @@ const getSettings = async (req, res) => {
         gpsAccuracyThreshold: dbSettings.gps_accuracy_threshold
       },
       workingHours: {
-        lateAfterTime: dbSettings.late_after_time.substring(0, 5),  // Format: HH:MM
+        lateAfterTime: dbSettings.late_after_time ? dbSettings.late_after_time.substring(0, 5) : '09:30',  // Format: HH:MM
         halfDayThreshold: parseFloat(dbSettings.half_day_threshold),
-        officeStartTime: dbSettings.office_start_time.substring(0, 5),  // Format: HH:MM
-        officeEndTime: dbSettings.office_end_time.substring(0, 5),  // Format: HH:MM
+        officeStartTime: dbSettings.office_start_time ? dbSettings.office_start_time.substring(0, 5) : '09:00',  // Format: HH:MM
+        officeEndTime: dbSettings.office_end_time ? dbSettings.office_end_time.substring(0, 5) : '18:00',  // Format: HH:MM
         autoCheckoutTime: dbSettings.auto_checkout_time ? dbSettings.auto_checkout_time.substring(0, 5) : '18:32',  // Format: HH:MM
         checkInEnabled: dbSettings.check_in_enabled,
         checkOutEnabled: dbSettings.check_out_enabled
+      },
+      shiftSettings: {
+        morningShiftStartTime: dbSettings.morning_shift_start_time ? dbSettings.morning_shift_start_time.substring(0, 5) : '09:30',
+        morningLateAfterTime: dbSettings.morning_late_after_time ? dbSettings.morning_late_after_time.substring(0, 5) : '09:45',
+        morningShiftEndTime: dbSettings.morning_shift_end_time ? dbSettings.morning_shift_end_time.substring(0, 5) : '13:30',
+        lunchStartTime: dbSettings.lunch_start_time ? dbSettings.lunch_start_time.substring(0, 5) : '13:30',
+        lunchEndTime: dbSettings.lunch_end_time ? dbSettings.lunch_end_time.substring(0, 5) : '14:00',
+        eveningShiftStartTime: dbSettings.evening_shift_start_time ? dbSettings.evening_shift_start_time.substring(0, 5) : '14:00',
+        eveningLateAfterTime: dbSettings.evening_late_after_time ? dbSettings.evening_late_after_time.substring(0, 5) : '14:00',
+        eveningShiftEndTime: dbSettings.evening_shift_end_time ? dbSettings.evening_shift_end_time.substring(0, 5) : '17:30'
       },
       network: {
         officePublicIP: dbSettings.office_public_ip || '',
@@ -102,7 +112,15 @@ const updateSettings = async (req, res) => {
       attendanceRateLimit,
       trustedDeviceValidationEnabled,
       electronDesktopEnabled,
-      electronDesktopValidationMode
+      electronDesktopValidationMode,
+      morningShiftStartTime,
+      morningLateAfterTime,
+      morningShiftEndTime,
+      lunchStartTime,
+      lunchEndTime,
+      eveningShiftStartTime,
+      eveningLateAfterTime,
+      eveningShiftEndTime
     } = req.body;
 
     // Validation
@@ -201,6 +219,14 @@ const updateSettings = async (req, res) => {
         trusted_device_validation_enabled = $16,
         electron_desktop_enabled = $17,
         electron_desktop_validation_mode = $18,
+        morning_shift_start_time = $19,
+        morning_late_after_time = $20,
+        morning_shift_end_time = $21,
+        lunch_start_time = $22,
+        lunch_end_time = $23,
+        evening_shift_start_time = $24,
+        evening_late_after_time = $25,
+        evening_shift_end_time = $26,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = (SELECT id FROM settings ORDER BY id LIMIT 1)
       RETURNING *
@@ -224,7 +250,15 @@ const updateSettings = async (req, res) => {
       attendanceRateLimit ? parseInt(attendanceRateLimit) : 5,
       trustedDeviceValidationEnabled !== undefined ? trustedDeviceValidationEnabled : false,
       electronDesktopEnabled !== undefined ? electronDesktopEnabled : true,
-      electronDesktopValidationMode || 'trusted_device_and_network'
+      electronDesktopValidationMode || 'trusted_device_and_network',
+      morningShiftStartTime || '09:30',
+      morningLateAfterTime || '09:45',
+      morningShiftEndTime || '13:30',
+      lunchStartTime || '13:30',
+      lunchEndTime || '14:00',
+      eveningShiftStartTime || '14:00',
+      eveningLateAfterTime || '14:00',
+      eveningShiftEndTime || '17:30'
     ];
 
     const result = await pool.query(updateQuery, values);
@@ -250,7 +284,9 @@ const updateSettings = async (req, res) => {
       newData: { 
         latitude, longitude, allowedRadius, officeStartTime, officeEndTime,
         attendanceValidationMode, trustedDeviceValidationEnabled,
-        electronDesktopEnabled, electronDesktopValidationMode
+        electronDesktopEnabled, electronDesktopValidationMode,
+        morningShiftStartTime, morningLateAfterTime, morningShiftEndTime,
+        lunchStartTime, lunchEndTime, eveningShiftStartTime, eveningLateAfterTime, eveningShiftEndTime
       },
       ipAddress: getClientIP(req),
       browserInfo: req.headers['user-agent']
@@ -274,6 +310,16 @@ const updateSettings = async (req, res) => {
           checkInEnabled,
           checkOutEnabled,
           halfDayThreshold
+        },
+        shiftSettings: {
+          morningShiftStartTime,
+          morningLateAfterTime,
+          morningShiftEndTime,
+          lunchStartTime,
+          lunchEndTime,
+          eveningShiftStartTime,
+          eveningLateAfterTime,
+          eveningShiftEndTime
         },
         network: {
           officePublicIP,

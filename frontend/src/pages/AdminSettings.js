@@ -44,7 +44,10 @@ const AdminSettings = () => {
     checkInEnabled:true, checkOutEnabled:true, 
     officePublicIP:'', allowedIPs:'', 
     attendanceValidationMode:'location_or_network', attendanceRateLimit:5, trustedDeviceValidationEnabled:false,
-    electronDesktopEnabled:true, electronDesktopValidationMode:'trusted_device_and_network'
+    electronDesktopEnabled:true, electronDesktopValidationMode:'trusted_device_and_network',
+    morningShiftStartTime:'09:30', morningLateAfterTime:'09:45', morningShiftEndTime:'13:30',
+    lunchStartTime:'13:30', lunchEndTime:'14:00',
+    eveningShiftStartTime:'14:00', eveningLateAfterTime:'14:00', eveningShiftEndTime:'17:30'
   });
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
@@ -77,7 +80,15 @@ const AdminSettings = () => {
           attendanceRateLimit:s.security?.attendanceRateLimit||5, 
           trustedDeviceValidationEnabled:s.trustedDevice?.validationEnabled||false,
           electronDesktopEnabled:s.electronDesktop?.enabled!==undefined?s.electronDesktop.enabled:true,
-          electronDesktopValidationMode:s.electronDesktop?.validationMode||'trusted_device_and_network'
+          electronDesktopValidationMode:s.electronDesktop?.validationMode||'trusted_device_and_network',
+          morningShiftStartTime:s.shiftSettings?.morningShiftStartTime||'09:30',
+          morningLateAfterTime:s.shiftSettings?.morningLateAfterTime||'09:45',
+          morningShiftEndTime:s.shiftSettings?.morningShiftEndTime||'13:30',
+          lunchStartTime:s.shiftSettings?.lunchStartTime||'13:30',
+          lunchEndTime:s.shiftSettings?.lunchEndTime||'14:00',
+          eveningShiftStartTime:s.shiftSettings?.eveningShiftStartTime||'14:00',
+          eveningLateAfterTime:s.shiftSettings?.eveningLateAfterTime||'14:00',
+          eveningShiftEndTime:s.shiftSettings?.eveningShiftEndTime||'17:30'
         }); 
       } 
     }
@@ -162,7 +173,22 @@ const AdminSettings = () => {
               </div>
             </SectionCard></div>
 
-            {/* 3. Attendance Rules */}
+            {/* 3. Shift Late Calculation Settings */}
+            <div className="stagger-3"><SectionCard icon={FiClock} iconBg="bg-rose-500/10" iconColor="text-rose-400" title="Shift Late Calculation Settings">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Field label="Morning Shift Start Time"><input type="time" name="morningShiftStartTime" value={settings.morningShiftStartTime} onChange={handleChange} className="admin-input py-2.5 text-sm" required /></Field>
+                <Field label="Morning Late After Time"><input type="time" name="morningLateAfterTime" value={settings.morningLateAfterTime} onChange={handleChange} className="admin-input py-2.5 text-sm" required /></Field>
+                <Field label="Morning Shift End Time"><input type="time" name="morningShiftEndTime" value={settings.morningShiftEndTime} onChange={handleChange} className="admin-input py-2.5 text-sm" required /></Field>
+                <Field label="Lunch Start Time"><input type="time" name="lunchStartTime" value={settings.lunchStartTime} onChange={handleChange} className="admin-input py-2.5 text-sm" required /></Field>
+                
+                <Field label="Lunch End Time"><input type="time" name="lunchEndTime" value={settings.lunchEndTime} onChange={handleChange} className="admin-input py-2.5 text-sm" required /></Field>
+                <Field label="Evening Shift Start Time"><input type="time" name="eveningShiftStartTime" value={settings.eveningShiftStartTime} onChange={handleChange} className="admin-input py-2.5 text-sm" required /></Field>
+                <Field label="Evening Late After Time"><input type="time" name="eveningLateAfterTime" value={settings.eveningLateAfterTime} onChange={handleChange} className="admin-input py-2.5 text-sm" required /></Field>
+                <Field label="Evening Shift End Time"><input type="time" name="eveningShiftEndTime" value={settings.eveningShiftEndTime} onChange={handleChange} className="admin-input py-2.5 text-sm" required /></Field>
+              </div>
+            </SectionCard></div>
+
+            {/* 4. Attendance Rules */}
             <div className="stagger-4"><SectionCard icon={FiSliders} iconBg="bg-emerald-500/10" iconColor="text-emerald-400" title="Attendance Rules">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                 <Field label="Half Day Threshold (hours)" hint="Working hours < threshold = Half Day">

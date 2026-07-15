@@ -19,12 +19,13 @@ const getIndiaDateTime = () => {
 };
 
 /**
- * Helper to parse time string like "08:00 PM" or "20:00" into minutes from midnight
+ * Helper to parse time string like "09:45", "09:45:00", "09:45 AM", "09:45 PM" into minutes from midnight
  */
-const parseOfficeTimeToMinutes = (timeStr) => {
+const timeToMinutes = (timeStr) => {
   if (!timeStr) return 0;
   
-  const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+  // Match HH:mm or HH:mm:ss with optional AM/PM
+  const match = String(timeStr).trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?(?:\s*(AM|PM))?$/i);
   if (!match) return 0;
 
   let hour = parseInt(match[1], 10);
@@ -38,7 +39,8 @@ const parseOfficeTimeToMinutes = (timeStr) => {
 };
 
 // Backwards compatibility alias
-const parseTime = parseOfficeTimeToMinutes;
+const parseOfficeTimeToMinutes = timeToMinutes;
+const parseTime = timeToMinutes;
 
 /**
  * Returns minutes from midnight safely in Asia/Kolkata
@@ -174,6 +176,7 @@ module.exports = {
   getIndiaDateTime,
   parseTime,
   parseOfficeTimeToMinutes,
+  timeToMinutes,
   getLocalTimeMinutes,
   getOfficeTimes,
   calculateCheckInStatus,

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { toDateInputValue, formatDisplayDate } from '../utils/dateUtils';
 import ClearRangeDialog from '../components/ClearRangeDialog';
 import { Spinner } from '../components/Loader';
 import api, { clearExpenseRange } from '../services/api';
@@ -225,7 +226,7 @@ const AdminExpenses = () => {
       amount: exp.amount || '',
       payment_method: exp.payment_method || exp.payment_mode || 'Bank',
       payment_status: exp.payment_status || exp.status || 'paid',
-      expense_date: exp.expense_date
+      expense_date: toDateInputValue(exp.expense_date)
     });
     
     // Handle old inactive types safely
@@ -479,7 +480,7 @@ const AdminExpenses = () => {
                             {r.payment_method || r.payment_mode || '—'}
                           </span>
                         </td>
-                        <td className="px-5 py-4 text-xs font-semibold text-admin-secondary whitespace-nowrap">{formatDate(r.expense_date)}</td>
+                        <td className="px-5 py-4 text-xs font-semibold text-admin-secondary whitespace-nowrap">{formatDisplayDate(r.expense_date)}</td>
                         <td className="px-5 py-4 text-xs text-admin-muted truncate max-w-xs">{r.notes || r.description || '—'}</td>
                         <td className="px-5 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-1">
@@ -569,7 +570,7 @@ const AdminExpenses = () => {
               {editMode && (
                 <div>
                   <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Expense Date *</label>
-                  <input type="date" name="expense_date" value={formData.expense_date ? formData.expense_date.split('T')[0] : ''} onChange={handleInputChange} required className="admin-input" />
+                  <input type="date" name="expense_date" value={formData.expense_date ? toDateInputValue(formData.expense_date) : ''} onChange={handleInputChange} required className="admin-input" />
                 </div>
               )}
 

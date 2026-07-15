@@ -6,6 +6,7 @@ import AdminToast from '../components/AdminToast';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { Spinner } from '../components/Loader';
 import ClearDataModal from '../components/ClearDataModal';
+import { toDateInputValue, formatDisplayDate } from '../utils/dateUtils';
 import { getPermissions, getPermissionSummary, createPermission, updatePermission, deletePermission, clearPermissionRange, getAllEmployees } from '../services/api';
 import { formatDate } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
@@ -127,7 +128,7 @@ const AdminPermissions = () => {
     setFormData({ 
       id: perm.id,
       employee_id: perm.employee_id,
-      permission_date: perm.permission_date ? perm.permission_date.split('T')[0] : '',
+      permission_date: toDateInputValue(perm.permission_date),
       from_time: perm.from_time,
       to_time: perm.to_time,
       reason: perm.reason || ''
@@ -281,7 +282,7 @@ const AdminPermissions = () => {
                             <span className="text-xs text-admin-muted">{p.employee_id} | {p.department_name}</span>
                           </div>
                         </td>
-                        <td className="px-5 py-4 text-xs font-semibold text-admin-secondary whitespace-nowrap">{formatDate(p.permission_date)}</td>
+                        <td className="px-5 py-4 text-xs font-semibold text-admin-secondary whitespace-nowrap">{formatDisplayDate(p.permission_date)}</td>
                         <td className="px-5 py-4 text-xs text-admin-secondary whitespace-nowrap">
                           {p.from_time} - {p.to_time}
                         </td>

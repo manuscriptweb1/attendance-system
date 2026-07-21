@@ -55,8 +55,19 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('device_fingerprint');
   };
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
-  const isSuperAdmin = user?.is_super_admin === true || user?.isSuperAdmin === true || user?.role === 'super_admin';
+  const normalizeRole = (role) => 
+    String(role || "").trim().toLowerCase().replace(/[_-]+/g, " ");
+
+  const isSuperAdmin = 
+    user?.is_super_admin === true || 
+    user?.isSuperAdmin === true || 
+    user?.emergency_admin === true ||
+    normalizeRole(user?.role) === 'super admin' || 
+    normalizeRole(user?.role) === 'superadmin';
+
+  const isAdmin = 
+    isSuperAdmin || 
+    normalizeRole(user?.role) === 'admin';
   
   const hasPageAccess = (pageKey) => {
     if (isSuperAdmin) return true;

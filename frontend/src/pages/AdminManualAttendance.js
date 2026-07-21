@@ -270,6 +270,10 @@ const AdminManualAttendance = () => {
     executeSubmit(finalReason);
   };
 
+  const clearSelectedEmployees = () => {
+    setSelectedIds([]);
+  };
+
   const executeSubmit = async (finalReason) => {
     try {
       if (editMode) {
@@ -301,6 +305,7 @@ const AdminManualAttendance = () => {
         const res = await createManualAttendance(payload);
         if (res.data.success) {
           setToastConfig({ message: res.data.message, type: 'success' });
+          clearSelectedEmployees();
           setShowModal(false);
           fetchData({ silent: true });
         }

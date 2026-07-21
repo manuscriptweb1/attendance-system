@@ -30,6 +30,8 @@ const permissionRoutes = require('./routes/permissionRoutes');
 // Import cron jobs
 const { createDailyAbsentRecords } = require('./jobs/createDailyAbsentRecords');
 const { autoCheckoutEmployees } = require('./jobs/autoCheckout');
+const { seedEmergencyAdmin } = require('./utils/emergencySeed');
+const pool = require('./config/database');
 
 const app = express();
 
@@ -107,10 +109,19 @@ app.use('/api/public', publicRoutes);
 app.use('/api/permissions', permissionRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  let dbStatus = 'disconnected';
+  try {
+    await pool.query('SELECT 1');
+    dbStatus = 'connected';
+  } catch (error) {
+    console.error('Database health check failed:', error.message);
+  }
+
   res.json({ 
     success: true, 
-    message: 'Server is running',
+    server: 'running',
+    database: dbStatus,
     timestamp: new Date().toISOString()
   });
 });
@@ -137,6 +148,9 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📍 http://localhost:${PORT}`);
+  
+  // Seed emergency admin if needed
+  await seedEmergencyAdmin();
   
   // Run auto-checkout check every minute
   cron.schedule('* * * * *', async () => {

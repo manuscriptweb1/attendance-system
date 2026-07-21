@@ -18,13 +18,73 @@ const adminLogin = async (req, res) => {
       });
     }
 
-    // Find admin
-    const result = await pool.query(
-      'SELECT * FROM admins WHERE username = $1',
-      [username]
-    );
+    const identifier = String(req.body.username || req.body.email || req.body.identifier || "").trim();
+    const enteredPassword = String(password || "");
 
-    if (result.rows.length === 0) {
+    async function tryEmergencyAdminLogin(ident, pass) {
+      if (process.env.EMERGENCY_ADMIN_ENABLED !== "true") {
+        return null;
+      }
+      const enteredIdentifier = String(ident || "").trim();
+      const emergencyUsername = String(process.env.EMERGENCY_ADMIN_USERNAME || "").trim();
+      if (!emergencyUsername || enteredIdentifier !== emergencyUsername) {
+        return null;
+      }
+      let passwordMatches = false;
+      if (process.env.EMERGENCY_ADMIN_PASSWORD_HASH) {
+        passwordMatches = await bcrypt.compare(pass, process.env.EMERGENCY_ADMIN_PASSWORD_HASH);
+      } else if (process.env.EMERGENCY_ADMIN_PASSWORD) {
+        passwordMatches = pass === process.env.EMERGENCY_ADMIN_PASSWORD;
+      }
+      if (!passwordMatches) return null;
+      return {
+        id: "emergency-super-admin",
+        username: process.env.EMERGENCY_ADMIN_USERNAME,
+        email: process.env.EMERGENCY_ADMIN_EMAIL,
+        role: "Super Admin",
+        is_super_admin: true,
+        emergency_admin: true,
+        permissions: {}
+      };
+    }
+
+    const sendEmergencyAdminLoginResponse = (res, emergencyAdmin) => {
+      const token = jwt.sign(
+        { 
+          id: emergencyAdmin.id, 
+          username: emergencyAdmin.username,
+          email: emergencyAdmin.email,
+          role: emergencyAdmin.role,
+          is_super_admin: true,
+          emergency_admin: true
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRE }
+      );
+      
+      return res.json({
+        success: true,
+        message: 'Emergency Login successful',
+        token,
+        user: emergencyAdmin
+      });
+    };
+
+    let result;
+    try {
+      result = await pool.query(
+        'SELECT * FROM admins WHERE username = $1 OR email = $1',
+        [username]
+      );
+    } catch (err) {
+      console.error('Admin query failed:', err.message);
+    }
+
+    if (!result || !result.rows || result.rows.length === 0) {
+      const emergencyAdmin = await tryEmergencyAdminLogin(identifier, enteredPassword);
+      if (emergencyAdmin) {
+        return sendEmergencyAdminLoginResponse(res, emergencyAdmin);
+      }
       return res.status(401).json({ 
         success: false, 
         message: 'Invalid username',
@@ -35,9 +95,13 @@ const adminLogin = async (req, res) => {
     const admin = result.rows[0];
 
     // Verify password
-    const isValidPassword = await bcrypt.compare(password, admin.password);
+    const isValidPassword = await bcrypt.compare(enteredPassword, admin.password);
 
     if (!isValidPassword) {
+      const emergencyAdmin = await tryEmergencyAdminLogin(identifier, enteredPassword);
+      if (emergencyAdmin) {
+        return sendEmergencyAdminLoginResponse(res, emergencyAdmin);
+      }
       return res.status(401).json({ 
         success: false, 
         message: 'Invalid password',

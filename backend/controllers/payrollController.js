@@ -689,11 +689,50 @@ const registerSystemFonts = (doc) => {
   return { fontRegular, fontBold, fontItalic };
 };
 
-function renderPayslipHeader(doc, data, monthName, year, logoPath, fonts) {
+function drawDetailRow(doc, {
+  label,
+  value,
+  labelX,
+  valueX,
+  y,
+  labelWidth,
+  valueWidth,
+  rowWidth,
+  fontSize = 9,
+  boldValue = true,
+  fonts
+}) {
+  const safeValue = (value !== undefined && value !== null && String(value).trim() !== '') ? String(value) : '-';
   const { fontRegular, fontBold } = fonts;
 
-  // Outer Card Box Container (Y: 35 to 535)
-  doc.rect(40, 35, 515, 500).stroke('#CBD5E1');
+  doc.font(fontRegular).fontSize(fontSize);
+  const labelHeight = doc.heightOfString(label, { width: labelWidth });
+
+  doc.font(boldValue ? fontBold : fontRegular).fontSize(fontSize);
+  const valueHeight = doc.heightOfString(safeValue, { width: valueWidth, align: 'right' });
+
+  const textHeight = Math.max(labelHeight, valueHeight);
+  const rowHeight = Math.max(16, textHeight + 4);
+
+  doc.font(fontRegular).fontSize(fontSize).fillColor('#475569').text(label, labelX, y, {
+    width: labelWidth,
+    align: 'left'
+  });
+
+  doc.font(boldValue ? fontBold : fontRegular).fontSize(fontSize).fillColor('#0F172A').text(safeValue, valueX, y, {
+    width: valueWidth,
+    align: 'right'
+  });
+
+  const lineY = y + rowHeight - 1;
+
+  doc.moveTo(labelX, lineY).lineTo(labelX + rowWidth, lineY).strokeColor('#F1F5F9').lineWidth(0.5).stroke();
+
+  return lineY + 5;
+}
+
+function renderPayslipHeader(doc, data, monthName, year, logoPath, fonts) {
+  const { fontRegular, fontBold } = fonts;
 
   // Company Logo & Title (Centered Top)
   if (logoPath) {
@@ -713,11 +752,11 @@ function renderPayslipHeader(doc, data, monthName, year, logoPath, fonts) {
   doc.fontSize(10).font(fontRegular).fillColor('#475569').text(`For the month of ${monthName} ${year}`, 40, 102, { align: 'center' });
 
   // Header Divider Line
-  doc.moveTo(50, 122).lineTo(545, 122).stroke('#CBD5E1');
+  doc.moveTo(50, 122).lineTo(545, 122).strokeColor('#CBD5E1').lineWidth(1).stroke();
 }
 
-function renderEmployeeAndAttendanceDetails(doc, r, fonts) {
-  const { fontRegular, fontBold } = fonts;
+function renderEmployeeAndAttendanceDetails(doc, r, fonts, startY = 135) {
+  const { fontBold } = fonts;
 
   let absentDays = parseFloat(r.absent_days) || 0;
   if (absentDays === 0 && r.paid_days) {
@@ -725,45 +764,69 @@ function renderEmployeeAndAttendanceDetails(doc, r, fonts) {
   }
 
   // --- EMPLOYEE DETAILS (Left Column: X 50 to 280) ---
-  doc.fontSize(10).font(fontBold).fillColor('#0F172A').text('EMPLOYEE DETAILS', 50, 135);
-  doc.moveTo(50, 150).lineTo(280, 150).stroke('#CBD5E1');
-
-  doc.fontSize(9).font(fontRegular).fillColor('#475569');
-  doc.text('Employee Code', 50, 160); doc.font(fontBold).fillColor('#0F172A').text(r.emp_code_real || r.employee_code || '-', 180, 160, { align: 'right', width: 100 });
-  doc.moveTo(50, 175).lineTo(280, 175).stroke('#F1F5F9');
-
-  doc.font(fontRegular).fillColor('#475569').text('Name', 50, 180); doc.font(fontBold).fillColor('#0F172A').text(r.employee_name || '-', 180, 180, { align: 'right', width: 100 });
-  doc.moveTo(50, 195).lineTo(280, 195).stroke('#F1F5F9');
-
-  doc.font(fontRegular).fillColor('#475569').text('Designation', 50, 200); doc.font(fontBold).fillColor('#0F172A').text(r.job_role || '-', 180, 200, { align: 'right', width: 100 });
-  doc.moveTo(50, 215).lineTo(280, 215).stroke('#F1F5F9');
-
-  doc.font(fontRegular).fillColor('#475569').text('Department', 50, 220); doc.font(fontBold).fillColor('#0F172A').text(r.department_name || '-', 180, 220, { align: 'right', width: 100 });
-  doc.moveTo(50, 235).lineTo(280, 235).stroke('#F1F5F9');
+  doc.fontSize(10).font(fontBold).fillColor('#0F172A').text('EMPLOYEE DETAILS', 50, startY);
+  doc.moveTo(50, startY + 15).lineTo(280, startY + 15).strokeColor('#CBD5E1').lineWidth(1).stroke();
 
   // --- ATTENDANCE DETAILS (Right Column: X 315 to 545) ---
-  doc.fontSize(10).font(fontBold).fillColor('#0F172A').text('ATTENDANCE DETAILS', 315, 135);
-  doc.moveTo(315, 150).lineTo(545, 150).stroke('#CBD5E1');
+  doc.fontSize(10).font(fontBold).fillColor('#0F172A').text('ATTENDANCE DETAILS', 315, startY);
+  doc.moveTo(315, startY + 15).lineTo(545, startY + 15).strokeColor('#CBD5E1').lineWidth(1).stroke();
 
-  doc.fontSize(9).font(fontRegular).fillColor('#475569');
-  doc.text('Working Days', 315, 160); doc.font(fontBold).fillColor('#0F172A').text(formatDayValue(r.working_days), 445, 160, { align: 'right', width: 100 });
-  doc.moveTo(315, 175).lineTo(545, 175).stroke('#F1F5F9');
+  let leftY = startY + 23;
+  const empRows = [
+    { label: 'Employee Code', value: r.emp_code_real || r.employee_code },
+    { label: 'Name', value: r.employee_name },
+    { label: 'Designation', value: r.job_role },
+    { label: 'Department', value: r.department_name }
+  ];
 
-  doc.font(fontRegular).fillColor('#475569').text('Paid Days', 315, 180); doc.font(fontBold).fillColor('#0F172A').text(formatDayValue(r.paid_days), 445, 180, { align: 'right', width: 100 });
-  doc.moveTo(315, 195).lineTo(545, 195).stroke('#F1F5F9');
+  empRows.forEach(row => {
+    leftY = drawDetailRow(doc, {
+      label: row.label,
+      value: row.value,
+      labelX: 50,
+      valueX: 140,
+      y: leftY,
+      labelWidth: 85,
+      valueWidth: 140,
+      rowWidth: 230,
+      fontSize: 9,
+      boldValue: true,
+      fonts
+    });
+  });
 
-  doc.font(fontRegular).fillColor('#475569').text('Present Days', 315, 200); doc.font(fontBold).fillColor('#0F172A').text(formatDayValue(r.present_days), 445, 200, { align: 'right', width: 100 });
-  doc.moveTo(315, 215).lineTo(545, 215).stroke('#F1F5F9');
+  let rightY = startY + 23;
+  const attRows = [
+    { label: 'Working Days', value: formatDayValue(r.working_days) },
+    { label: 'Paid Days', value: formatDayValue(r.paid_days) },
+    { label: 'Present Days', value: formatDayValue(r.present_days) },
+    { label: 'Absent Days', value: formatDayValue(absentDays) }
+  ];
 
-  doc.font(fontRegular).fillColor('#475569').text('Absent Days', 315, 220); doc.font(fontBold).fillColor('#0F172A').text(formatDayValue(absentDays), 445, 220, { align: 'right', width: 100 });
-  doc.moveTo(315, 235).lineTo(545, 235).stroke('#F1F5F9');
+  attRows.forEach(row => {
+    rightY = drawDetailRow(doc, {
+      label: row.label,
+      value: row.value,
+      labelX: 315,
+      valueX: 430,
+      y: rightY,
+      labelWidth: 110,
+      valueWidth: 115,
+      rowWidth: 230,
+      fontSize: 9,
+      boldValue: true,
+      fonts
+    });
+  });
 
-  // Section Divider
-  doc.moveTo(50, 250).lineTo(545, 250).stroke('#CBD5E1');
+  const sectionEndY = Math.max(leftY, rightY);
+  doc.moveTo(50, sectionEndY + 2).lineTo(545, sectionEndY + 2).strokeColor('#CBD5E1').lineWidth(1).stroke();
+
+  return sectionEndY + 12;
 }
 
-function renderEarningsAndDeductions(doc, r, fonts) {
-  const { fontRegular, fontBold } = fonts;
+function renderEarningsAndDeductions(doc, r, fonts, startY) {
+  const { fontBold } = fonts;
 
   const basic = parseFloat(r.basic_salary) || 0;
   const hra = parseFloat(r.hra) || 0;
@@ -777,73 +840,124 @@ function renderEarningsAndDeductions(doc, r, fonts) {
   const totalDeductions = lop + pt + tds + advance;
 
   // --- EARNINGS (Left Column: X 50 to 280) ---
-  doc.fontSize(10).font(fontBold).fillColor('#0F172A').text('EARNINGS', 50, 262);
-  doc.moveTo(50, 277).lineTo(280, 277).stroke('#CBD5E1');
-
-  doc.fontSize(9).font(fontRegular).fillColor('#475569');
-  doc.text('Basic Salary', 50, 287); doc.font(fontBold).fillColor('#0F172A').text(formatINR(basic), 180, 287, { align: 'right', width: 100 });
-  doc.moveTo(50, 302).lineTo(280, 302).stroke('#F1F5F9');
-
-  doc.font(fontRegular).fillColor('#475569').text('HRA', 50, 307); doc.font(fontBold).fillColor('#0F172A').text(formatINR(hra), 180, 307, { align: 'right', width: 100 });
-  doc.moveTo(50, 322).lineTo(280, 322).stroke('#F1F5F9');
-
-  doc.font(fontRegular).fillColor('#475569').text('Special Allowance', 50, 327); doc.font(fontBold).fillColor('#0F172A').text(formatINR(special), 180, 327, { align: 'right', width: 100 });
-  doc.moveTo(50, 342).lineTo(280, 342).stroke('#F1F5F9');
-
-  doc.fontSize(9.5).font(fontBold).fillColor('#0F172A').text('Gross Earnings', 50, 352);
-  doc.text(formatINR(gross), 180, 352, { align: 'right', width: 100 });
-  doc.moveTo(50, 367).lineTo(280, 367).stroke('#CBD5E1');
+  doc.fontSize(10).font(fontBold).fillColor('#0F172A').text('EARNINGS', 50, startY);
+  doc.moveTo(50, startY + 15).lineTo(280, startY + 15).strokeColor('#CBD5E1').lineWidth(1).stroke();
 
   // --- DEDUCTIONS (Right Column: X 315 to 545) ---
-  doc.fontSize(10).font(fontBold).fillColor('#0F172A').text('DEDUCTIONS', 315, 262);
-  doc.moveTo(315, 277).lineTo(545, 277).stroke('#CBD5E1');
+  doc.fontSize(10).font(fontBold).fillColor('#0F172A').text('DEDUCTIONS', 315, startY);
+  doc.moveTo(315, startY + 15).lineTo(545, startY + 15).strokeColor('#CBD5E1').lineWidth(1).stroke();
 
-  doc.fontSize(9).font(fontRegular).fillColor('#475569');
-  doc.text('Loss of Pay / LOP', 315, 287); doc.font(fontBold).fillColor('#0F172A').text(formatINR(lop), 445, 287, { align: 'right', width: 100 });
-  doc.moveTo(315, 302).lineTo(545, 302).stroke('#F1F5F9');
+  let leftY = startY + 23;
+  const earningsRows = [
+    { label: 'Basic Salary', value: formatINR(basic) },
+    { label: 'HRA', value: formatINR(hra) },
+    { label: 'Special Allowance', value: formatINR(special) }
+  ];
 
-  doc.font(fontRegular).fillColor('#475569').text('Professional Tax', 315, 307); doc.font(fontBold).fillColor('#0F172A').text(formatINR(pt), 445, 307, { align: 'right', width: 100 });
-  doc.moveTo(315, 322).lineTo(545, 322).stroke('#F1F5F9');
+  earningsRows.forEach(row => {
+    leftY = drawDetailRow(doc, {
+      label: row.label,
+      value: row.value,
+      labelX: 50,
+      valueX: 140,
+      y: leftY,
+      labelWidth: 85,
+      valueWidth: 140,
+      rowWidth: 230,
+      fontSize: 9,
+      boldValue: true,
+      fonts
+    });
+  });
 
-  doc.font(fontRegular).fillColor('#475569').text('TDS', 315, 327); doc.font(fontBold).fillColor('#0F172A').text(formatINR(tds), 445, 327, { align: 'right', width: 100 });
-  doc.moveTo(315, 342).lineTo(545, 342).stroke('#F1F5F9');
+  leftY = drawDetailRow(doc, {
+    label: 'Gross Earnings',
+    value: formatINR(gross),
+    labelX: 50,
+    valueX: 140,
+    y: leftY,
+    labelWidth: 85,
+    valueWidth: 140,
+    rowWidth: 230,
+    fontSize: 9.5,
+    boldValue: true,
+    fonts
+  });
 
-  doc.font(fontRegular).fillColor('#475569').text('Staff Advance', 315, 347); doc.font(fontBold).fillColor('#0F172A').text(formatINR(advance), 445, 347, { align: 'right', width: 100 });
-  doc.moveTo(315, 362).lineTo(545, 362).stroke('#F1F5F9');
+  let rightY = startY + 23;
+  const deductionRows = [
+    { label: 'Loss of Pay / LOP', value: formatINR(lop) },
+    { label: 'Professional Tax', value: formatINR(pt) },
+    { label: 'TDS', value: formatINR(tds) },
+    { label: 'Staff Advance', value: formatINR(advance) }
+  ];
 
-  doc.fontSize(9.5).font(fontBold).fillColor('#0F172A').text('Total Deductions', 315, 372);
-  doc.text(formatINR(totalDeductions), 445, 372, { align: 'right', width: 100 });
-  doc.moveTo(315, 387).lineTo(545, 387).stroke('#CBD5E1');
+  deductionRows.forEach(row => {
+    rightY = drawDetailRow(doc, {
+      label: row.label,
+      value: row.value,
+      labelX: 315,
+      valueX: 430,
+      y: rightY,
+      labelWidth: 110,
+      valueWidth: 115,
+      rowWidth: 230,
+      fontSize: 9,
+      boldValue: true,
+      fonts
+    });
+  });
 
-  // Section Divider
-  doc.moveTo(50, 405).lineTo(545, 405).stroke('#CBD5E1');
+  rightY = drawDetailRow(doc, {
+    label: 'Total Deductions',
+    value: formatINR(totalDeductions),
+    labelX: 315,
+    valueX: 430,
+    y: rightY,
+    labelWidth: 110,
+    valueWidth: 115,
+    rowWidth: 230,
+    fontSize: 9.5,
+    boldValue: true,
+    fonts
+  });
 
-  return { gross, totalDeductions };
+  const sectionEndY = Math.max(leftY, rightY);
+  doc.moveTo(50, sectionEndY + 2).lineTo(545, sectionEndY + 2).strokeColor('#CBD5E1').lineWidth(1).stroke();
+
+  return { gross, totalDeductions, nextY: sectionEndY + 15 };
 }
 
-function renderNetPayable(doc, r, gross, totalDeductions, fonts) {
+function renderNetPayable(doc, r, gross, totalDeductions, fonts, startY) {
   const { fontBold } = fonts;
   const netPayable = parseFloat(r.net_payable) || (gross - totalDeductions);
 
-  doc.rect(50, 418, 495, 48).fillAndStroke('#EFF6FF', '#93C5FD');
-  doc.fontSize(11).font(fontBold).fillColor('#1E40AF').text('NET PAYABLE', 70, 434);
-  doc.fontSize(17).font(fontBold).fillColor('#1E3A8A').text(formatINR(netPayable), 340, 431, { align: 'right', width: 190 });
+  doc.rect(50, startY, 495, 48).fillAndStroke('#EFF6FF', '#93C5FD');
+  doc.fontSize(11).font(fontBold).fillColor('#1E40AF').text('NET PAYABLE', 70, startY + 16);
+  doc.fontSize(17).font(fontBold).fillColor('#1E3A8A').text(formatINR(netPayable), 340, startY + 13, { align: 'right', width: 190 });
+
+  return startY + 60;
 }
 
-function renderPayslipNote(doc, fonts, generatedDateStr) {
+function renderPayslipNote(doc, fonts, generatedDateStr, startY) {
   const { fontItalic, fontBold } = fonts;
 
-  doc.moveTo(50, 480).lineTo(545, 480).stroke('#CBD5E1');
-  doc.fontSize(8.5).font(fontItalic).fillColor('#64748B').text('Note: This is a computer-generated pay slip and does not require a signature.', 40, 490, { align: 'center' });
-  doc.fontSize(8).font(fontBold).fillColor('#94A3B8').text(`Generated on: ${generatedDateStr}`, 40, 507, { align: 'center' });
+  doc.moveTo(50, startY).lineTo(545, startY).strokeColor('#CBD5E1').lineWidth(1).stroke();
+  doc.fontSize(8.5).font(fontItalic).fillColor('#64748B').text('Note: This is a computer-generated pay slip and does not require a signature.', 40, startY + 10, { align: 'center' });
+  doc.fontSize(8).font(fontBold).fillColor('#94A3B8').text(`Generated on: ${generatedDateStr}`, 40, startY + 25, { align: 'center' });
+
+  return startY + 42;
 }
 
 function renderPayslipPage(doc, record, monthName, year, generatedDateStr, logoPath, fonts) {
   renderPayslipHeader(doc, record, monthName, year, logoPath, fonts);
-  renderEmployeeAndAttendanceDetails(doc, record, fonts);
-  const { gross, totalDeductions } = renderEarningsAndDeductions(doc, record, fonts);
-  renderNetPayable(doc, record, gross, totalDeductions, fonts);
-  renderPayslipNote(doc, fonts, generatedDateStr);
+  const detailsEndY = renderEmployeeAndAttendanceDetails(doc, record, fonts, 135);
+  const { gross, totalDeductions, nextY: earningsEndY } = renderEarningsAndDeductions(doc, record, fonts, detailsEndY);
+  const netPayableEndY = renderNetPayable(doc, record, gross, totalDeductions, fonts, earningsEndY);
+  const finalEndY = renderPayslipNote(doc, fonts, generatedDateStr, netPayableEndY);
+
+  const cardHeight = Math.max(500, finalEndY - 35);
+  doc.rect(40, 35, 515, cardHeight).strokeColor('#CBD5E1').lineWidth(1).stroke();
 }
 
 const downloadAllPayslipsPDF = async (req, res) => {

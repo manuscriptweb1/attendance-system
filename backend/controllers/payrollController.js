@@ -622,7 +622,7 @@ function formatINR(value) {
   const num = Number(value || 0);
   const rounded = Math.round(num);
 
-  return `₹${rounded.toLocaleString("en-IN", {
+  return `\u20B9${rounded.toLocaleString("en-IN", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   })}`;
@@ -645,9 +645,10 @@ const getCompanyLogoPath = () => {
   return null;
 };
 
-function resolveFontPath(fileName) {
+function resolvePayslipFont(fileName) {
   const possiblePaths = [
     path.join(__dirname, '../assets/fonts', fileName),
+    path.join(__dirname, '../../backend/assets/fonts', fileName),
     path.join(__dirname, '../../assets/fonts', fileName),
     path.join(process.cwd(), 'assets/fonts', fileName),
     path.join(process.cwd(), 'backend/assets/fonts', fileName)
@@ -657,43 +658,27 @@ function resolveFontPath(fileName) {
 }
 
 function registerPayslipFonts(doc) {
-  const regularFontPath = resolveFontPath('NotoSans-Regular.ttf');
-  const boldFontPath = resolveFontPath('NotoSans-Bold.ttf');
-  const italicFontPath = resolveFontPath('NotoSans-Italic.ttf');
+  const regularFontPath = resolvePayslipFont('NotoSans-Regular.ttf') || resolvePayslipFont('Arial-Regular.ttf');
+  const boldFontPath = resolvePayslipFont('NotoSans-Bold.ttf') || resolvePayslipFont('Arial-Bold.ttf');
+  const italicFontPath = resolvePayslipFont('NotoSans-Italic.ttf') || resolvePayslipFont('Arial-Italic.ttf');
 
-  let fontRegular = 'Helvetica';
-  let fontBold = 'Helvetica-Bold';
-  let fontItalic = 'Helvetica-Oblique';
-
-  if (regularFontPath) {
-    try {
-      doc.registerFont('PayslipRegular', regularFontPath);
-      fontRegular = 'PayslipRegular';
-      console.log('Payslip font loaded:', regularFontPath);
-    } catch (err) {
-      console.warn('Could not register PayslipRegular font:', err.message);
-    }
+  if (!regularFontPath || !boldFontPath) {
+    throw new Error('Payslip Unicode font missing. Add NotoSans-Regular.ttf and NotoSans-Bold.ttf to backend/assets/fonts.');
   }
 
-  if (boldFontPath) {
-    try {
-      doc.registerFont('PayslipBold', boldFontPath);
-      fontBold = 'PayslipBold';
-    } catch (err) {
-      console.warn('Could not register PayslipBold font:', err.message);
-    }
-  }
-
+  doc.registerFont('PayslipRegular', regularFontPath);
+  doc.registerFont('PayslipBold', boldFontPath);
   if (italicFontPath) {
-    try {
-      doc.registerFont('PayslipItalic', italicFontPath);
-      fontItalic = 'PayslipItalic';
-    } catch (err) {
-      console.warn('Could not register PayslipItalic font:', err.message);
-    }
+    doc.registerFont('PayslipItalic', italicFontPath);
   }
 
-  return { fontRegular, fontBold, fontItalic };
+  console.log('Payslip Unicode font loaded:', regularFontPath);
+
+  return {
+    fontRegular: 'PayslipRegular',
+    fontBold: 'PayslipBold',
+    fontItalic: italicFontPath ? 'PayslipItalic' : 'PayslipRegular'
+  };
 }
 
 function drawDetailRow(doc, {
@@ -1005,7 +990,10 @@ const downloadAllPayslipsPDF = async (req, res) => {
     const generatedDateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
     result.rows.forEach((r, idx) => {
-      if (idx > 0) doc.addPage();
+      if (idx > 0) {
+        doc.addPage();
+      }
+      doc.font(fonts.fontRegular);
       renderPayslipPage(doc, r, monthName, year, generatedDateStr, logoPath, fonts);
     });
 

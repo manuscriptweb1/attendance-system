@@ -231,30 +231,30 @@ const parseMonthYearFromText = (text) => {
 };
 
 const ADMIN_PAGE_ROUTES = [
-  { keys: ["dashboard", "home"], label: "Dashboard", route: "/admin/dashboard", permission: "dashboard" },
-  { keys: ["employee", "employees", "staff", "user", "users"], label: "Employees", route: "/admin/employees", permission: "employees" },
+  { keys: ["dashboard", "home", "admin dashboard"], label: "Dashboard", route: "/admin/dashboard", permission: "dashboard" },
+  { keys: ["employee", "employees", "staff", "user", "users", "employee list"], label: "Employees", route: "/admin/employees", permission: "employees" },
   { keys: ["department", "departments", "dept"], label: "Departments", route: "/admin/departments", permission: "departments" },
-  { keys: ["admin management", "admins", "admin users", "admin", "management"], label: "Admin Management", route: "/admin/management", permission: "admin_management" },
+  { keys: ["admin management", "admins", "admin users", "admin", "management", "admin list"], label: "Admin Management", route: "/admin/management", permission: "admin_management" },
   { keys: ["attendance", "daily attendance"], label: "Attendance", route: "/admin/attendance", permission: "attendance" },
-  { keys: ["permission", "permissions"], label: "Permissions", route: "/admin/permissions", permission: "permissions" },
-  { keys: ["manual attendance", "manual", "manual entry"], label: "Manual Attendance", route: "/admin/manual-attendance", permission: "manual_attendance" },
-  { keys: ["absent reason", "absent reasons", "reason", "reasons"], label: "Absent Reasons", route: "/admin/absent-reasons", permission: "absent_reasons" },
-  { keys: ["holiday", "holidays"], label: "Holidays", route: "/admin/holidays", permission: "holidays" },
-  { keys: ["payroll", "salary", "payslip", "payslips", "pay slip", "pay slips"], label: "Payroll", route: "/admin/payroll", permission: "payroll" },
-  { keys: ["expense", "expenses", "finance"], label: "Expenses", route: "/admin/expenses", permission: "expenses" },
-  { keys: ["report", "reports", "attendance report"], label: "Reports", route: "/admin/reports", permission: "reports" },
-  { keys: ["settings", "setting", "system settings"], label: "Settings", route: "/admin/settings", permission: "settings" },
-  { keys: ["activity log", "activity logs", "admin activity", "logs"], label: "Activity Logs", route: "/admin/activity-logs", permission: "activity_logs" },
-  { keys: ["database monitor", "database", "db monitor", "storage"], label: "Database Monitor", route: "/admin/database-monitor", permission: "database_monitor" },
-  { keys: ["trusted device", "trusted devices", "devices"], label: "Trusted Devices", route: "/admin/trusted-devices", permission: "trusted_devices" },
+  { keys: ["permission", "permissions", "user permissions", "role permissions"], label: "Permissions", route: "/admin/permissions", permission: "permissions" },
+  { keys: ["manual attendance", "manual", "manual entry", "manual checkin", "manual attendance page"], label: "Manual Attendance", route: "/admin/manual-attendance", permission: "manual_attendance" },
+  { keys: ["absent reason", "absent reasons", "reason", "reasons", "absent reason page"], label: "Absent Reasons", route: "/admin/absent-reasons", permission: "absent_reasons" },
+  { keys: ["holiday", "holidays", "holiday page"], label: "Holidays", route: "/admin/holidays", permission: "holidays" },
+  { keys: ["payroll", "salary", "payroll page", "salary page"], label: "Payroll", route: "/admin/payroll", permission: "payroll" },
+  { keys: ["expense", "expenses", "finance", "expenses page"], label: "Expenses", route: "/admin/expenses", permission: "expenses" },
+  { keys: ["reports", "report page", "reports page"], label: "Reports", route: "/admin/reports", permission: "reports" },
+  { keys: ["settings", "setting", "system settings", "settings page"], label: "Settings", route: "/admin/settings", permission: "settings" },
+  { keys: ["activity log", "activity logs", "admin activity", "logs", "activity log page"], label: "Activity Logs", route: "/admin/activity-logs", permission: "activity_logs" },
+  { keys: ["database monitor", "database", "db monitor", "storage", "db", "database page", "db page", "database monitor page"], label: "Database Monitor", route: "/admin/database-monitor", permission: "database_monitor" },
+  { keys: ["trusted device", "trusted devices", "devices", "trusted device page"], label: "Trusted Devices", route: "/admin/trusted-devices", permission: "trusted_devices" },
   { keys: ["manage", "manage page", "system manage"], label: "Manage", route: "/admin/manage", permission: "manage" },
-  { keys: ["security log", "security logs", "security"], label: "Security Logs", route: "/admin/security-logs", permission: "security_logs" },
-  { keys: ["otp setting", "otp settings", "otp"], label: "OTP Settings", route: "/admin/otp-settings", permission: "otp_settings" }
+  { keys: ["security log", "security logs", "security", "security log page"], label: "Security Logs", route: "/admin/security-logs", permission: "security_logs" },
+  { keys: ["otp setting", "otp settings", "otp", "otp setting page"], label: "OTP Settings", route: "/admin/otp-settings", permission: "otp_settings" }
 ];
 
 const parseNavigationCommand = (commandText) => {
   const text = commandText.toLowerCase().trim();
-  const navPrefixes = ['take me to ', 'navigate to ', 'open ', 'go to ', 'show ', 'view '];
+  const navPrefixes = ['take me to ', 'navigate to ', 'open ', 'go to '];
 
   let isExplicitNav = false;
   let cleanedText = text;
@@ -611,7 +611,7 @@ const AdminAssistantBot = () => {
       return;
     }
 
-    const allowed = hasPageAccess ? hasPageAccess(navResult.permission) : (hasPermission ? hasPermission(navResult.permission, 'can_view') : true);
+    const allowed = hasPermission ? hasPermission(navResult.permission, 'can_view') : (hasPageAccess ? hasPageAccess(navResult.permission) : true);
 
     if (!allowed) {
       addMessage('bot', `You do not have permission to open ${navResult.label}.`);
@@ -619,6 +619,7 @@ const AdminAssistantBot = () => {
     }
 
     addMessage('bot', `Opening ${navResult.label} page...`);
+    executeBotCommand('log_navigation', { targetPage: navResult.label, path: navResult.route }).catch((err) => console.error('Navigation log error:', err));
     setTimeout(() => {
       navigate(navResult.route);
     }, 400);
@@ -1000,6 +1001,14 @@ const AdminAssistantBot = () => {
 
       if (isQuickButtonsQuery) {
         addMessage('bot', 'Here are the quick action buttons:', { showQuickActions: true });
+        setProcessing(false);
+        return;
+      }
+
+      // 0b. Navigation Commands (e.g. open dashboard, open manual attendance, open database, etc.)
+      const navResult = parseNavigationCommand(cmd);
+      if (navResult) {
+        handleNavigation(navResult);
         setProcessing(false);
         return;
       }

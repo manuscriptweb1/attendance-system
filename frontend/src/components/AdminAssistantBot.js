@@ -72,6 +72,7 @@ const findMatchingAction = (query, caps) => {
 
 const INITIAL_QUICK_ACTIONS = [
   { label: '❓ Help / Commands', command: 'help' },
+  { label: '📊 Report Summary', command: 'show report' },
   { label: '⏱ Attendance Help', command: 'help_mark_attendance' },
   { label: '📄 Payslip Help', command: 'help_payslip' },
   { label: '💰 Payroll Help', command: 'help_payroll' },
@@ -80,6 +81,68 @@ const INITIAL_QUICK_ACTIONS = [
   { label: '📊 Today Summary', command: 'today attendance summary' },
   { label: '💳 Open Payroll', command: 'open payroll' }
 ];
+
+const formatLateTime = (minutes) => {
+  const total = Number(minutes || 0);
+  if (!total || total <= 0) return "-";
+  const hours = Math.floor(total / 60);
+  const mins = total % 60;
+  if (hours <= 0) return `${mins} min`;
+  return `${hours}h ${String(mins).padStart(2, "0")}m`;
+};
+
+const DEFAULT_CONVERSATION = {
+  greetings: {
+    patterns: ["hi", "hello", "hey", "good morning", "good afternoon", "good evening"],
+    response: "Hi! I am your MTM Admin Assistant. How can I help you today?"
+  },
+  wellbeing: {
+    patterns: ["how are you", "how are you doing", "how r u", "how is it going", "are you fine"],
+    response: "I am doing well and ready to help you with attendance, payroll, reports, payslips, and admin tasks."
+  },
+  thanks: {
+    patterns: ["thanks", "thank you", "thank you bot"],
+    response: "You're welcome!"
+  },
+  acknowledgement: {
+    patterns: ["ok", "okay", "fine", "good", "done"],
+    response: "Okay."
+  },
+  bye: {
+    patterns: ["bye", "goodbye", "see you"],
+    response: "Goodbye! Have a good day."
+  },
+  identity: {
+    patterns: ["who are you", "what are you", "your name"],
+    response: "I am your MTM Admin Assistant. I can help you navigate admin pages, search employees, manage attendance, generate reports, calculate payroll, and download payslips."
+  }
+};
+
+const matchBasicConversation = (lowerCmd, caps) => {
+  const convConfig = caps?.conversation || DEFAULT_CONVERSATION;
+  const text = (lowerCmd || '').trim();
+  if (!text) return null;
+
+  for (const key of Object.keys(convConfig)) {
+    const item = convConfig[key];
+    if (item && item.patterns && Array.isArray(item.patterns)) {
+      for (const pattern of item.patterns) {
+        const p = pattern.toLowerCase().trim();
+        if (p.length <= 4) {
+          if (text === p || text.startsWith(p + ' ') || text.endsWith(' ' + p) || text.includes(' ' + p + ' ')) {
+            return item.response;
+          }
+        } else {
+          if (text === p || text.includes(p)) {
+            return item.response;
+          }
+        }
+      }
+    }
+  }
+
+  return null;
+};
 
 const MONTH_NAMES = [
   "january", "february", "march", "april", "may", "june",
@@ -668,6 +731,13 @@ const AdminAssistantBot = () => {
       return;
     }
 
+    if (actionType === 'report_summary') {
+      setPendingAction(null);
+      const m = currentMonth ? ` ${getMonthNameStr(currentMonth)} ${currentYear}` : '';
+      processUserCommand(`show report for ${codeStr}${m}`);
+      return;
+    }
+
     if (!currentMonth) {
       setPendingAction({ type: 'download_single_payslip', step: 'ask_month', employee: emp });
       addMessage('bot', `Which month and year do you want to download payslip for ${codeStr} - ${emp.name}?`, {
@@ -880,6 +950,29 @@ const AdminAssistantBot = () => {
     setProcessing(true);
 
     try {
+      // 0. Quick Buttons / Action Buttons / Dot "." Trigger
+      const isQuickButtonsQuery =
+        lowerCmd === '.' ||
+        lowerCmd === 'quick buttons' ||
+        lowerCmd === 'quick button' ||
+        lowerCmd === 'buttons' ||
+        lowerCmd === 'button' ||
+        lowerCmd === 'action buttons' ||
+        lowerCmd === 'action button' ||
+        lowerCmd === 'quick actions' ||
+        lowerCmd === 'quick action' ||
+        lowerCmd === 'show buttons' ||
+        lowerCmd === 'show action buttons' ||
+        lowerCmd === 'show quick actions' ||
+        lowerCmd === 'actions' ||
+        lowerCmd === 'action';
+
+      if (isQuickButtonsQuery) {
+        addMessage('bot', 'Here are the quick action buttons:', { showQuickActions: true });
+        setProcessing(false);
+        return;
+      }
+
       // 1. Check-Out All Employees
       const isCheckOutAll = lowerCmd.includes('checkout all') || lowerCmd.includes('check out all') || lowerCmd.includes('check-out all') || lowerCmd.includes('checkout everyone') || lowerCmd.includes('check out everyone') || lowerCmd.includes('check-out everyone') || lowerCmd.includes('close attendance for all') || lowerCmd.includes('today checkout for all') || lowerCmd.includes('all employees checkout');
       if (isCheckOutAll) {
@@ -1204,7 +1297,118 @@ const AdminAssistantBot = () => {
         return;
       }
 
-      // --- 1. HELP INTENTS (General & Specific Help) ---
+      // Report Summary Commands
+      const isReportSummary = 
+        (lowerCmd.includes('report') || lowerCmd.includes('reports')) &&
+        !lowerCmd.startsWith('open') &&
+        !lowerCmd.startsWith('go to') &&
+        !lowerCmd.startsWith('navigate') &&
+        !lowerCmd.startsWith('take me to') &&
+        !lowerCmd.includes('today report') &&
+        !lowerCmd.includes('today attendance report');
+
+      if (isReportSummary) {
+        const { month, year } = parseMonthYearFromText(cmd);
+        const targetMonth = month || (new Date().getMonth() + 1);
+        const targetYear = year || new Date().getFullYear();
+
+        let employeeQuery = null;
+        const forMatch = cmd.match(/(?:report\s+(?:details\s+)?(?:for|of)|employee\s+report\s+for|report\s+for)\s+([a-zA-Z0-9\s-]+?)(?:\s+(?:for|in)\s+|$|\b(?:january|february|march|april|may|june|july|august|september|october|november|december|this month|last month|current month|20\d{2}))/i);
+
+        if (forMatch && forMatch[1]) {
+          const raw = forMatch[1].trim();
+          const cleaned = raw.replace(/\b(january|february|march|april|may|june|july|august|september|october|november|december|this month|last month|current month|20\d{2}|report|reports)\b/gi, '').trim();
+          if (cleaned && cleaned.length > 0 && !['details', 'summary', 'attendance'].includes(cleaned.toLowerCase())) {
+            employeeQuery = cleaned;
+          }
+        }
+
+        if (!employeeQuery) {
+          const simpleForMatch = cmd.match(/\bfor\s+([a-zA-Z0-9\s-]+)/i);
+          if (simpleForMatch && simpleForMatch[1]) {
+            const cleaned = simpleForMatch[1].replace(/\b(january|february|march|april|may|june|july|august|september|october|november|december|this month|last month|current month|20\d{2}|report|reports|details|summary|attendance)\b/gi, '').trim();
+            if (cleaned && cleaned.length > 0) {
+              employeeQuery = cleaned;
+            }
+          }
+        }
+
+        const res = await executeBotCommand('report_summary', {
+          month: targetMonth,
+          year: targetYear,
+          employeeQuery
+        });
+
+        if (res.data?.success) {
+          const type = res.data.type;
+          if (type === 'report_summary_single') {
+            const emp = res.data.data.employee;
+            let msgText = `Report Details - ${emp.employeeName}\nMonth: ${res.data.data.monthName} ${res.data.data.year}\n\n`;
+            msgText += `Present Days: ${emp.present}\n`;
+            msgText += `Absent Days: ${emp.absent}\n`;
+            msgText += `Half Day: ${emp.halfDay}\n`;
+            msgText += `Late Days: ${emp.lateCount}\n`;
+            msgText += `Counted Late + Permission Time: ${formatLateTime(emp.countedLateAndPermissionMinutes)}\n`;
+            msgText += `Total Working Hours: ${emp.totalHours || 0}h`;
+
+            addMessage('bot', msgText, { scrollToStart: true });
+          } else if (type === 'report_summary_all') {
+            const employeesList = res.data.data.employees || [];
+            let msgText = `Report Summary - ${res.data.data.monthName} ${res.data.data.year}\n\n`;
+            employeesList.forEach((emp, index) => {
+              msgText += `${index + 1}. ${emp.employeeName}\n`;
+              msgText += `Present Days: ${emp.present}\n`;
+              msgText += `Absent Days: ${emp.absent}\n`;
+              msgText += `Half Day: ${emp.halfDay}\n`;
+              msgText += `Late Days: ${emp.lateCount}\n`;
+              msgText += `Counted Late + Permission Time: ${formatLateTime(emp.countedLateAndPermissionMinutes)}\n`;
+              msgText += `Total Working Hours: ${emp.totalHours || 0}h`;
+              if (index < employeesList.length - 1) {
+                msgText += `\n\n`;
+              }
+            });
+
+            addMessage('bot', msgText, { scrollToStart: true });
+          } else if (type === 'multiple_employees_found') {
+            const candidates = res.data.data || [];
+            setPendingAction({
+              type: 'report_summary',
+              step: 'select_candidate',
+              candidates,
+              month: targetMonth,
+              year: targetYear
+            });
+            addMessage('bot', `I found multiple employees matching "${employeeQuery}". Please select one:`, {
+              cardType: 'candidate_selection',
+              candidates
+            });
+          }
+        } else {
+          addMessage('bot', res.data?.message || 'I could not generate report summary right now.');
+        }
+
+        setProcessing(false);
+        return;
+      }
+
+      // --- 3. DEVELOPER QUERY (Priority 3) ---
+      const isDeveloperQuery =
+        lowerCmd.includes('who developed you') ||
+        lowerCmd.includes('who created you') ||
+        lowerCmd.includes('who is your developer') ||
+        lowerCmd.includes('how developed you') ||
+        lowerCmd.includes('who made you') ||
+        lowerCmd === 'developer name' ||
+        lowerCmd === 'developer';
+
+      if (isDeveloperQuery && !lowerCmd.startsWith('open') && !lowerCmd.startsWith('go to') && !lowerCmd.startsWith('show page') && !lowerCmd.startsWith('navigate')) {
+        const devName = botCapabilities?.botInfo?.developer || botCapabilities?.fallback?.developerResponse || 'Mohamed Mushraf';
+        addMessage('bot', `I was developed by ${devName}.`);
+        setProcessing(false);
+        return;
+      }
+
+      // --- 4. GENERAL HELP & SPECIFIC HELP (Priority 4 & 5) ---
       const isHelpQuery =
         lowerCmd === 'help' ||
         lowerCmd === 'commands' ||
@@ -1253,142 +1457,15 @@ const AdminAssistantBot = () => {
         }
       }
 
-      // --- 2. DEVELOPER QUERY ---
-      const isDeveloperQuery =
-        lowerCmd.includes('who developed you') ||
-        lowerCmd.includes('who created you') ||
-        lowerCmd.includes('who is your developer') ||
-        lowerCmd.includes('how developed you') ||
-        lowerCmd.includes('who made you') ||
-        lowerCmd === 'developer name' ||
-        lowerCmd === 'developer';
-
-      if (isDeveloperQuery && !lowerCmd.startsWith('open') && !lowerCmd.startsWith('go to') && !lowerCmd.startsWith('show page') && !lowerCmd.startsWith('navigate')) {
-        const devName = botCapabilities?.botInfo?.developer || botCapabilities?.fallback?.developerResponse || 'Mohamed Mushraf';
-        addMessage('bot', `I was developed by ${devName}.`);
+      // --- 5. BASIC CONVERSATION INTENTS (Priority 6) ---
+      const convResponse = matchBasicConversation(lowerCmd, botCapabilities);
+      if (convResponse) {
+        addMessage('bot', convResponse);
         setProcessing(false);
         return;
       }
 
-      // --- 3. STRICT EMPLOYEE SEARCH ---
-      const isStrictEmployeeSearch =
-        lowerCmd.startsWith('find employee ') ||
-        lowerCmd.startsWith('search employee ') ||
-        lowerCmd.startsWith('show employee ') ||
-        lowerCmd.startsWith('employee details ') ||
-        lowerCmd.startsWith('find staff ') ||
-        lowerCmd.startsWith('search staff ') ||
-        lowerCmd.startsWith('find emp ') ||
-        lowerCmd.startsWith('search emp ') ||
-        lowerCmd === 'prompt_search_employee';
-
-      if (isStrictEmployeeSearch) {
-        const searchVal = cmd.replace(/^find employee\s+|^find emp\s+|^search employee\s+|^search emp\s+|^employee details\s+|^show employee\s+|^find staff\s+|^search staff\s+/i, '').trim();
-        if (searchVal && searchVal !== 'prompt_search_employee') {
-          const res = await executeBotCommand('search_employee', { query: searchVal });
-          if (res.data?.success) {
-            addMessage('bot', res.data.message, { cardType: 'employee_search', employees: res.data.data });
-          } else {
-            addMessage('bot', res.data?.message || 'I could not search employees right now.');
-          }
-          setProcessing(false);
-          return;
-        }
-      }
-
-      if (lowerCmd.includes('absent today') || lowerCmd.includes('who is absent') || lowerCmd.includes('today absent') || lowerCmd === 'absent') {
-        const res = await executeBotCommand('today_absent');
-        if (res.data?.success) {
-          addMessage('bot', res.data.message, { cardType: 'today_absent', data: res.data.data });
-        } else {
-          addMessage('bot', res.data?.message || 'I could not fetch absent list.');
-        }
-        setProcessing(false);
-        return;
-      }
-
-      if (lowerCmd.includes('late today') || lowerCmd.includes('who is late') || lowerCmd.includes('today late') || lowerCmd.includes('show late') || lowerCmd === 'late') {
-        const res = await executeBotCommand('today_late');
-        if (res.data?.success) {
-          addMessage('bot', res.data.message, { cardType: 'today_late', data: res.data.data });
-        } else {
-          addMessage('bot', res.data?.message || 'I could not fetch late list.');
-        }
-        setProcessing(false);
-        return;
-      }
-
-      const isTodayAttendanceSummary =
-        lowerCmd === 'today attendance' ||
-        lowerCmd === 'attendance today' ||
-        lowerCmd === 'today attendance summary' ||
-        lowerCmd === 'attendance summary today' ||
-        lowerCmd === 'today summary' ||
-        lowerCmd === 'today status' ||
-        lowerCmd === 'today report' ||
-        lowerCmd === 'today attendance report' ||
-        lowerCmd === 'show today attendance' ||
-        lowerCmd === 'show attendance today' ||
-        lowerCmd === 'who is present' ||
-        lowerCmd === 'summary' ||
-        (lowerCmd.includes('today') && lowerCmd.includes('attendance') && !lowerCmd.startsWith('open') && !lowerCmd.startsWith('go to') && !lowerCmd.startsWith('show page') && !lowerCmd.startsWith('navigate'));
-
-      if (isTodayAttendanceSummary) {
-        const res = await executeBotCommand('today_summary');
-        if (res.data?.success) {
-          addMessage('bot', res.data.message, { cardType: 'today_summary', data: res.data.data });
-        } else {
-          addMessage('bot', res.data?.message || 'I could not load summary.');
-        }
-        setProcessing(false);
-        return;
-      }
-
-      const navResult = parseNavigationCommand(cmd);
-      if (navResult) {
-        handleNavigation(navResult);
-        setProcessing(false);
-        return;
-      }
-
-      // --- 4. Basic Conversation Intents ---
-      const isGreeting = lowerCmd === 'hi' || lowerCmd === 'hello' || lowerCmd === 'hey' || lowerCmd === 'greetings' || lowerCmd === 'hi bot' || lowerCmd === 'hello bot';
-      if (isGreeting) {
-        addMessage('bot', 'Hi! I am your MTM Admin Assistant. How can I help you today?');
-        setProcessing(false);
-        return;
-      }
-
-      const isIdentityQuery = lowerCmd.includes('who are you') || lowerCmd.includes('who r u') || lowerCmd.includes('what is your name') || lowerCmd === 'who are u';
-      if (isIdentityQuery) {
-        const descStr = botCapabilities?.botInfo?.description || 'I can help you navigate admin pages, search employees, mark attendance, view attendance summaries, calculate payroll, download payslips, and create holidays.';
-        addMessage('bot', `I am your MTM Admin Assistant. ${descStr}`);
-        setProcessing(false);
-        return;
-      }
-
-      const isThanks = lowerCmd.includes('thank you') || lowerCmd.includes('thanks') || lowerCmd === 'thx' || lowerCmd === 'thank u';
-      if (isThanks) {
-        addMessage('bot', "You're welcome!");
-        setProcessing(false);
-        return;
-      }
-
-      const isAck = lowerCmd === 'ok' || lowerCmd === 'okay' || lowerCmd === 'fine' || lowerCmd === 'got it';
-      if (isAck) {
-        addMessage('bot', 'Okay.');
-        setProcessing(false);
-        return;
-      }
-
-      const isBye = lowerCmd.includes('bye') || lowerCmd.includes('goodbye') || lowerCmd === 'cya' || lowerCmd === 'see you';
-      if (isBye) {
-        addMessage('bot', 'Goodbye! Have a good day.');
-        setProcessing(false);
-        return;
-      }
-
-      // --- 5. Fallback Response for Unknown Questions ---
+      // --- 6. UNKNOWN FALLBACK (Priority 7) ---
       const fallbackText = botCapabilities?.fallback?.unknown || 'I do not know that. Please ask my developer.';
       addMessage('bot', fallbackText);
 

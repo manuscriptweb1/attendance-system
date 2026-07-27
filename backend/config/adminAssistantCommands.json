@@ -8,6 +8,32 @@
     "unknown": "I do not know that. Please ask my developer.",
     "developerResponse": "I was developed by Mohamed Mushraf."
   },
+  "conversation": {
+    "greetings": {
+      "patterns": ["hi", "hello", "hey", "good morning", "good afternoon", "good evening"],
+      "response": "Hi! I am your MTM Admin Assistant. How can I help you today?"
+    },
+    "wellbeing": {
+      "patterns": ["how are you", "how are you doing", "how r u", "how is it going", "are you fine"],
+      "response": "I am doing well and ready to help you with attendance, payroll, reports, payslips, and admin tasks."
+    },
+    "thanks": {
+      "patterns": ["thanks", "thank you", "thank you bot"],
+      "response": "You're welcome!"
+    },
+    "acknowledgement": {
+      "patterns": ["ok", "okay", "fine", "good", "done"],
+      "response": "Okay."
+    },
+    "bye": {
+      "patterns": ["bye", "goodbye", "see you"],
+      "response": "Goodbye! Have a good day."
+    },
+    "identity": {
+      "patterns": ["who are you", "what are you", "your name"],
+      "response": "I am your MTM Admin Assistant. I can help you navigate admin pages, search employees, manage attendance, generate reports, calculate payroll, and download payslips."
+    }
+  },
   "actions": [
     {
       "id": "navigation",
@@ -133,6 +159,24 @@
         "create holiday tomorrow",
         "add holiday Independence Day on 15 August 2026",
         "delete tomorrow holiday"
+      ],
+      "quickAction": true
+    },
+    {
+      "id": "report_summary",
+      "intent": "REPORT_SUMMARY",
+      "title": "Report Summary",
+      "description": "Generate and show monthly attendance report summary in bot chat.",
+      "permission": "reports:view",
+      "keywords": ["report", "reports", "attendance report", "monthly report", "show report", "generate report"],
+      "aliases": ["report summary", "employee report"],
+      "commands": [
+        "show report",
+        "show this month report",
+        "show July 2026 report",
+        "show report for MTM-01",
+        "show report for Mohamed Mushraf",
+        "generate report for Bilal July 2026"
       ],
       "quickAction": true
     }

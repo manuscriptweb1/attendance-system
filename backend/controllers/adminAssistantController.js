@@ -1,5 +1,5 @@
 const pool = require('../config/database');
-const { buildMonthlyPayroll } = require('../services/attendanceReportService');
+const { buildMonthlyPayroll, buildMonthlyAttendanceMatrixAndSummary } = require('../services/attendanceReportService');
 const { logAdminActivity, MODULE_NAMES, ADMIN_ACTION_TYPES } = require('../services/adminActivityService');
 const { getClientIP } = require('../services/networkValidationService');
 const { getSettingsFromDB } = require('../utils/settingsHelper');
@@ -418,6 +418,154 @@ const handleBotCommand = async (req, res) => {
           return res.json({
             success: false,
             message: 'I could not load today\'s attendance summary right now. Please try again.'
+          });
+        }
+      }
+
+      case 'report_summary': {
+        if (!checkPermission(req, 'reports', 'can_view')) {
+          return res.status(403).json({
+            success: false,
+            message: 'Permission Denied: You do not have permission to view attendance reports.'
+          });
+        }
+
+        const now = new Date();
+        const month = parseInt(payload?.month) || (now.getMonth() + 1);
+        const year = parseInt(payload?.year) || now.getFullYear();
+        const query = payload?.employeeQuery ? String(payload.employeeQuery).trim() : null;
+
+        try {
+          const { summaryRows, matrixRows, absentTable, holidayTable } = await buildMonthlyAttendanceMatrixAndSummary(month, year);
+          const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+          const monthName = monthNames[month - 1] || month;
+
+          // Save / update report snapshot in database so Reports page reflects fresh data
+          try {
+            const daysInMonth = new Date(year, month, 0).getDate();
+            const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+            const dailyAttendanceMatrix = {
+              days,
+              employees: (matrixRows || []).map(m => {
+                const daysMap = {};
+                for (let d = 1; d <= daysInMonth; d++) {
+                  daysMap[d] = m.days && m.days[d] ? m.days[d].code : '-';
+                }
+                return {
+                  employee_id: m.employeeCode,
+                  name: m.employeeName,
+                  department: m.department,
+                  days: daysMap
+                };
+              })
+            };
+
+            const upsertQuery = `
+              INSERT INTO report_snapshots (month, year, report_data, attendance_matrix, absent_table, holiday_table, generated_by, generated_at, updated_at)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+              ON CONFLICT (month, year) 
+              DO UPDATE SET 
+                report_data = EXCLUDED.report_data,
+                attendance_matrix = EXCLUDED.attendance_matrix,
+                absent_table = EXCLUDED.absent_table,
+                holiday_table = EXCLUDED.holiday_table,
+                generated_by = EXCLUDED.generated_by,
+                updated_at = CURRENT_TIMESTAMP
+            `;
+            await pool.query(upsertQuery, [
+              month, year,
+              JSON.stringify(summaryRows),
+              JSON.stringify(dailyAttendanceMatrix),
+              JSON.stringify(absentTable || []),
+              JSON.stringify(holidayTable || []),
+              adminId
+            ]);
+          } catch (snapErr) {
+            console.error('Failed to save report snapshot in bot command:', snapErr);
+          }
+
+          if (query) {
+            const qLower = query.toLowerCase();
+            const matched = summaryRows.filter(r =>
+              String(r.employeeCode || '').toLowerCase().includes(qLower) ||
+              String(r.employeeName || '').toLowerCase().includes(qLower)
+            );
+
+            if (matched.length === 0) {
+              return res.json({
+                success: false,
+                message: `No employee found matching "${query}".`
+              });
+            }
+
+            if (matched.length > 1) {
+              return res.json({
+                success: true,
+                type: 'multiple_employees_found',
+                message: `I found multiple employees matching "${query}":`,
+                data: matched.map(m => ({
+                  id: m.employeeId,
+                  employeeCode: m.employeeCode,
+                  name: m.employeeName,
+                  department: m.department
+                })),
+                month,
+                year
+              });
+            }
+
+            const empReport = matched[0];
+
+            await logAdminActivity({
+              adminId, adminName, adminEmail,
+              actionType: 'GENERATE REPORT SUMMARY',
+              moduleName: MODULE_NAMES.ADMIN_ASSISTANT,
+              description: `Generated report summary for ${empReport.employeeCode} - ${empReport.employeeName} for ${monthName} ${year} using Admin Assistant.`,
+              ipAddress, browserInfo,
+              source: 'ADMIN_ASSISTANT'
+            });
+
+            return res.json({
+              success: true,
+              type: 'report_summary_single',
+              message: `Report Details - ${empReport.employeeName}\nMonth: ${monthName} ${year}`,
+              data: {
+                month,
+                year,
+                monthName,
+                employee: empReport
+              }
+            });
+          }
+
+          await logAdminActivity({
+            adminId, adminName, adminEmail,
+            actionType: 'GENERATE REPORT SUMMARY',
+            moduleName: MODULE_NAMES.ADMIN_ASSISTANT,
+            description: `Generated report summary for ${monthName} ${year} (${summaryRows.length} employees) using Admin Assistant.`,
+            ipAddress, browserInfo,
+            source: 'ADMIN_ASSISTANT'
+          });
+
+          return res.json({
+            success: true,
+            type: 'report_summary_all',
+            message: `Report Summary - ${monthName} ${year}`,
+            data: {
+              month,
+              year,
+              monthName,
+              totalEmployees: summaryRows.length,
+              employees: summaryRows
+            }
+          });
+
+        } catch (dbErr) {
+          console.error('Report summary error:', dbErr);
+          return res.json({
+            success: false,
+            message: 'I could not generate the report summary right now. Please try again.'
           });
         }
       }

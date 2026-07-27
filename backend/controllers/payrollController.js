@@ -620,11 +620,11 @@ function formatDayValue(value) {
 
 function formatINR(value) {
   const num = Number(value || 0);
-  const hasDecimal = Math.round(num * 100) % 100 !== 0;
+  const rounded = Math.round(num);
 
-  return `₹${num.toLocaleString("en-IN", {
-    minimumFractionDigits: hasDecimal ? 2 : 0,
-    maximumFractionDigits: 2
+  return `₹${rounded.toLocaleString("en-IN", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
   })}`;
 }
 
@@ -645,49 +645,56 @@ const getCompanyLogoPath = () => {
   return null;
 };
 
-const registerSystemFonts = (doc) => {
-  const fontPaths = {
-    regular: ['C:/Windows/Fonts/arial.ttf', 'C:/Windows/Fonts/calibri.ttf', 'C:/Windows/Fonts/segoeui.ttf'],
-    bold: ['C:/Windows/Fonts/arialbd.ttf', 'C:/Windows/Fonts/calibrib.ttf', 'C:/Windows/Fonts/segoeuib.ttf'],
-    italic: ['C:/Windows/Fonts/ariali.ttf', 'C:/Windows/Fonts/calibrii.ttf', 'C:/Windows/Fonts/segoeuii.ttf']
-  };
+function resolveFontPath(fileName) {
+  const possiblePaths = [
+    path.join(__dirname, '../assets/fonts', fileName),
+    path.join(__dirname, '../../assets/fonts', fileName),
+    path.join(process.cwd(), 'assets/fonts', fileName),
+    path.join(process.cwd(), 'backend/assets/fonts', fileName)
+  ];
+
+  return possiblePaths.find((p) => fs.existsSync(p));
+}
+
+function registerPayslipFonts(doc) {
+  const regularFontPath = resolveFontPath('NotoSans-Regular.ttf');
+  const boldFontPath = resolveFontPath('NotoSans-Bold.ttf');
+  const italicFontPath = resolveFontPath('NotoSans-Italic.ttf');
 
   let fontRegular = 'Helvetica';
   let fontBold = 'Helvetica-Bold';
   let fontItalic = 'Helvetica-Oblique';
 
-  for (const p of fontPaths.regular) {
-    if (fs.existsSync(p)) {
-      try {
-        doc.registerFont('AppFont', p);
-        fontRegular = 'AppFont';
-        break;
-      } catch (e) {}
+  if (regularFontPath) {
+    try {
+      doc.registerFont('PayslipRegular', regularFontPath);
+      fontRegular = 'PayslipRegular';
+      console.log('Payslip font loaded:', regularFontPath);
+    } catch (err) {
+      console.warn('Could not register PayslipRegular font:', err.message);
     }
   }
 
-  for (const p of fontPaths.bold) {
-    if (fs.existsSync(p)) {
-      try {
-        doc.registerFont('AppFont-Bold', p);
-        fontBold = 'AppFont-Bold';
-        break;
-      } catch (e) {}
+  if (boldFontPath) {
+    try {
+      doc.registerFont('PayslipBold', boldFontPath);
+      fontBold = 'PayslipBold';
+    } catch (err) {
+      console.warn('Could not register PayslipBold font:', err.message);
     }
   }
 
-  for (const p of fontPaths.italic) {
-    if (fs.existsSync(p)) {
-      try {
-        doc.registerFont('AppFont-Italic', p);
-        fontItalic = 'AppFont-Italic';
-        break;
-      } catch (e) {}
+  if (italicFontPath) {
+    try {
+      doc.registerFont('PayslipItalic', italicFontPath);
+      fontItalic = 'PayslipItalic';
+    } catch (err) {
+      console.warn('Could not register PayslipItalic font:', err.message);
     }
   }
 
   return { fontRegular, fontBold, fontItalic };
-};
+}
 
 function drawDetailRow(doc, {
   label,
@@ -988,7 +995,7 @@ const downloadAllPayslipsPDF = async (req, res) => {
     const logoPath = getCompanyLogoPath();
 
     const doc = new PDFDocument({ margin: 40, size: 'A4' });
-    const fonts = registerSystemFonts(doc);
+    const fonts = registerPayslipFonts(doc);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=payslips_${String(month).padStart(2, '0')}_${year}.pdf`);
@@ -1052,7 +1059,7 @@ const downloadSinglePayslipPDF = async (req, res) => {
     const logoPath = getCompanyLogoPath();
 
     const doc = new PDFDocument({ margin: 40, size: 'A4' });
-    const fonts = registerSystemFonts(doc);
+    const fonts = registerPayslipFonts(doc);
 
     const empCodeName = record.emp_code_real || record.employee_code || employee_id;
     res.setHeader('Content-Type', 'application/pdf');

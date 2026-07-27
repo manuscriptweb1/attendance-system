@@ -77,7 +77,8 @@ const quickCheckInEmployee = async ({
   adminEmail = '',
   ipAddress = '127.0.0.1',
   userAgent = 'Server',
-  reasonSource = 'Manual quick check-in'
+  reasonSource = 'Manual quick check-in',
+  source = null
 }) => {
   const targetDate = attendanceDate || getIndiaDateTime().split('T')[0];
 
@@ -148,15 +149,18 @@ const quickCheckInEmployee = async ({
       [newRecord.id, realEmpCode, targetDate, 'CHECKIN_ROW', adminId, reasonSource]
     );
 
+    const effectiveSource = source || (reasonSource && reasonSource.toLowerCase().includes('admin assistant') ? 'ADMIN_ASSISTANT' : null);
+
     await logAdminActivity({
       adminId,
       adminName,
       adminEmail,
-      actionType: 'Check-In',
+      actionType: 'CHECK-IN',
       moduleName: 'Manual Attendance',
       description: `Quick check-in for employee ${realEmpCode} (${empName})`,
       ipAddress,
-      userAgent
+      browserInfo: userAgent,
+      source: effectiveSource
     });
 
     await client.query('COMMIT');
@@ -191,7 +195,8 @@ const quickCheckOutEmployee = async ({
   adminEmail = '',
   ipAddress = '127.0.0.1',
   userAgent = 'Server',
-  reasonSource = 'Manual quick check-out'
+  reasonSource = 'Manual quick check-out',
+  source = null
 }) => {
   const targetDate = attendanceDate || getIndiaDateTime().split('T')[0];
 
@@ -259,15 +264,18 @@ const quickCheckOutEmployee = async ({
       [record.id, realEmpCode, targetDate, 'CHECKOUT_ROW', adminId, reasonSource]
     );
 
+    const effectiveSource = source || (reasonSource && reasonSource.toLowerCase().includes('admin assistant') ? 'ADMIN_ASSISTANT' : null);
+
     await logAdminActivity({
       adminId,
       adminName,
       adminEmail,
-      actionType: 'Check-Out',
+      actionType: 'CHECK-OUT',
       moduleName: 'Manual Attendance',
       description: `Quick check-out for employee ${realEmpCode} (${empName})`,
       ipAddress,
-      userAgent
+      browserInfo: userAgent,
+      source: effectiveSource
     });
 
     await client.query('COMMIT');
@@ -300,7 +308,8 @@ const checkOutAllEmployees = async ({
   adminName = 'System Admin',
   adminEmail = '',
   ipAddress = '127.0.0.1',
-  userAgent = 'Server'
+  userAgent = 'Server',
+  source = 'ADMIN_ASSISTANT'
 }) => {
   const targetDate = getIndiaDateTime().split('T')[0];
 
@@ -368,7 +377,8 @@ const checkOutAllEmployees = async ({
         adminEmail,
         ipAddress,
         userAgent,
-        reasonSource: 'Admin Assistant Bot check-out all'
+        reasonSource: 'Admin Assistant Bot check-out all',
+        source: 'ADMIN_ASSISTANT'
       });
       const hrsInt = Math.floor(res.totalMinutes / 60);
       const minsInt = res.totalMinutes % 60;
@@ -394,11 +404,12 @@ const checkOutAllEmployees = async ({
     adminId,
     adminName,
     adminEmail,
-    actionType: 'Check-Out All',
-    moduleName: 'Admin Assistant',
+    actionType: 'CHECK-OUT ALL',
+    moduleName: 'Manual Attendance',
     description: `Marked check-out for all employees. Success: ${successes.length}, Skipped: ${skipped.length}, Failed: ${failed.length}`,
     ipAddress,
-    userAgent
+    browserInfo: userAgent,
+    source: 'ADMIN_ASSISTANT'
   });
 
   return {

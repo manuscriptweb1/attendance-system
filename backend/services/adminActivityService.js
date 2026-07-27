@@ -14,9 +14,18 @@ const logAdminActivity = async ({
   newData = null,
   ipAddress = null,
   deviceInfo = null,
-  browserInfo = null
+  browserInfo = null,
+  source = null
 }) => {
   try {
+    const isBot = source === 'ADMIN_ASSISTANT' || (moduleName === 'Admin Assistant' && source !== 'MANUAL_PAGE');
+    const finalAdminName = isBot ? 'MTM Admin Assistant' : (adminName || 'Admin');
+
+    let finalDescription = description || '';
+    if (isBot && adminName && !finalDescription.includes('(Triggered by')) {
+      finalDescription = `${finalDescription} (Triggered by ${adminName})`;
+    }
+
     await pool.query(
       `INSERT INTO admin_activity_logs 
        (admin_id, admin_name, admin_email, action_type, module_name, description, 
@@ -24,11 +33,11 @@ const logAdminActivity = async ({
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW() AT TIME ZONE 'UTC')`,
       [
         adminId,
-        adminName,
+        finalAdminName,
         adminEmail,
         actionType,
         moduleName,
-        description,
+        finalDescription,
         oldData ? JSON.stringify(oldData) : null,
         newData ? JSON.stringify(newData) : null,
         ipAddress,

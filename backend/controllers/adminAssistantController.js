@@ -146,11 +146,12 @@ const handleBotCommand = async (req, res) => {
           adminId,
           adminName,
           adminEmail,
-          actionType: 'Navigation',
+          actionType: 'NAVIGATION',
           moduleName: MODULE_NAMES.ADMIN_ASSISTANT,
           description: `Opened ${targetPage || 'page'} (${path}) using Admin Assistant`,
           ipAddress,
-          browserInfo
+          browserInfo,
+          source: 'ADMIN_ASSISTANT'
         });
         return res.json({ success: true, message: `Logged navigation to ${targetPage}` });
       }
@@ -209,10 +210,11 @@ const handleBotCommand = async (req, res) => {
 
           await logAdminActivity({
             adminId, adminName, adminEmail,
-            actionType: 'Employee Search',
+            actionType: 'EMPLOYEE SEARCH',
             moduleName: MODULE_NAMES.ADMIN_ASSISTANT,
             description: `Searched employee query "${query}". Found ${employees.length} record(s).`,
-            ipAddress, browserInfo
+            ipAddress, browserInfo,
+            source: 'ADMIN_ASSISTANT'
           });
 
           if (employees.length === 0) {
@@ -286,10 +288,11 @@ const handleBotCommand = async (req, res) => {
 
           await logAdminActivity({
             adminId, adminName, adminEmail,
-            actionType: 'Today Absent Query',
+            actionType: 'TODAY ABSENT QUERY',
             moduleName: MODULE_NAMES.ADMIN_ASSISTANT,
             description: `Viewed today's absent list (${todayDateStr}). Marked Absent: ${absentList.length}, Not Mention: ${notMentionList.length}.`,
-            ipAddress, browserInfo
+            ipAddress, browserInfo,
+            source: 'ADMIN_ASSISTANT'
           });
 
           return res.json({
@@ -339,10 +342,11 @@ const handleBotCommand = async (req, res) => {
 
           await logAdminActivity({
             adminId, adminName, adminEmail,
-            actionType: 'Today Late Query',
+            actionType: 'TODAY LATE QUERY',
             moduleName: MODULE_NAMES.ADMIN_ASSISTANT,
             description: `Viewed today's late list. Total late: ${lateEmployees.length}.`,
-            ipAddress, browserInfo
+            ipAddress, browserInfo,
+            source: 'ADMIN_ASSISTANT'
           });
 
           return res.json({
@@ -396,10 +400,11 @@ const handleBotCommand = async (req, res) => {
 
           await logAdminActivity({
             adminId, adminName, adminEmail,
-            actionType: 'Today Attendance Summary',
+            actionType: 'TODAY ATTENDANCE SUMMARY',
             moduleName: MODULE_NAMES.ADMIN_ASSISTANT,
             description: `Viewed today's attendance summary (${todayDateStr}). Present: ${summary.present}, Late: ${summary.late}, Absent: ${summary.absent}, Working: ${summary.working}.`,
-            ipAddress, browserInfo
+            ipAddress, browserInfo,
+            source: 'ADMIN_ASSISTANT'
           });
 
           return res.json({
@@ -495,10 +500,11 @@ const handleBotCommand = async (req, res) => {
 
           await logAdminActivity({
             adminId, adminName, adminEmail,
-            actionType: 'Calculate Payroll',
-            moduleName: MODULE_NAMES.ADMIN_ASSISTANT,
+            actionType: 'CALCULATE PAYROLL',
+            moduleName: MODULE_NAMES.PAYROLL || 'Payroll',
             description: `Calculated payroll for ${monthName} ${year}. Total employees: ${calculatedRecords.length}. Total payable: ₹${totalNetPayable.toLocaleString('en-IN')}.`,
-            ipAddress, browserInfo
+            ipAddress, browserInfo,
+            source: 'ADMIN_ASSISTANT'
           });
 
           return res.json({
@@ -562,10 +568,11 @@ const handleBotCommand = async (req, res) => {
 
           await logAdminActivity({
             adminId, adminName, adminEmail,
-            actionType: 'Manual Attendance Added',
-            moduleName: MODULE_NAMES.ADMIN_ASSISTANT,
+            actionType: 'MANUAL ATTENDANCE ADDED',
+            moduleName: MODULE_NAMES.MANUAL_ATTENDANCE || 'Manual Attendance',
             description: `Added manual attendance for ${empName} (${realEmpCode}) on ${date} (In: ${checkInTime}). Reason: ${reason}`,
-            ipAddress, browserInfo
+            ipAddress, browserInfo,
+            source: 'ADMIN_ASSISTANT'
           });
 
           return res.json({
@@ -790,10 +797,11 @@ const handleBotCommand = async (req, res) => {
 
           await logAdminActivity({
             adminId, adminName, adminEmail,
-            actionType: 'Mark Absent',
-            moduleName: MODULE_NAMES.ADMIN_ASSISTANT,
+            actionType: 'MARK ABSENT',
+            moduleName: MODULE_NAMES.MANUAL_ATTENDANCE || 'Manual Attendance',
             description: `Marked ${empName} (${realEmpCode}) absent for today (${todayDateStr}). Reason: ${reason || 'Absent'}.`,
-            ipAddress, browserInfo
+            ipAddress, browserInfo,
+            source: 'ADMIN_ASSISTANT'
           });
 
           return res.json({
@@ -849,10 +857,11 @@ const handleBotCommand = async (req, res) => {
 
           await logAdminActivity({
             adminId, adminName, adminEmail,
-            actionType: ADMIN_ACTION_TYPES.CREATE_HOLIDAY || 'Create Holiday',
-            moduleName: MODULE_NAMES.HOLIDAY || 'Holidays',
-            description: `Created holiday: ${holidayTitle} on ${holidayDate} via Admin Assistant.`,
-            ipAddress, browserInfo
+            actionType: 'CREATE HOLIDAY',
+            moduleName: MODULE_NAMES.HOLIDAY || 'Holiday',
+            description: `Created holiday: ${holidayTitle} on ${holidayDate}`,
+            ipAddress, browserInfo,
+            source: 'ADMIN_ASSISTANT'
           });
 
           return res.json({
@@ -962,10 +971,11 @@ const handleBotCommand = async (req, res) => {
 
           await logAdminActivity({
             adminId, adminName, adminEmail,
-            actionType: ADMIN_ACTION_TYPES.DELETE_HOLIDAY || 'Delete Holiday',
-            moduleName: MODULE_NAMES.HOLIDAY || 'Holidays',
-            description: `Deleted holiday: ${targetHoliday.holiday_title} (${targetHoliday.holiday_date}) via Admin Assistant.`,
-            ipAddress, browserInfo
+            actionType: 'DELETE HOLIDAY',
+            moduleName: MODULE_NAMES.HOLIDAY || 'Holiday',
+            description: `Deleted holiday: ${targetHoliday.holiday_title} (${targetHoliday.holiday_date})`,
+            ipAddress, browserInfo,
+            source: 'ADMIN_ASSISTANT'
           });
 
           return res.json({

@@ -12,7 +12,7 @@ import { getDailyMotivation, getEventMotivation, CATEGORIES } from '../utils/mot
 import { mapErrorToDialogConfig } from '../utils/errorMapper';
 import { getCurrentLocation, getDeviceInfo, getDeviceFingerprintData, getIPAddress } from '../utils/location';
 import { formatTime, formatWorkingHours, format24To12Hour, formatDate } from '../utils/formatTime';
-import { toDateInputValue, formatDisplayDate } from '../utils/dateUtils';
+import { toDateInputValue } from '../utils/dateUtils';
 import {
   FiLogIn, FiLogOut, FiClock, FiCheckCircle, FiAlertCircle, FiInfo,
   FiCalendar, FiTrendingUp, FiSun, FiMoon, FiSunrise, FiActivity,

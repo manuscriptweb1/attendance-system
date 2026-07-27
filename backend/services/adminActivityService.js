@@ -270,7 +270,8 @@ const MODULE_NAMES = {
   ABSENT_REASONS: 'Absent Reasons',
   PAYROLL: 'Payroll',
   EXPENSES: 'Expenses',
-  ACTIVITY_LOGS: 'Activity Logs'
+  ACTIVITY_LOGS: 'Activity Logs',
+  ADMIN_ASSISTANT: 'Admin Assistant'
 };
 
 module.exports = {

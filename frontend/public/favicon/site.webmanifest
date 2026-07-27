@@ -1,6 +1,6 @@
 {
-  "name": "MyWebSite",
-  "short_name": "MySite",
+  "name": "MTM Attendance",
+  "short_name": "MTM Attendance",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",

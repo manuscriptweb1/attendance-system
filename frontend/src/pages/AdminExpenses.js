@@ -8,7 +8,6 @@ import { toDateInputValue, formatDisplayDate } from '../utils/dateUtils';
 import ClearRangeDialog from '../components/ClearRangeDialog';
 import { Spinner } from '../components/Loader';
 import api, { clearExpenseRange } from '../services/api';
-import { formatDate } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateMonthYear } from '../utils/dateValidation';
 import { formatIndianCurrency } from '../utils/formatCurrency';

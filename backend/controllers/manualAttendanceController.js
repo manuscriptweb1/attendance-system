@@ -543,167 +543,69 @@ const deleteManualAttendance = async (req, res) => {
   }
 };
 
+const { quickCheckInEmployee, quickCheckOutEmployee } = require('../services/manualAttendanceService');
+
 // Single row Check-In (bypasses bulk validation)
 const checkInRow = async (req, res) => {
-  const client = await pool.connect();
   try {
     const { employee_id, attendance_date } = req.body;
     const adminId = req.user.id;
     const adminName = req.user.name || req.user.username;
-    
+    const adminEmail = req.user.email || '';
+    const ipAddress = getClientIP(req);
+    const userAgent = req.headers['user-agent'] || 'Browser';
+
     if (!employee_id || !attendance_date) {
       return res.status(400).json({ success: false, message: 'Missing employee_id or attendance_date' });
     }
 
-    // Validate attendance_date
-    validateDateInput(attendance_date, { allowFuture: false });
-
-    const recordDate = new Date(attendance_date);
-    if (recordDate.getDay() === 0) {
-      return res.status(400).json({ success: false, message: 'Cannot check-in on Sundays' });
-    }
-    
-    const holidayCheck = await pool.query('SELECT * FROM holidays WHERE holiday_date = $1 AND is_enabled = true', [attendance_date]);
-    if (holidayCheck.rows.length > 0) {
-      return res.status(400).json({ success: false, message: 'Cannot check-in on holidays' });
-    }
-
-    const checkResult = await pool.query('SELECT * FROM attendance WHERE employee_id = $1 AND attendance_date = $2', [employee_id, attendance_date]);
-    const existingRecord = checkResult.rows[0];
-
-    if (existingRecord && existingRecord.login_time) {
-      return res.status(400).json({ success: false, message: 'Employee already checked in' });
-    }
-
-    const login_time = getIndiaDateTime();
-
-    const settings = await getSettingsFromDB();
-    const officeTimes = getOfficeTimes(settings);
-
-    const inStatusObj = calculateCheckInStatus(login_time, officeTimes.startTime, officeTimes.lateTime);
-    const checkinStatus = inStatusObj.checkin_status === 'Late' ? 'late' : 'on_time';
-    const lateMinutes = inStatusObj.late_minutes;
-    const attendanceStatus = inStatusObj.checkin_status === 'Late' ? 'Late' : 'Present';
-
-    let newRecord;
-    await client.query('BEGIN');
-
-    if (existingRecord) {
-      const updateResult = await client.query(
-        `UPDATE attendance SET 
-          login_time = $1, attendance_status = $2, checkin_status = $3, late_minutes = $4,
-          validation_method = 'Manual', updated_at = CURRENT_TIMESTAMP
-         WHERE id = $5 RETURNING *`,
-        [login_time, attendanceStatus, checkinStatus, lateMinutes, existingRecord.id]
-      );
-      newRecord = updateResult.rows[0];
-    } else {
-      const insertResult = await client.query(
-        `INSERT INTO attendance (
-          employee_id, attendance_date, login_time, attendance_status, checkin_status, late_minutes, validation_method
-        ) VALUES ($1, $2, $3, $4, $5, $6, 'Manual') RETURNING *`,
-        [employee_id, attendance_date, login_time, attendanceStatus, checkinStatus, lateMinutes]
-      );
-      newRecord = insertResult.rows[0];
-    }
-
-    await client.query(
-      `INSERT INTO manual_attendance_logs (attendance_id, employee_id, attendance_date, action, admin_id, reason)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [newRecord.id, employee_id, attendance_date, 'CHECKIN_ROW', adminId, 'Admin quick check-in']
-    );
-
-    await logAdminActivity({
-      adminId, adminName, adminEmail: req.user.email, actionType: 'UPDATE', moduleName: 'Manual Attendance',
-      description: `Quick check-in for employee ${employee_id}`, ipAddress: getClientIP(req), userAgent: req.headers['user-agent']
+    const result = await quickCheckInEmployee({
+      employeeId: employee_id,
+      attendanceDate: attendance_date,
+      adminId,
+      adminName,
+      adminEmail,
+      ipAddress,
+      userAgent,
+      reasonSource: 'Admin quick check-in'
     });
 
-    await client.query('COMMIT');
-    res.json({ success: true, message: 'Check-in successful', record: newRecord });
+    res.json({ success: true, message: 'Check-in successful', record: result.record });
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error('Row check-in error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
-  } finally {
-    client.release();
+    res.status(400).json({ success: false, message: error.message || 'Server error' });
   }
 };
 
 // Single row Check-Out (bypasses bulk validation)
 const checkOutRow = async (req, res) => {
-  const client = await pool.connect();
   try {
     const { employee_id, attendance_date } = req.body;
     const adminId = req.user.id;
     const adminName = req.user.name || req.user.username;
-    
+    const adminEmail = req.user.email || '';
+    const ipAddress = getClientIP(req);
+    const userAgent = req.headers['user-agent'] || 'Browser';
+
     if (!employee_id || !attendance_date) {
       return res.status(400).json({ success: false, message: 'Missing employee_id or attendance_date' });
     }
 
-    // Validate attendance_date
-    validateDateInput(attendance_date, { allowFuture: false });
-
-    const checkResult = await pool.query('SELECT * FROM attendance WHERE employee_id = $1 AND attendance_date = $2', [employee_id, attendance_date]);
-    const record = checkResult.rows[0];
-
-    if (!record || !record.login_time) {
-      return res.status(400).json({ success: false, message: 'Cannot check out without check-in' });
-    }
-    if (record.logout_time) {
-      return res.status(400).json({ success: false, message: 'Already checked out' });
-    }
-
-    const logout_time = getIndiaDateTime();
-
-    const settings = await getSettingsFromDB();
-    const officeTimes = getOfficeTimes(settings);
-
-    const outStatusObj = calculateCheckOutStatus(logout_time, officeTimes.endTime);
-    const checkoutStatus = outStatusObj.checkout_status === 'Late Check-Out' ? 'late' : (outStatusObj.checkout_status === 'Early Check-Out' ? 'early' : 'on_time');
-    const earlyMinutes = outStatusObj.early_minutes;
-
-    const totalMinutes = calculateWorkedMinutes(record.login_time, logout_time, officeTimes.startTime);
-    const totalHours = parseFloat((totalMinutes / 60).toFixed(2));
-    const workingHours = totalHours;
-
-    let attendanceStatus = record.attendance_status;
-    if (attendanceStatus !== 'Absent' && attendanceStatus !== 'Half Day') {
-      if (totalHours < officeTimes.halfDayThreshold) {
-        attendanceStatus = 'Half Day';
-      }
-    }
-
-    await client.query('BEGIN');
-
-    const updateResult = await client.query(
-      `UPDATE attendance SET 
-        logout_time = $1, total_working_hours = $2, total_hours = $3, total_minutes = $4,
-        checkout_status = $5, early_minutes = $6, attendance_status = $7,
-        validation_method = 'Manual', updated_at = CURRENT_TIMESTAMP
-       WHERE id = $8 RETURNING *`,
-      [logout_time, workingHours, totalHours, totalMinutes, checkoutStatus, earlyMinutes, attendanceStatus, record.id]
-    );
-
-    await client.query(
-      `INSERT INTO manual_attendance_logs (attendance_id, employee_id, attendance_date, action, admin_id, reason)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [record.id, employee_id, attendance_date, 'CHECKOUT_ROW', adminId, 'Admin quick check-out']
-    );
-
-    await logAdminActivity({
-      adminId, adminName, adminEmail: req.user.email, actionType: 'UPDATE', moduleName: 'Manual Attendance',
-      description: `Quick check-out for employee ${employee_id}`, ipAddress: getClientIP(req), userAgent: req.headers['user-agent']
+    const result = await quickCheckOutEmployee({
+      employeeId: employee_id,
+      attendanceDate: attendance_date,
+      adminId,
+      adminName,
+      adminEmail,
+      ipAddress,
+      userAgent,
+      reasonSource: 'Admin quick check-out'
     });
 
-    await client.query('COMMIT');
-    res.json({ success: true, message: 'Check-out successful', record: updateResult.rows[0] });
+    res.json({ success: true, message: 'Check-out successful', record: result.record });
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error('Row check-out error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
-  } finally {
-    client.release();
+    res.status(400).json({ success: false, message: error.message || 'Server error' });
   }
 };
 

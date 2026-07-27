@@ -26,6 +26,7 @@ const reportRoutes = require('./routes/reportRoutes');
 const databaseMonitorRoutes = require('./routes/databaseMonitorRoutes');
 const publicRoutes = require('./routes/publicRoutes');
 const permissionRoutes = require('./routes/permissionRoutes');
+const adminAssistantRoutes = require('./routes/adminAssistantRoutes');
 
 // Import cron jobs
 const { createDailyAbsentRecords } = require('./jobs/createDailyAbsentRecords');
@@ -107,6 +108,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/database', databaseMonitorRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/permissions', permissionRoutes);
+app.use('/api/admin-assistant', adminAssistantRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {

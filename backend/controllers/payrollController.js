@@ -1,5 +1,8 @@
 const pool = require('../config/database');
 const exceljs = require('exceljs');
+const PDFDocument = require('pdfkit');
+const path = require('path');
+const fs = require('fs');
 const { buildMonthlyPayroll } = require('../services/attendanceReportService');
 const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
 
@@ -607,6 +610,366 @@ const clearPayrollRange = async (req, res) => {
   }
 };
 
+function formatDayValue(value) {
+  const num = Number(value || 0);
+  if (Number.isInteger(num)) {
+    return String(num);
+  }
+  return String(parseFloat(num.toFixed(2)));
+}
+
+function formatINR(value) {
+  const num = Number(value || 0);
+  const hasDecimal = Math.round(num * 100) % 100 !== 0;
+
+  return `₹${num.toLocaleString("en-IN", {
+    minimumFractionDigits: hasDecimal ? 2 : 0,
+    maximumFractionDigits: 2
+  })}`;
+}
+
+const getCompanyLogoPath = () => {
+  const possiblePaths = [
+    path.join(__dirname, '../../frontend/public/favicon/web-app-manifest-192x192.png'),
+    path.join(__dirname, '../../frontend/public/favicon/favicon-96x96.png'),
+    path.join(__dirname, '../public/favicon/web-app-manifest-192x192.png'),
+    path.join(process.cwd(), 'frontend/public/favicon/web-app-manifest-192x192.png'),
+    path.join(process.cwd(), 'frontend/public/favicon/favicon-96x96.png')
+  ];
+
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      return p;
+    }
+  }
+  return null;
+};
+
+const registerSystemFonts = (doc) => {
+  const fontPaths = {
+    regular: ['C:/Windows/Fonts/arial.ttf', 'C:/Windows/Fonts/calibri.ttf', 'C:/Windows/Fonts/segoeui.ttf'],
+    bold: ['C:/Windows/Fonts/arialbd.ttf', 'C:/Windows/Fonts/calibrib.ttf', 'C:/Windows/Fonts/segoeuib.ttf'],
+    italic: ['C:/Windows/Fonts/ariali.ttf', 'C:/Windows/Fonts/calibrii.ttf', 'C:/Windows/Fonts/segoeuii.ttf']
+  };
+
+  let fontRegular = 'Helvetica';
+  let fontBold = 'Helvetica-Bold';
+  let fontItalic = 'Helvetica-Oblique';
+
+  for (const p of fontPaths.regular) {
+    if (fs.existsSync(p)) {
+      try {
+        doc.registerFont('AppFont', p);
+        fontRegular = 'AppFont';
+        break;
+      } catch (e) {}
+    }
+  }
+
+  for (const p of fontPaths.bold) {
+    if (fs.existsSync(p)) {
+      try {
+        doc.registerFont('AppFont-Bold', p);
+        fontBold = 'AppFont-Bold';
+        break;
+      } catch (e) {}
+    }
+  }
+
+  for (const p of fontPaths.italic) {
+    if (fs.existsSync(p)) {
+      try {
+        doc.registerFont('AppFont-Italic', p);
+        fontItalic = 'AppFont-Italic';
+        break;
+      } catch (e) {}
+    }
+  }
+
+  return { fontRegular, fontBold, fontItalic };
+};
+
+function renderPayslipHeader(doc, data, monthName, year, logoPath, fonts) {
+  const { fontRegular, fontBold } = fonts;
+
+  // Outer Card Box Container (Y: 35 to 535)
+  doc.rect(40, 35, 515, 500).stroke('#CBD5E1');
+
+  // Company Logo & Title (Centered Top)
+  if (logoPath) {
+    try {
+      doc.image(logoPath, 145, 44, { width: 32, height: 32 });
+      doc.fontSize(17).font(fontBold).fillColor('#0F172A').text('Manuscript Technomedia LLP', 185, 50);
+    } catch (logoErr) {
+      console.warn('Could not embed logo in payslip PDF:', logoErr.message);
+      doc.fontSize(17).font(fontBold).fillColor('#0F172A').text('Manuscript Technomedia LLP', 40, 50, { align: 'center' });
+    }
+  } else {
+    doc.fontSize(17).font(fontBold).fillColor('#0F172A').text('Manuscript Technomedia LLP', 40, 50, { align: 'center' });
+  }
+
+  // Title & Subtitle
+  doc.fontSize(14).font(fontBold).fillColor('#0F172A').text('PAY SLIP', 40, 82, { align: 'center' });
+  doc.fontSize(10).font(fontRegular).fillColor('#475569').text(`For the month of ${monthName} ${year}`, 40, 102, { align: 'center' });
+
+  // Header Divider Line
+  doc.moveTo(50, 122).lineTo(545, 122).stroke('#CBD5E1');
+}
+
+function renderEmployeeAndAttendanceDetails(doc, r, fonts) {
+  const { fontRegular, fontBold } = fonts;
+
+  let absentDays = parseFloat(r.absent_days) || 0;
+  if (absentDays === 0 && r.paid_days) {
+    absentDays = Math.max(0, parseFloat(r.total_days || 0) - parseFloat(r.paid_days || 0));
+  }
+
+  // --- EMPLOYEE DETAILS (Left Column: X 50 to 280) ---
+  doc.fontSize(10).font(fontBold).fillColor('#0F172A').text('EMPLOYEE DETAILS', 50, 135);
+  doc.moveTo(50, 150).lineTo(280, 150).stroke('#CBD5E1');
+
+  doc.fontSize(9).font(fontRegular).fillColor('#475569');
+  doc.text('Employee Code', 50, 160); doc.font(fontBold).fillColor('#0F172A').text(r.emp_code_real || r.employee_code || '-', 180, 160, { align: 'right', width: 100 });
+  doc.moveTo(50, 175).lineTo(280, 175).stroke('#F1F5F9');
+
+  doc.font(fontRegular).fillColor('#475569').text('Name', 50, 180); doc.font(fontBold).fillColor('#0F172A').text(r.employee_name || '-', 180, 180, { align: 'right', width: 100 });
+  doc.moveTo(50, 195).lineTo(280, 195).stroke('#F1F5F9');
+
+  doc.font(fontRegular).fillColor('#475569').text('Designation', 50, 200); doc.font(fontBold).fillColor('#0F172A').text(r.job_role || '-', 180, 200, { align: 'right', width: 100 });
+  doc.moveTo(50, 215).lineTo(280, 215).stroke('#F1F5F9');
+
+  doc.font(fontRegular).fillColor('#475569').text('Department', 50, 220); doc.font(fontBold).fillColor('#0F172A').text(r.department_name || '-', 180, 220, { align: 'right', width: 100 });
+  doc.moveTo(50, 235).lineTo(280, 235).stroke('#F1F5F9');
+
+  // --- ATTENDANCE DETAILS (Right Column: X 315 to 545) ---
+  doc.fontSize(10).font(fontBold).fillColor('#0F172A').text('ATTENDANCE DETAILS', 315, 135);
+  doc.moveTo(315, 150).lineTo(545, 150).stroke('#CBD5E1');
+
+  doc.fontSize(9).font(fontRegular).fillColor('#475569');
+  doc.text('Working Days', 315, 160); doc.font(fontBold).fillColor('#0F172A').text(formatDayValue(r.working_days), 445, 160, { align: 'right', width: 100 });
+  doc.moveTo(315, 175).lineTo(545, 175).stroke('#F1F5F9');
+
+  doc.font(fontRegular).fillColor('#475569').text('Paid Days', 315, 180); doc.font(fontBold).fillColor('#0F172A').text(formatDayValue(r.paid_days), 445, 180, { align: 'right', width: 100 });
+  doc.moveTo(315, 195).lineTo(545, 195).stroke('#F1F5F9');
+
+  doc.font(fontRegular).fillColor('#475569').text('Present Days', 315, 200); doc.font(fontBold).fillColor('#0F172A').text(formatDayValue(r.present_days), 445, 200, { align: 'right', width: 100 });
+  doc.moveTo(315, 215).lineTo(545, 215).stroke('#F1F5F9');
+
+  doc.font(fontRegular).fillColor('#475569').text('Absent Days', 315, 220); doc.font(fontBold).fillColor('#0F172A').text(formatDayValue(absentDays), 445, 220, { align: 'right', width: 100 });
+  doc.moveTo(315, 235).lineTo(545, 235).stroke('#F1F5F9');
+
+  // Section Divider
+  doc.moveTo(50, 250).lineTo(545, 250).stroke('#CBD5E1');
+}
+
+function renderEarningsAndDeductions(doc, r, fonts) {
+  const { fontRegular, fontBold } = fonts;
+
+  const basic = parseFloat(r.basic_salary) || 0;
+  const hra = parseFloat(r.hra) || 0;
+  const special = parseFloat(r.special_allowance) || 0;
+  const gross = basic + hra + special;
+
+  const lop = parseFloat(r.lop_amount) || 0;
+  const pt = parseFloat(r.professional_tax) || 0;
+  const tds = parseFloat(r.tds) || 0;
+  const advance = parseFloat(r.staff_advance) || 0;
+  const totalDeductions = lop + pt + tds + advance;
+
+  // --- EARNINGS (Left Column: X 50 to 280) ---
+  doc.fontSize(10).font(fontBold).fillColor('#0F172A').text('EARNINGS', 50, 262);
+  doc.moveTo(50, 277).lineTo(280, 277).stroke('#CBD5E1');
+
+  doc.fontSize(9).font(fontRegular).fillColor('#475569');
+  doc.text('Basic Salary', 50, 287); doc.font(fontBold).fillColor('#0F172A').text(formatINR(basic), 180, 287, { align: 'right', width: 100 });
+  doc.moveTo(50, 302).lineTo(280, 302).stroke('#F1F5F9');
+
+  doc.font(fontRegular).fillColor('#475569').text('HRA', 50, 307); doc.font(fontBold).fillColor('#0F172A').text(formatINR(hra), 180, 307, { align: 'right', width: 100 });
+  doc.moveTo(50, 322).lineTo(280, 322).stroke('#F1F5F9');
+
+  doc.font(fontRegular).fillColor('#475569').text('Special Allowance', 50, 327); doc.font(fontBold).fillColor('#0F172A').text(formatINR(special), 180, 327, { align: 'right', width: 100 });
+  doc.moveTo(50, 342).lineTo(280, 342).stroke('#F1F5F9');
+
+  doc.fontSize(9.5).font(fontBold).fillColor('#0F172A').text('Gross Earnings', 50, 352);
+  doc.text(formatINR(gross), 180, 352, { align: 'right', width: 100 });
+  doc.moveTo(50, 367).lineTo(280, 367).stroke('#CBD5E1');
+
+  // --- DEDUCTIONS (Right Column: X 315 to 545) ---
+  doc.fontSize(10).font(fontBold).fillColor('#0F172A').text('DEDUCTIONS', 315, 262);
+  doc.moveTo(315, 277).lineTo(545, 277).stroke('#CBD5E1');
+
+  doc.fontSize(9).font(fontRegular).fillColor('#475569');
+  doc.text('Loss of Pay / LOP', 315, 287); doc.font(fontBold).fillColor('#0F172A').text(formatINR(lop), 445, 287, { align: 'right', width: 100 });
+  doc.moveTo(315, 302).lineTo(545, 302).stroke('#F1F5F9');
+
+  doc.font(fontRegular).fillColor('#475569').text('Professional Tax', 315, 307); doc.font(fontBold).fillColor('#0F172A').text(formatINR(pt), 445, 307, { align: 'right', width: 100 });
+  doc.moveTo(315, 322).lineTo(545, 322).stroke('#F1F5F9');
+
+  doc.font(fontRegular).fillColor('#475569').text('TDS', 315, 327); doc.font(fontBold).fillColor('#0F172A').text(formatINR(tds), 445, 327, { align: 'right', width: 100 });
+  doc.moveTo(315, 342).lineTo(545, 342).stroke('#F1F5F9');
+
+  doc.font(fontRegular).fillColor('#475569').text('Staff Advance', 315, 347); doc.font(fontBold).fillColor('#0F172A').text(formatINR(advance), 445, 347, { align: 'right', width: 100 });
+  doc.moveTo(315, 362).lineTo(545, 362).stroke('#F1F5F9');
+
+  doc.fontSize(9.5).font(fontBold).fillColor('#0F172A').text('Total Deductions', 315, 372);
+  doc.text(formatINR(totalDeductions), 445, 372, { align: 'right', width: 100 });
+  doc.moveTo(315, 387).lineTo(545, 387).stroke('#CBD5E1');
+
+  // Section Divider
+  doc.moveTo(50, 405).lineTo(545, 405).stroke('#CBD5E1');
+
+  return { gross, totalDeductions };
+}
+
+function renderNetPayable(doc, r, gross, totalDeductions, fonts) {
+  const { fontBold } = fonts;
+  const netPayable = parseFloat(r.net_payable) || (gross - totalDeductions);
+
+  doc.rect(50, 418, 495, 48).fillAndStroke('#EFF6FF', '#93C5FD');
+  doc.fontSize(11).font(fontBold).fillColor('#1E40AF').text('NET PAYABLE', 70, 434);
+  doc.fontSize(17).font(fontBold).fillColor('#1E3A8A').text(formatINR(netPayable), 340, 431, { align: 'right', width: 190 });
+}
+
+function renderPayslipNote(doc, fonts, generatedDateStr) {
+  const { fontItalic, fontBold } = fonts;
+
+  doc.moveTo(50, 480).lineTo(545, 480).stroke('#CBD5E1');
+  doc.fontSize(8.5).font(fontItalic).fillColor('#64748B').text('Note: This is a computer-generated pay slip and does not require a signature.', 40, 490, { align: 'center' });
+  doc.fontSize(8).font(fontBold).fillColor('#94A3B8').text(`Generated on: ${generatedDateStr}`, 40, 507, { align: 'center' });
+}
+
+function renderPayslipPage(doc, record, monthName, year, generatedDateStr, logoPath, fonts) {
+  renderPayslipHeader(doc, record, monthName, year, logoPath, fonts);
+  renderEmployeeAndAttendanceDetails(doc, record, fonts);
+  const { gross, totalDeductions } = renderEarningsAndDeductions(doc, record, fonts);
+  renderNetPayable(doc, record, gross, totalDeductions, fonts);
+  renderPayslipNote(doc, fonts, generatedDateStr);
+}
+
+const downloadAllPayslipsPDF = async (req, res) => {
+  try {
+    const { month, year } = req.query;
+    if (!month || !year) {
+      return res.status(400).json({ success: false, message: 'Month and year are required' });
+    }
+
+    const result = await pool.query(
+      `SELECT pr.*, 
+              e.employee_id as emp_code_real, e.name as employee_name, e.job_role, e.email as emp_email,
+              d.name as department_name
+       FROM payroll_records pr
+       JOIN employees e ON pr.employee_id::text = e.id::text OR pr.employee_code::text = e.employee_id::text
+       LEFT JOIN departments d ON e.department_id = d.id
+       WHERE pr.payroll_month = $1 AND pr.payroll_year = $2
+       ORDER BY e.name ASC`,
+      [month, year]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: `No payroll records found for ${month}/${year}. Please calculate payroll first.` });
+    }
+
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthName = monthNames[parseInt(month) - 1] || month;
+    const logoPath = getCompanyLogoPath();
+
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    const fonts = registerSystemFonts(doc);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=payslips_${String(month).padStart(2, '0')}_${year}.pdf`);
+
+    doc.pipe(res);
+
+    const generatedDateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    result.rows.forEach((r, idx) => {
+      if (idx > 0) doc.addPage();
+      renderPayslipPage(doc, r, monthName, year, generatedDateStr, logoPath, fonts);
+    });
+
+    doc.end();
+
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.DOWNLOAD_PAYROLL || 'Download Payslips',
+      moduleName: MODULE_NAMES.PAYROLL,
+      description: `Downloaded bulk payslip PDF for ${monthName} ${year} (${result.rows.length} employees).`,
+      ipAddress: req.ip
+    });
+
+  } catch (error) {
+    console.error('Download all payslips PDF error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Server error generating payslips PDF' });
+    }
+  }
+};
+
+const downloadSinglePayslipPDF = async (req, res) => {
+  try {
+    const { employee_id, month, year } = req.query;
+    if (!employee_id || !month || !year) {
+      return res.status(400).json({ success: false, message: 'Employee ID, month, and year are required' });
+    }
+
+    const result = await pool.query(
+      `SELECT pr.*, 
+              e.employee_id as emp_code_real, e.name as employee_name, e.job_role, e.email as emp_email,
+              d.name as department_name
+       FROM payroll_records pr
+       JOIN employees e ON pr.employee_id::text = e.id::text OR pr.employee_code::text = e.employee_id::text
+       LEFT JOIN departments d ON e.department_id = d.id
+       WHERE (pr.employee_id::text = $1 OR pr.employee_code::text = $1 OR e.employee_id::text = $1 OR e.id::text = $1)
+         AND pr.payroll_month = $2 AND pr.payroll_year = $3
+       LIMIT 1`,
+      [employee_id, month, year]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: `No payroll record found for ${employee_id} in ${month}/${year}. Please calculate payroll first.` });
+    }
+
+    const record = result.rows[0];
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthName = monthNames[parseInt(month) - 1] || month;
+    const logoPath = getCompanyLogoPath();
+
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    const fonts = registerSystemFonts(doc);
+
+    const empCodeName = record.emp_code_real || record.employee_code || employee_id;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=payslip_${empCodeName}_${monthName}_${year}.pdf`);
+
+    doc.pipe(res);
+
+    const generatedDateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    renderPayslipPage(doc, record, monthName, year, generatedDateStr, logoPath, fonts);
+
+    doc.end();
+
+    await logAdminActivity({
+      adminId: req.user?.id,
+      adminName: req.user?.username || req.user?.name || 'Admin',
+      adminEmail: req.user?.email || '',
+      actionType: ADMIN_ACTION_TYPES.DOWNLOAD_PAYROLL || 'Download Payslips',
+      moduleName: MODULE_NAMES.PAYROLL || 'Payroll',
+      description: `Downloaded single payslip PDF for ${empCodeName} - ${record.employee_name} (${monthName} ${year}) via Admin Assistant.`,
+      ipAddress: req.ip
+    });
+
+  } catch (error) {
+    console.error('Download single payslip PDF error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Server error generating single payslip PDF' });
+    }
+  }
+};
+
 module.exports = {
   getPayrollRecords,
   calculatePayroll,
@@ -615,5 +978,7 @@ module.exports = {
   updatePayrollRecord,
   calculateSinglePayroll,
   getPaySlipData,
-  clearPayrollRange
+  clearPayrollRange,
+  downloadAllPayslipsPDF,
+  downloadSinglePayslipPDF
 };

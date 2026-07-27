@@ -5,6 +5,7 @@ import { AdminThemeProvider } from './context/AdminThemeContext';
 import Loader from './components/Loader';
 import LogoutWarningDialog from './components/LogoutWarningDialog';
 import GlobalErrorDialog from './components/GlobalErrorDialog';
+import AdminAssistantBot from './components/AdminAssistantBot';
 
 // Public Pages
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -186,6 +187,7 @@ function App() {
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <ScrollToTop />
           <GlobalErrorDialog />
+          <AdminAssistantBot />
           <Suspense fallback={<Loader />}>
           <Routes>
             {/* Public Landing Page */}

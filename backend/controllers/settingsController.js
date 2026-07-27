@@ -62,6 +62,9 @@ const getSettings = async (req, res) => {
         enabled: dbSettings.electron_desktop_enabled !== false,
         validationMode: dbSettings.electron_desktop_validation_mode || 'trusted_device_and_network'
       },
+      adminAssistant: {
+        enabled: dbSettings.admin_assistant_enabled !== undefined ? Boolean(dbSettings.admin_assistant_enabled) : false
+      },
       messages: {
         locationPermissionTitle: "Location Permission Required",
         locationPermissionMessage: "This app needs access to your location to verify your attendance. Please allow location access to continue.",
@@ -120,8 +123,14 @@ const updateSettings = async (req, res) => {
       lunchEndTime,
       eveningShiftStartTime,
       eveningLateAfterTime,
-      eveningShiftEndTime
+      eveningShiftEndTime,
+      admin_assistant_enabled,
+      adminAssistantEnabled
     } = req.body;
+
+    const isAssistantEnabled = admin_assistant_enabled !== undefined 
+      ? Boolean(admin_assistant_enabled) 
+      : (adminAssistantEnabled !== undefined ? Boolean(adminAssistantEnabled) : false);
 
     // Validation
     if (!latitude || !longitude || !allowedRadius || !lateAfterTime) {
@@ -227,6 +236,7 @@ const updateSettings = async (req, res) => {
         evening_shift_start_time = $24,
         evening_late_after_time = $25,
         evening_shift_end_time = $26,
+        admin_assistant_enabled = $27,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = (SELECT id FROM settings ORDER BY id LIMIT 1)
       RETURNING *
@@ -258,7 +268,8 @@ const updateSettings = async (req, res) => {
       lunchEndTime || '14:00',
       eveningShiftStartTime || '14:00',
       eveningLateAfterTime || '14:00',
-      eveningShiftEndTime || '17:30'
+      eveningShiftEndTime || '17:30',
+      isAssistantEnabled
     ];
 
     const result = await pool.query(updateQuery, values);
@@ -286,7 +297,8 @@ const updateSettings = async (req, res) => {
         attendanceValidationMode, trustedDeviceValidationEnabled,
         electronDesktopEnabled, electronDesktopValidationMode,
         morningShiftStartTime, morningLateAfterTime, morningShiftEndTime,
-        lunchStartTime, lunchEndTime, eveningShiftStartTime, eveningLateAfterTime, eveningShiftEndTime
+        lunchStartTime, lunchEndTime, eveningShiftStartTime, eveningLateAfterTime, eveningShiftEndTime,
+        admin_assistant_enabled: isAssistantEnabled
       },
       ipAddress: getClientIP(req),
       browserInfo: req.headers['user-agent']
@@ -337,6 +349,9 @@ const updateSettings = async (req, res) => {
         electronDesktop: {
           enabled: electronDesktopEnabled !== undefined ? electronDesktopEnabled : true,
           validationMode: electronDesktopValidationMode || 'trusted_device_and_network'
+        },
+        adminAssistant: {
+          enabled: isAssistantEnabled
         }
       }
     });

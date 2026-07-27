@@ -151,6 +151,7 @@ CREATE TABLE IF NOT EXISTS settings (
     evening_shift_start_time TIME DEFAULT '14:00',
     evening_late_after_time TIME DEFAULT '14:00',
     evening_shift_end_time TIME DEFAULT '17:30',
+    admin_assistant_enabled BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -1767,3 +1768,10 @@ ALTER TABLE attendance
 ADD COLUMN IF NOT EXISTS trusted_device_id INTEGER REFERENCES trusted_devices(id) ON DELETE SET NULL,
 ADD COLUMN IF NOT EXISTS device_source VARCHAR(40) DEFAULT 'browser',
 ADD COLUMN IF NOT EXISTS desktop_public_key_hash TEXT;
+
+
+-- Migration: 14_add_admin_assistant_setting.sql
+-- Description: Adds admin_assistant_enabled column to settings table
+ALTER TABLE settings 
+ADD COLUMN IF NOT EXISTS admin_assistant_enabled BOOLEAN DEFAULT FALSE;
+

@@ -4,7 +4,7 @@ import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
 import { Spinner } from '../components/Loader';
 import { getSettings, updateSettings } from '../services/api';
-import { FiMapPin, FiClock, FiSave, FiShield, FiInfo, FiSliders, FiCheckCircle } from 'react-icons/fi';
+import { FiMapPin, FiClock, FiSave, FiShield, FiInfo, FiSliders, FiCheckCircle, FiCpu } from 'react-icons/fi';
 
 /* ─── CUSTOM TOGGLE SWITCH ─── */
 const ToggleSwitch = ({ checked, onChange }) => (
@@ -47,7 +47,8 @@ const AdminSettings = () => {
     electronDesktopEnabled:true, electronDesktopValidationMode:'trusted_device_and_network',
     morningShiftStartTime:'09:30', morningLateAfterTime:'09:45', morningShiftEndTime:'13:30',
     lunchStartTime:'13:30', lunchEndTime:'14:00',
-    eveningShiftStartTime:'14:00', eveningLateAfterTime:'14:00', eveningShiftEndTime:'17:30'
+    eveningShiftStartTime:'14:00', eveningLateAfterTime:'14:00', eveningShiftEndTime:'17:30',
+    admin_assistant_enabled: false
   });
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
@@ -88,7 +89,8 @@ const AdminSettings = () => {
           lunchEndTime:s.shiftSettings?.lunchEndTime||'14:00',
           eveningShiftStartTime:s.shiftSettings?.eveningShiftStartTime||'14:00',
           eveningLateAfterTime:s.shiftSettings?.eveningLateAfterTime||'14:00',
-          eveningShiftEndTime:s.shiftSettings?.eveningShiftEndTime||'17:30'
+          eveningShiftEndTime:s.shiftSettings?.eveningShiftEndTime||'17:30',
+          admin_assistant_enabled: s.adminAssistant?.enabled !== undefined ? s.adminAssistant.enabled : false
         }); 
       } 
     }
@@ -261,6 +263,17 @@ const AdminSettings = () => {
                 <Field label="Additional Allowed IPs" hint="Multiple IPs separated by commas">
                   <textarea name="allowedIPs" value={settings.allowedIPs} onChange={handleChange} rows="2" className="admin-input py-2.5 text-sm resize-none" placeholder="122.165.45.101, 122.165.45.102 (optional)" />
                 </Field>
+              </div>
+            </SectionCard></div>
+
+            {/* 5. Admin Assistant Bot */}
+            <div className="stagger-6"><SectionCard icon={FiCpu} iconBg="bg-blue-500/10" iconColor="text-blue-400" title="Admin Assistant Bot">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-admin-elevated border border-admin-border rounded-xl">
+                <div>
+                  <h3 className="text-sm font-bold text-admin-text">Enable Admin Assistant Bot</h3>
+                  <p className="text-xs text-admin-muted mt-1 font-medium">Enable or disable the floating admin assistant bot in the admin panel.</p>
+                </div>
+                <ToggleSwitch checked={settings.admin_assistant_enabled} onChange={() => handleToggle('admin_assistant_enabled')} />
               </div>
             </SectionCard></div>
 

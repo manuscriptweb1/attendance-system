@@ -7,7 +7,6 @@ import ClearRangeDialog from '../../components/ClearRangeDialog';
 import { Spinner } from '../../components/Loader';
 import { FiUmbrella, FiPlus, FiEdit2, FiTrash2, FiCalendar, FiSun, FiMap, FiCheckCircle } from 'react-icons/fi';
 import { getAllHolidays, addHoliday, updateHoliday, deleteHoliday, toggleHolidayStatus, clearHolidayRange } from '../../services/api';
-import { formatDate } from '../../utils/formatTime';
 import { toDateInputValue, formatDisplayDate } from '../../utils/dateUtils';
 import { getErrorMessage } from '../../utils/errorHandler';
 import { validateDateString } from '../../utils/dateValidation';

@@ -279,6 +279,10 @@ export const calculatePayroll = (month, year) =>
 export const updatePayrollRecord = (id, data) => api.put(`/payroll/${id}`, data);
 export const exportPayroll = (month, year) => 
   api.get('/payroll/export', { params: { month, year }, responseType: 'blob' });
+export const downloadAllPayslips = (month, year) => 
+  api.get('/payroll/payslips/download-all', { params: { month, year }, responseType: 'blob' });
+export const downloadSinglePayslip = (employeeId, month, year) => 
+  api.get('/payroll/payslip/download-one', { params: { employee_id: employeeId, month, year }, responseType: 'blob' });
 export const clearPayrollRange = (data) => api.delete('/payroll/clear-range', { data });
 
 // --- Expenses ---
@@ -363,3 +367,12 @@ export const getPublicHolidayInfo = () =>
   api.get('/public/holiday-info');
 
 export const clearDataByDate = (module, data) => api.post(`/clear-data/${module}`, data);
+
+// Admin Assistant Bot API
+export const executeBotCommand = (action, payload = {}) =>
+  api.post('/admin-assistant/command', { action, payload });
+
+export const getBotCapabilities = () =>
+  api.get('/admin-assistant/capabilities');
+
+

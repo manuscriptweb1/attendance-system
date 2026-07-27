@@ -1,0 +1,140 @@
+{
+  "botInfo": {
+    "name": "MTM Admin Assistant",
+    "developer": "Mohamed Mushraf",
+    "description": "I can help admins navigate pages, search employees, manage attendance, calculate payroll, download payslips, and manage holidays."
+  },
+  "fallback": {
+    "unknown": "I do not know that. Please ask my developer.",
+    "developerResponse": "I was developed by Mohamed Mushraf."
+  },
+  "actions": [
+    {
+      "id": "navigation",
+      "intent": "NAVIGATE",
+      "title": "Open Admin Pages",
+      "description": "Open admin pages directly.",
+      "permission": "page:view",
+      "keywords": ["open", "go to", "navigate", "show page"],
+      "aliases": ["page", "admin page", "menu"],
+      "commands": [
+        "open dashboard",
+        "open employees",
+        "open departments",
+        "open payroll",
+        "open reports",
+        "open manual attendance",
+        "open holidays",
+        "open settings"
+      ],
+      "quickAction": true
+    },
+    {
+      "id": "employee_search",
+      "intent": "EMPLOYEE_SEARCH",
+      "title": "Employee Search",
+      "description": "Search employee details by name or employee ID.",
+      "permission": "employees:view",
+      "keywords": ["employee", "search employee", "find employee", "employee details"],
+      "aliases": ["staff search", "find staff"],
+      "commands": [
+        "find employee Mushraf",
+        "search employee MTM-01",
+        "show employee Bilal"
+      ],
+      "quickAction": true
+    },
+    {
+      "id": "today_attendance",
+      "intent": "TODAY_ATTENDANCE_SUMMARY",
+      "title": "Today Attendance Summary",
+      "description": "Show today's attendance summary, absent list, or late list.",
+      "permission": "attendance:view",
+      "keywords": ["today attendance", "attendance summary", "absent today", "late today"],
+      "aliases": ["today status", "today report"],
+      "commands": [
+        "today attendance",
+        "today attendance summary",
+        "who is absent today",
+        "who is late today"
+      ],
+      "quickAction": true
+    },
+    {
+      "id": "mark_attendance",
+      "intent": "MARK_ATTENDANCE",
+      "title": "Mark Attendance",
+      "description": "Mark check-in and check-out using existing Manual Attendance logic.",
+      "permission": "manual_attendance:create",
+      "keywords": ["check in", "check-in", "check out", "checkout", "mark attendance"],
+      "aliases": ["put attendance"],
+      "commands": [
+        "check-in MTM-01",
+        "check-in Mushraf",
+        "check out MTM-01",
+        "check out all employees"
+      ],
+      "quickAction": true
+    },
+    {
+      "id": "mark_absent",
+      "intent": "MARK_ABSENT",
+      "title": "Mark Absent",
+      "description": "Mark an employee absent for today with reason.",
+      "permission": "manual_attendance:create",
+      "keywords": ["absent", "mark absent", "employee absent"],
+      "aliases": ["put absent"],
+      "commands": [
+        "mark absent for MTM-01",
+        "mark Mohamed Mushraf absent today"
+      ],
+      "quickAction": true
+    },
+    {
+      "id": "payroll",
+      "intent": "CALCULATE_PAYROLL",
+      "title": "Payroll",
+      "description": "Calculate payroll for selected month and year.",
+      "permission": "payroll:calculate",
+      "keywords": ["payroll", "salary", "calculate payroll"],
+      "aliases": ["salary calculation"],
+      "commands": [
+        "calculate this month payroll",
+        "calculate payroll for July 2026"
+      ],
+      "quickAction": true
+    },
+    {
+      "id": "payslip",
+      "intent": "DOWNLOAD_PAYSLIP",
+      "title": "Payslips",
+      "description": "Download individual employee payslip or all payslips.",
+      "permission": "payroll:export",
+      "keywords": ["payslip", "pay slip", "salary slip", "download payslip"],
+      "aliases": ["download salary slip"],
+      "commands": [
+        "payslip for MTM-01",
+        "Mushraf payslip",
+        "download July 2026 payslip for Bilal",
+        "download all payslips for July 2026",
+        "download this month payslips"
+      ],
+      "quickAction": true
+    },
+    {
+      "id": "holiday",
+      "intent": "HOLIDAY_ACTION",
+      "title": "Holidays",
+      "description": "Create or delete holidays.",
+      "permission": "holidays:create/delete",
+      "keywords": ["holiday", "create holiday", "add holiday", "delete holiday"],
+      "aliases": ["remove holiday"],
+      "commands": [
+        "create holiday tomorrow",
+        "add holiday Independence Day on 15 August 2026",
+        "delete tomorrow holiday"
+      ],
+      "quickAction": true
+    }
+  ]
+}

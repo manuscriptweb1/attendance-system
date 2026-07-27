@@ -236,10 +236,13 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
            const mins = getWorkedMinutes(att, officeStartTimeMins);
            dailyMinutes = Math.max(dailyMinutes, mins);
 
-           if (att.login_time) {
-             const loginMins = getLocalMinutesFromUTC(att.login_time);
-             if (loginMins > officeLateTimeInMinutes) {
-               totalLateMinutes += (loginMins - officeLateTimeInMinutes);
+           if (att.login_time || att.late_minutes) {
+             const savedLateMins = (att.late_minutes && Number(att.late_minutes) > 0) ? Number(att.late_minutes) : 0;
+             const loginMins = att.login_time ? getLocalMinutesFromUTC(att.login_time) : 0;
+             const calculatedLateMins = (loginMins > 0 && loginMins > officeLateTimeInMinutes) ? (loginMins - officeLateTimeInMinutes) : 0;
+             const effectiveLateMins = Math.max(savedLateMins, calculatedLateMins);
+             if (effectiveLateMins > 0) {
+               totalLateMinutes += effectiveLateMins;
              }
              
              // Counted Late Time Logic
@@ -247,16 +250,21 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
              const isAbsentStatus = statusStr === 'a' || statusStr === 'absent' || statusStr === 'not mention' || statusStr === 'not mentioned' || statusStr === 'not_mention' || statusStr === 'not_mentioned' || statusStr === '';
              
              if (!isSun && !isGovH && !isOffH && !isAbsentStatus) {
+               let dailyCountedLate = 0;
                if (loginMins < morningShiftEnd) {
                  if (loginMins > morningLateAfter) {
-                   totalCountedLateMinutes += (loginMins - morningLateAfter);
+                   dailyCountedLate = loginMins - morningLateAfter;
                  }
                } else if (loginMins >= lunchStart && loginMins <= lunchEnd) {
-                 // Transition period, counted late = 0
+                 dailyCountedLate = 0;
                } else if (loginMins >= eveningShiftStart) {
                  if (loginMins > eveningLateAfter) {
-                   totalCountedLateMinutes += (loginMins - eveningLateAfter);
+                   dailyCountedLate = loginMins - eveningLateAfter;
                  }
+               }
+
+               if (dailyCountedLate > 0) {
+                 totalCountedLateMinutes += dailyCountedLate;
                }
              }
            }

@@ -1,0 +1,178 @@
+const { Client } = require('pg');
+const fs = require('fs');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+
+async function runMasterMigration() {
+  const host = process.env.DB_HOST || 'localhost';
+  const port = process.env.DB_PORT || 5432;
+  const user = process.env.DB_USER || 'postgres';
+  const password = process.env.DB_PASSWORD;
+  const dbName = process.env.DB_NAME || 'attendance_db';
+
+  console.log(`🚀 Starting Database Synchronization for database "${dbName}"...`);
+
+  // Step 1: Ensure database exists
+  const rootClient = new Client({ host, port, user, password, database: 'postgres' });
+  try {
+    await rootClient.connect();
+    const checkDb = await rootClient.query(
+      `SELECT 1 FROM pg_database WHERE datname = $1`, [dbName]
+    );
+    if (checkDb.rows.length === 0) {
+      await rootClient.query(`CREATE DATABASE "${dbName}"`);
+      console.log(`✅ Database "${dbName}" created successfully.`);
+    } else {
+      console.log(`✅ Database "${dbName}" exists.`);
+    }
+  } catch (err) {
+    console.error('❌ Root connection error:', err.message);
+  } finally {
+    await rootClient.end();
+  }
+
+  // Step 2: Connect to attendance_db and run schema.sql
+  const dbClient = new Client({ host, port, user, password, database: dbName });
+  try {
+    await dbClient.connect();
+    console.log(`✅ Connected to "${dbName}".`);
+
+    // 2a. Run schema.sql
+    console.log('📌 Executing config/schema.sql...');
+    const schemaPath = path.join(__dirname, '../config/schema.sql');
+    if (fs.existsSync(schemaPath)) {
+      const schemaSql = fs.readFileSync(schemaPath, 'utf8');
+      await dbClient.query(schemaSql);
+      console.log('✅ schema.sql executed successfully.');
+    } else {
+      console.warn('⚠️ schema.sql not found at', schemaPath);
+    }
+
+    // 2b. Run 09_add_employee_personal_details.sql
+    console.log('📌 Executing config/09_add_employee_personal_details.sql...');
+    const personalDetailsSqlPath = path.join(__dirname, '../config/09_add_employee_personal_details.sql');
+    if (fs.existsSync(personalDetailsSqlPath)) {
+      const personalSql = fs.readFileSync(personalDetailsSqlPath, 'utf8');
+      await dbClient.query(personalSql);
+      console.log('✅ 09_add_employee_personal_details.sql executed successfully.');
+    }
+
+    // 2c. Run manual attendance migration queries
+    console.log('📌 Ensuring attendance columns...');
+    await dbClient.query(`
+      ALTER TABLE attendance
+      ADD COLUMN IF NOT EXISTS checkin_status VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS checkout_status VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS late_minutes INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS early_minutes INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS total_minutes INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS total_hours NUMERIC(10,2) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS total_working_hours NUMERIC(10,2) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS absent_reason TEXT,
+      ADD COLUMN IF NOT EXISTS is_manual_entry BOOLEAN DEFAULT FALSE;
+    `);
+    console.log('✅ Attendance columns checked/added.');
+
+    // 2d. Run admin assistant settings migration
+    console.log('📌 Ensuring settings columns...');
+    await dbClient.query(`
+      ALTER TABLE settings 
+      ADD COLUMN IF NOT EXISTS admin_assistant_enabled BOOLEAN DEFAULT FALSE;
+    `);
+    console.log('✅ Settings columns checked/added.');
+
+    // 2e. Run RBAC migrations (admins, admin_pages, admin_permissions)
+    console.log('📌 Ensuring RBAC tables and admin columns...');
+    await dbClient.query(`
+      ALTER TABLE admins 
+      ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'admin',
+      ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive'));
+    `);
+
+    await dbClient.query(`
+      UPDATE admins SET role = 'super_admin', is_super_admin = true WHERE is_super_admin IS NOT TRUE;
+    `);
+
+    await dbClient.query(`
+      CREATE TABLE IF NOT EXISTS admin_pages (
+        id SERIAL PRIMARY KEY,
+        page_key VARCHAR(100) UNIQUE NOT NULL,
+        page_name VARCHAR(150) NOT NULL,
+        route_path VARCHAR(200) NOT NULL,
+        sidebar_section VARCHAR(100),
+        icon_key VARCHAR(100),
+        is_active BOOLEAN DEFAULT true,
+        sort_order INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await dbClient.query(`
+      CREATE TABLE IF NOT EXISTS admin_permissions (
+        id SERIAL PRIMARY KEY,
+        admin_id INTEGER NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+        page_key VARCHAR(100) NOT NULL,
+        can_view BOOLEAN DEFAULT false,
+        can_create BOOLEAN DEFAULT false,
+        can_edit BOOLEAN DEFAULT false,
+        can_delete BOOLEAN DEFAULT false,
+        can_export BOOLEAN DEFAULT false,
+        can_clear BOOLEAN DEFAULT false,
+        can_calculate BOOLEAN DEFAULT false,
+        can_approve BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(admin_id, page_key)
+      );
+    `);
+
+    await dbClient.query(`
+      INSERT INTO admin_pages (page_key, page_name, route_path, sidebar_section, sort_order)
+      VALUES
+      ('dashboard', 'Dashboard', '/admin/dashboard', 'Overview', 1),
+      ('employees', 'Employees', '/admin/employees', 'People', 2),
+      ('departments', 'Departments', '/admin/departments', 'People', 3),
+      ('admin_management', 'Admin Management', '/admin/admin-management', 'People', 4),
+      ('attendance', 'Attendance', '/admin/attendance', 'Time & Attendance', 5),
+      ('manual_attendance', 'Manual Attendance', '/admin/manual-attendance', 'Time & Attendance', 6),
+      ('absent_reasons', 'Absent Reasons', '/admin/absent-reasons', 'Time & Attendance', 7),
+      ('holidays', 'Holidays', '/admin/holidays', 'Time & Attendance', 8),
+      ('payroll', 'Payroll', '/admin/payroll', 'HR & Finance', 9),
+      ('expenses', 'Expenses', '/admin/expenses', 'HR & Finance', 10),
+      ('reports', 'Reports', '/admin/reports', 'HR & Finance', 11),
+      ('permissions', 'Permissions', '/admin/permissions', 'Time & Attendance', 12),
+      ('settings', 'Settings', '/admin/settings', 'System', 13),
+      ('manage', 'Manage', '/admin/manage', 'System', 14),
+      ('database_monitor', 'Database Monitor', '/admin/database-monitor', 'System', 15),
+      ('trusted_devices', 'Trusted Devices', '/admin/trusted-devices', 'System', 16),
+      ('activity_logs', 'Activity Logs', '/admin/activity-logs', 'System', 17),
+      ('otp_settings', 'OTP Settings', '/admin/otp-settings', 'System', 18),
+      ('security_logs', 'Security Logs', '/admin/security-logs', 'System', 19)
+      ON CONFLICT (page_key) DO NOTHING;
+    `);
+
+    console.log('✅ RBAC setup completed.');
+
+    // 2f. Verification of database tables count & names
+    const tablesRes = await dbClient.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public'
+      ORDER BY table_name;
+    `);
+
+    console.log('\n========================================');
+    console.log(`🎉 ALL DATABASE TABLES SUCCESSFULLY VERIFIED AND UPDATED! (${tablesRes.rows.length} Tables)`);
+    console.log('========================================');
+    tablesRes.rows.forEach(r => console.log(`  - ${r.table_name}`));
+
+  } catch (err) {
+    console.error('❌ Migration Error:', err);
+  } finally {
+    await dbClient.end();
+  }
+}
+
+runMasterMigration();

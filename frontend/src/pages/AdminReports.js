@@ -290,6 +290,10 @@ const AdminReports = () => {
     
     try {
       setLoading(true);
+      setReportData(null);
+      setMatrixData(null);
+      setAbsentTable(null);
+      setHolidayTable(null);
       const res = await generateMonthlyAttendanceReport(month, year);
       if (res.data.success) {
         setToastConfig({ message: 'Report generated successfully', type: 'success' });

@@ -411,27 +411,26 @@ function renderPayslipNoteOrSignature(doc, fonts, generatedDateStr, startY, opti
   }
 }
 
-function renderPayslipFooter(doc, fonts, startY, options = {}) {
+function renderPayslipFooter(doc, fonts, cardBottomY) {
   const { fontRegular } = fonts;
-  const includeSignature = options.includeSignature === true;
-  const footerLineY = startY + (includeSignature ? 12 : 10);
+  const footerLineY = Math.max(775, cardBottomY + 30);
 
   // 1. Thin black horizontal line
-  doc.moveTo(50, footerLineY)
-     .lineTo(545, footerLineY)
+  doc.moveTo(40, footerLineY)
+     .lineTo(555, footerLineY)
      .strokeColor('#000000')
      .lineWidth(0.75)
      .stroke();
 
-  // 2. Muted red centered registered office text
+  // 2. Black centered registered office text
   const textY = footerLineY + 8;
   const footerText = 'Manuscript Technomedia LLP, Reg. Office. No. 22, 3rd Cross, Vivekananda Nagar, Bangalore-33, Karnataka, India.';
 
   doc.fontSize(8.5)
      .font(fontRegular)
-     .fillColor('#B91C1C')
-     .text(footerText, 50, textY, {
-       width: 495,
+     .fillColor('#000000')
+     .text(footerText, 40, textY, {
+       width: 515,
        align: 'center'
      });
 
@@ -444,11 +443,16 @@ function renderPayslipPage(doc, record, monthName, year, generatedDateStr, logoP
   const { gross, totalDeductions, nextY: earningsEndY } = renderEarningsAndDeductions(doc, record, fonts, detailsEndY);
   const netPayableEndY = renderNetPayable(doc, record, gross, totalDeductions, fonts, earningsEndY);
   const contentEndY = renderPayslipNoteOrSignature(doc, fonts, generatedDateStr, netPayableEndY, options);
-  const finalEndY = renderPayslipFooter(doc, fonts, contentEndY, options);
 
-  const bottomPadding = 12;
-  const cardHeight = Math.max(520, finalEndY - 35 + bottomPadding);
+  // Main payslip content card box (wraps ONLY main payslip content)
+  const bottomPadding = options.includeSignature ? 15 : 12;
+  const cardHeight = Math.max(490, contentEndY - 35 + bottomPadding);
   doc.rect(40, 35, 515, cardHeight).strokeColor('#CBD5E1').lineWidth(1).stroke();
+
+  const cardBottomY = 35 + cardHeight;
+
+  // Render footer OUTSIDE and BELOW the main content border card, in lower page whitespace
+  renderPayslipFooter(doc, fonts, cardBottomY);
 }
 
 const generateSinglePayslipBuffer = async (record, month, year, options = {}) => {

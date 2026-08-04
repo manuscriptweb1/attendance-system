@@ -8,6 +8,53 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December"
 ];
 
+let tableInitialized = false;
+
+/**
+ * Ensure payroll_email_logs table exists and schema matches
+ */
+const ensurePayrollEmailLogsTable = async () => {
+  if (tableInitialized) return;
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS payroll_email_logs (
+        id SERIAL PRIMARY KEY,
+        employee_id VARCHAR(100) NOT NULL,
+        employee_name VARCHAR(255),
+        employee_email VARCHAR(255),
+        payroll_id INTEGER NULL,
+        month INTEGER NOT NULL,
+        year INTEGER NOT NULL,
+        email_type VARCHAR(50) NOT NULL,
+        subject TEXT,
+        status VARCHAR(30) NOT NULL,
+        provider VARCHAR(50) DEFAULT 'gmail_smtp',
+        provider_message_id TEXT NULL,
+        smtp_response TEXT NULL,
+        accepted_recipients TEXT NULL,
+        rejected_recipients TEXT NULL,
+        error_message TEXT NULL,
+        sent_by VARCHAR(100) NULL,
+        sent_by_name VARCHAR(255) NULL,
+        sent_at TIMESTAMP NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      ALTER TABLE payroll_email_logs
+      ALTER COLUMN sent_by TYPE VARCHAR(100) USING sent_by::text;
+
+      CREATE INDEX IF NOT EXISTS idx_payroll_email_logs_employee_id ON payroll_email_logs(employee_id);
+      CREATE INDEX IF NOT EXISTS idx_payroll_email_logs_month_year ON payroll_email_logs(month, year);
+      CREATE INDEX IF NOT EXISTS idx_payroll_email_logs_status ON payroll_email_logs(status);
+      CREATE INDEX IF NOT EXISTS idx_payroll_email_logs_email_type ON payroll_email_logs(email_type);
+    `);
+    tableInitialized = true;
+  } catch (err) {
+    console.warn('⚠️ Warning: ensurePayrollEmailLogsTable query notice:', err.message);
+  }
+};
+
 /**
  * Log an email attempt into database (returns inserted log ID)
  */
@@ -30,6 +77,7 @@ const logPayrollEmail = async ({
   sentBy = null,
   sentByName = null
 }) => {
+  await ensurePayrollEmailLogsTable();
   try {
     const acceptedStr = acceptedRecipients 
       ? (typeof acceptedRecipients === 'string' ? acceptedRecipients : JSON.stringify(acceptedRecipients))
@@ -37,6 +85,12 @@ const logPayrollEmail = async ({
     const rejectedStr = rejectedRecipients 
       ? (typeof rejectedRecipients === 'string' ? rejectedRecipients : JSON.stringify(rejectedRecipients))
       : null;
+
+    const safePayrollId = (payrollId && !isNaN(parseInt(payrollId))) ? parseInt(payrollId) : null;
+    const safeMonth = (!month || isNaN(parseInt(month))) ? (new Date().getMonth() + 1) : parseInt(month);
+    const safeYear = (!year || isNaN(parseInt(year))) ? new Date().getFullYear() : parseInt(year);
+    const safeEmpId = String(employeeId || payrollId || 'N/A');
+    const safeSentBy = sentBy ? String(sentBy) : null;
 
     const result = await pool.query(
       `INSERT INTO payroll_email_logs (
@@ -46,28 +100,30 @@ const logPayrollEmail = async ({
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
       RETURNING id`,
       [
-        employeeId,
+        safeEmpId,
         employeeName || null,
         employeeEmail || null,
-        payrollId,
-        parseInt(month),
-        parseInt(year),
-        emailType,
-        subject,
-        status,
+        safePayrollId,
+        safeMonth,
+        safeYear,
+        emailType || 'payslip',
+        subject || null,
+        status || 'pending',
         provider || 'gmail_smtp',
-        providerMessageId,
-        smtpResponse,
+        providerMessageId || null,
+        smtpResponse || null,
         acceptedStr,
         rejectedStr,
-        errorMessage,
-        sentBy,
-        sentByName,
+        errorMessage || null,
+        safeSentBy,
+        sentByName || null,
         status === 'sent' ? new Date() : null
       ]
     );
 
-    return result.rows[0]?.id || null;
+    const logId = result.rows[0]?.id || null;
+    console.log(`✅ Payroll email log saved (ID #${logId}) for employee ${safeEmpId} (${status})`);
+    return logId;
   } catch (err) {
     console.error('❌ Failed to save payroll email log:', err.message);
     return null;
@@ -79,6 +135,7 @@ const logPayrollEmail = async ({
  */
 const updatePayrollEmailLog = async (logId, updates = {}) => {
   if (!logId) return;
+  await ensurePayrollEmailLogsTable();
   try {
     const {
       status,
@@ -183,14 +240,35 @@ const processSinglePayslipEmailJob = async ({
 
     // 4. Update Log Status to 'sent'
     console.time(`single-email-log-${logId}`);
-    await updatePayrollEmailLog(logId, {
-      status: "sent",
-      provider_message_id: sendResult.messageId,
-      smtp_response: sendResult.response,
-      accepted_recipients: sendResult.accepted,
-      rejected_recipients: sendResult.rejected,
-      sent_at: new Date()
-    });
+    if (logId) {
+      await updatePayrollEmailLog(logId, {
+        status: "sent",
+        provider_message_id: sendResult.messageId,
+        smtp_response: sendResult.response,
+        accepted_recipients: sendResult.accepted,
+        rejected_recipients: sendResult.rejected,
+        sent_at: new Date()
+      });
+    } else {
+      console.warn(`⚠️ Log ID was missing for background job. Creating log entry directly...`);
+      await logPayrollEmail({
+        employeeId: empCode,
+        employeeName,
+        employeeEmail: recipientEmail,
+        payrollId: record.id,
+        month: monthNum,
+        year: yearNum,
+        subject,
+        status: 'sent',
+        provider: 'gmail_smtp',
+        providerMessageId: sendResult.messageId,
+        smtpResponse: sendResult.response,
+        acceptedRecipients: sendResult.accepted,
+        rejectedRecipients: sendResult.rejected,
+        sentBy: sent_by,
+        sentByName: sent_by_name
+      });
+    }
 
     if (sent_by) {
       await logAdminActivity({
@@ -210,11 +288,28 @@ const processSinglePayslipEmailJob = async ({
       safeError = "Gmail SMTP authentication failed. Check SMTP_USER and Google App Password.";
     }
 
-    await updatePayrollEmailLog(logId, {
-      status: "failed",
-      error_message: safeError,
-      sent_at: new Date()
-    });
+    if (logId) {
+      await updatePayrollEmailLog(logId, {
+        status: "failed",
+        error_message: safeError,
+        sent_at: new Date()
+      });
+    } else {
+      await logPayrollEmail({
+        employeeId: empCode,
+        employeeName,
+        employeeEmail: recipientEmail,
+        payrollId: record.id,
+        month: monthNum,
+        year: yearNum,
+        subject,
+        status: 'failed',
+        provider: 'gmail_smtp',
+        errorMessage: safeError,
+        sentBy: sent_by,
+        sentByName: sent_by_name
+      });
+    }
   } finally {
     console.timeEnd(`single-email-total-${logId}`);
   }
@@ -476,8 +571,12 @@ const sendAllPayslipsEmails = async ({
  * Get payroll email logs for a specific month and year
  */
 const getPayrollEmailLogs = async (month, year) => {
-  const monthNum = parseInt(month);
-  const yearNum = parseInt(year);
+  await ensurePayrollEmailLogsTable();
+  let monthNum = parseInt(month);
+  let yearNum = parseInt(year);
+
+  if (isNaN(monthNum)) monthNum = new Date().getMonth() + 1;
+  if (isNaN(yearNum)) yearNum = new Date().getFullYear();
 
   const result = await pool.query(
     `SELECT * FROM payroll_email_logs

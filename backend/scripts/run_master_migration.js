@@ -71,6 +71,9 @@ async function runMasterMigration() {
       ADD COLUMN IF NOT EXISTS smtp_response TEXT,
       ADD COLUMN IF NOT EXISTS accepted_recipients TEXT,
       ADD COLUMN IF NOT EXISTS rejected_recipients TEXT;
+
+      ALTER TABLE payroll_email_logs
+      ALTER COLUMN sent_by TYPE VARCHAR(100) USING sent_by::text;
     `);
     console.log('✅ Payroll email logs columns checked/added.');
 

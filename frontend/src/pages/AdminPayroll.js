@@ -852,7 +852,7 @@ const AdminPayroll = () => {
       {/* Email Logs Modal */}
       {showEmailLogsModal && (
         <div className="fixed inset-0 bg-admin-overlay backdrop-blur-sm flex items-center justify-center z-[105] p-4">
-          <div className="bg-admin-elevated border border-admin-border rounded-2xl shadow-clay-admin-modal w-full max-w-6xl animate-scale-in flex flex-col max-h-[88vh]">
+          <div className="bg-admin-elevated border border-admin-border rounded-2xl shadow-clay-admin-modal w-full max-w-[95vw] 2xl:max-w-7xl animate-scale-in flex flex-col max-h-[88vh]">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 border-b border-admin-border gap-3">
               <div>
                 <h2 className="text-lg font-bold text-admin-heading flex items-center gap-2">
@@ -953,54 +953,88 @@ const AdminPayroll = () => {
                 }
 
                 return (
-                  <div className="table-responsive dark-scroll w-full">
-                    <table className="w-full text-left table-auto divide-y divide-white/[0.04] min-w-[1200px]">
-                      <thead className="bg-admin-bg">
+                  <div className="w-full">
+                    <table className="w-full text-left table-auto divide-y divide-white/[0.04]">
+                      <thead className="bg-admin-bg sticky top-0 z-10">
                         <tr>
                           {[
-                            'Employee ID', 'Employee Name', 'Email', 'Month', 'Year',
-                            'Type', 'Status', 'Provider', 'Message ID', 'SMTP Response',
-                            'Sent At', 'Sent By', 'Error Message'
+                            'Employee', 'Period', 'Type', 'Status',
+                            'Provider / Msg ID', 'SMTP Response', 'Sent At', 'Sent By', 'Error / Info'
                           ].map(h => (
                             <th key={h} className="px-3 py-2 text-[10px] font-bold text-admin-secondary uppercase tracking-wider">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/[0.04]">
-                        {filtered.map((log) => (
-                          <tr key={log.id} className="hover:bg-admin-bg/50 text-xs">
-                            <td className="px-3 py-2.5 font-bold font-mono text-admin-text">{log.employee_id || '-'}</td>
-                            <td className="px-3 py-2.5 font-semibold text-admin-text">{log.employee_name || '-'}</td>
-                            <td className="px-3 py-2.5 text-admin-muted font-mono text-[11px]">{log.employee_email || '-'}</td>
-                            <td className="px-3 py-2.5 font-semibold text-admin-secondary">{monthNames[(log.month || 1) - 1] || log.month}</td>
-                            <td className="px-3 py-2.5 font-semibold text-admin-secondary">{log.year}</td>
-                            <td className="px-3 py-2.5 uppercase font-semibold text-[10px] text-admin-secondary">{log.email_type}</td>
-                            <td className="px-3 py-2.5">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                log.status === 'sent' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                                log.status === 'failed' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
-                                log.status === 'pending' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse' :
-                                'bg-slate-500/10 text-slate-400 border border-slate-500/20'
-                              }`}>
-                                {log.status === 'pending' ? 'Sending...' : log.status}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2.5 font-mono text-[11px] text-purple-400">{log.provider || 'gmail_smtp'}</td>
-                            <td className="px-3 py-2.5 font-mono text-[11px] text-emerald-400 max-w-[150px] truncate" title={log.provider_message_id || '-'}>
-                              {log.provider_message_id || '-'}
-                            </td>
-                            <td className="px-3 py-2.5 font-mono text-[11px] text-admin-muted max-w-[160px] truncate" title={log.smtp_response || '-'}>
-                              {log.smtp_response || '-'}
-                            </td>
-                            <td className="px-3 py-2.5 text-admin-muted text-[11px]">
-                              {log.sent_at ? new Date(log.sent_at).toLocaleString() : (log.created_at ? new Date(log.created_at).toLocaleString() : '-')}
-                            </td>
-                            <td className="px-3 py-2.5 text-admin-secondary">{log.sent_by_name || 'Admin'}</td>
-                            <td className="px-3 py-2.5 text-[11px] font-mono text-red-400 max-w-[200px] truncate" title={log.error_message || '-'}>
-                              {log.error_message || '-'}
-                            </td>
-                          </tr>
-                        ))}
+                        {filtered.map((log) => {
+                          const monthShort = monthNames[(log.month || 1) - 1]?.slice(0, 3) || log.month;
+                          return (
+                            <tr key={log.id} className="hover:bg-admin-bg/50 text-xs">
+                              {/* Employee ID & Name & Email */}
+                              <td className="px-3 py-2.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold font-mono text-admin-text bg-admin-bg px-1.5 py-0.5 rounded border border-admin-border/50 text-[11px] shrink-0">
+                                    {log.employee_id || '-'}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <div className="font-semibold text-admin-text truncate max-w-[150px]">{log.employee_name || '-'}</div>
+                                    <div className="text-admin-muted font-mono text-[10px] truncate max-w-[170px]" title={log.employee_email}>{log.employee_email || '-'}</div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Period */}
+                              <td className="px-3 py-2.5 font-semibold text-admin-secondary whitespace-nowrap">
+                                {monthShort} {log.year}
+                              </td>
+
+                              {/* Type */}
+                              <td className="px-3 py-2.5 uppercase font-semibold text-[10px] text-admin-secondary whitespace-nowrap">
+                                {log.email_type || 'PAYSLIP'}
+                              </td>
+
+                              {/* Status */}
+                              <td className="px-3 py-2.5 whitespace-nowrap">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase inline-block ${
+                                  log.status === 'sent' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                  log.status === 'failed' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                                  log.status === 'pending' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse' :
+                                  'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+                                }`}>
+                                  {log.status === 'pending' ? 'Sending...' : log.status}
+                                </span>
+                              </td>
+
+                              {/* Provider & Message ID */}
+                              <td className="px-3 py-2.5">
+                                <div className="text-[11px] font-mono text-purple-400 font-semibold">{log.provider || 'gmail_smtp'}</div>
+                                <div className="text-[10px] font-mono text-emerald-400 max-w-[130px] truncate" title={log.provider_message_id || '-'}>
+                                  {log.provider_message_id || '-'}
+                                </div>
+                              </td>
+
+                              {/* SMTP Response */}
+                              <td className="px-3 py-2.5 font-mono text-[10px] text-admin-muted max-w-[140px] truncate" title={log.smtp_response || '-'}>
+                                {log.smtp_response || '-'}
+                              </td>
+
+                              {/* Sent At */}
+                              <td className="px-3 py-2.5 text-admin-muted text-[11px] whitespace-nowrap">
+                                {log.sent_at ? new Date(log.sent_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : (log.created_at ? new Date(log.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : '-')}
+                              </td>
+
+                              {/* Sent By */}
+                              <td className="px-3 py-2.5 text-admin-secondary text-xs whitespace-nowrap">
+                                {log.sent_by_name || 'Admin'}
+                              </td>
+
+                              {/* Error Message */}
+                              <td className="px-3 py-2.5 text-[11px] font-mono text-red-400 max-w-[160px] truncate" title={log.error_message || '-'}>
+                                {log.error_message || '-'}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

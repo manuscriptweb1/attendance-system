@@ -478,7 +478,7 @@ const sendSelectedPayslipEmails = async ({
   let skipped = 0;
   const details = [];
 
-  const BATCH_CONCURRENCY = 5;
+  const BATCH_CONCURRENCY = 2;
   for (let i = 0; i < employee_ids.length; i += BATCH_CONCURRENCY) {
     const batch = employee_ids.slice(i, i + BATCH_CONCURRENCY);
     const batchResults = await Promise.all(

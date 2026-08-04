@@ -9,22 +9,22 @@ function getTransporter() {
     throw new Error("SMTP configuration is missing");
   }
 
+  const port = Number(process.env.SMTP_PORT || 587);
+  const isSecure = process.env.SMTP_SECURE === "true" || port === 465;
+
   transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: process.env.SMTP_SECURE === "true",
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: port,
+    secure: isSecure,
+    requireTLS: !isSecure,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASSWORD,
     },
-    pool: true,
-    maxConnections: 5,
-    maxMessages: 100,
-    rateDelta: 1000,
-    rateLimit: 10,
-    connectionTimeout: 10000,
-    greetingTimeout: 8000,
-    socketTimeout: 20000
+    connectionTimeout: 25000,
+    greetingTimeout: 20000,
+    socketTimeout: 30000,
+    dnsTimeout: 10000
   });
 
   return transporter;
@@ -74,8 +74,7 @@ async function sendEmail({
   }
 
   const mailTransporter = getTransporter();
-
-  const info = await mailTransporter.sendMail({
+  const mailOptions = {
     from: `"${process.env.MAIL_FROM_NAME || "MTM Attendance"}" <${process.env.MAIL_FROM_EMAIL || process.env.SMTP_USER}>`,
     to: toName ? `"${toName}" <${toEmail}>` : toEmail,
     replyTo: process.env.MAIL_REPLY_TO || process.env.MAIL_FROM_EMAIL || process.env.SMTP_USER,
@@ -83,14 +82,43 @@ async function sendEmail({
     html,
     text,
     attachments,
-  });
-
-  return {
-    messageId: info.messageId,
-    accepted: info.accepted || [],
-    rejected: info.rejected || [],
-    response: info.response,
   };
+
+  try {
+    const info = await mailTransporter.sendMail(mailOptions);
+    return {
+      messageId: info.messageId,
+      accepted: info.accepted || [],
+      rejected: info.rejected || [],
+      response: info.response,
+    };
+  } catch (err) {
+    const isTimeoutErr = err.message && (
+      err.message.toLowerCase().includes('timeout') ||
+      err.message.includes('ECONNRESET') ||
+      err.message.includes('ETIMEDOUT') ||
+      err.message.includes('ESOCKET')
+    );
+
+    if (isTimeoutErr) {
+      console.warn(`⚠️ SMTP send encountered network timeout (${err.message}). Retrying once with fresh connection...`);
+      try {
+        transporter = null;
+        const freshTransporter = getTransporter();
+        const retryInfo = await freshTransporter.sendMail(mailOptions);
+        return {
+          messageId: retryInfo.messageId,
+          accepted: retryInfo.accepted || [],
+          rejected: retryInfo.rejected || [],
+          response: retryInfo.response,
+        };
+      } catch (retryErr) {
+        console.error('❌ SMTP Retry also failed:', retryErr.message);
+        throw retryErr;
+      }
+    }
+    throw err;
+  }
 }
 
 /**

@@ -925,7 +925,7 @@ const AdminPayroll = () => {
               </div>
             </div>
 
-            <div className="p-6 overflow-y-auto dark-scroll flex-1">
+            <div className="overflow-y-auto dark-scroll flex-1">
               {loadingEmailLogs ? (
                 <div className="flex justify-center py-12">
                   <Spinner size={32} color="blue" />
@@ -954,14 +954,14 @@ const AdminPayroll = () => {
 
                 return (
                   <div className="w-full">
-                    <table className="w-full text-left table-auto divide-y divide-white/[0.04]">
-                      <thead className="bg-admin-bg sticky top-0 z-10">
+                    <table className="w-full text-left table-auto border-collapse">
+                      <thead className="sticky top-0 z-20 bg-admin-elevated border-b border-admin-border shadow-sm">
                         <tr>
                           {[
                             'Employee', 'Period', 'Type', 'Status',
                             'Provider / Msg ID', 'SMTP Response', 'Sent At', 'Sent By', 'Error / Info'
                           ].map(h => (
-                            <th key={h} className="px-3 py-2 text-[10px] font-bold text-admin-secondary uppercase tracking-wider">{h}</th>
+                            <th key={h} className="px-5 py-3 text-[10px] font-bold text-admin-secondary uppercase tracking-wider bg-admin-elevated sticky top-0 z-20">{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -971,7 +971,7 @@ const AdminPayroll = () => {
                           return (
                             <tr key={log.id} className="hover:bg-admin-bg/50 text-xs">
                               {/* Employee ID & Name & Email */}
-                              <td className="px-3 py-2.5">
+                              <td className="px-5 py-3">
                                 <div className="flex items-center gap-2">
                                   <span className="font-bold font-mono text-admin-text bg-admin-bg px-1.5 py-0.5 rounded border border-admin-border/50 text-[11px] shrink-0">
                                     {log.employee_id || '-'}
@@ -984,17 +984,17 @@ const AdminPayroll = () => {
                               </td>
 
                               {/* Period */}
-                              <td className="px-3 py-2.5 font-semibold text-admin-secondary whitespace-nowrap">
+                              <td className="px-5 py-3 font-semibold text-admin-secondary whitespace-nowrap">
                                 {monthShort} {log.year}
                               </td>
 
                               {/* Type */}
-                              <td className="px-3 py-2.5 uppercase font-semibold text-[10px] text-admin-secondary whitespace-nowrap">
+                              <td className="px-5 py-3 uppercase font-semibold text-[10px] text-admin-secondary whitespace-nowrap">
                                 {log.email_type || 'PAYSLIP'}
                               </td>
 
                               {/* Status */}
-                              <td className="px-3 py-2.5 whitespace-nowrap">
+                              <td className="px-5 py-3 whitespace-nowrap">
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase inline-block ${
                                   log.status === 'sent' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
                                   log.status === 'failed' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
@@ -1006,7 +1006,7 @@ const AdminPayroll = () => {
                               </td>
 
                               {/* Provider & Message ID */}
-                              <td className="px-3 py-2.5">
+                              <td className="px-5 py-3">
                                 <div className="text-[11px] font-mono text-purple-400 font-semibold">{log.provider || 'gmail_smtp'}</div>
                                 <div className="text-[10px] font-mono text-emerald-400 max-w-[130px] truncate" title={log.provider_message_id || '-'}>
                                   {log.provider_message_id || '-'}
@@ -1014,22 +1014,22 @@ const AdminPayroll = () => {
                               </td>
 
                               {/* SMTP Response */}
-                              <td className="px-3 py-2.5 font-mono text-[10px] text-admin-muted max-w-[140px] truncate" title={log.smtp_response || '-'}>
+                              <td className="px-5 py-3 font-mono text-[10px] text-admin-muted max-w-[140px] truncate" title={log.smtp_response || '-'}>
                                 {log.smtp_response || '-'}
                               </td>
 
                               {/* Sent At */}
-                              <td className="px-3 py-2.5 text-admin-muted text-[11px] whitespace-nowrap">
+                              <td className="px-5 py-3 text-admin-muted text-[11px] whitespace-nowrap">
                                 {log.sent_at ? new Date(log.sent_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : (log.created_at ? new Date(log.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : '-')}
                               </td>
 
                               {/* Sent By */}
-                              <td className="px-3 py-2.5 text-admin-secondary text-xs whitespace-nowrap">
+                              <td className="px-5 py-3 text-admin-secondary text-xs whitespace-nowrap">
                                 {log.sent_by_name || 'Admin'}
                               </td>
 
                               {/* Error Message */}
-                              <td className="px-3 py-2.5 text-[11px] font-mono text-red-400 max-w-[160px] truncate" title={log.error_message || '-'}>
+                              <td className="px-5 py-3 text-[11px] font-mono text-red-400 max-w-[160px] truncate" title={log.error_message || '-'}>
                                 {log.error_message || '-'}
                               </td>
                             </tr>

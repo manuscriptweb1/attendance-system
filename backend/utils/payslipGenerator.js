@@ -411,15 +411,43 @@ function renderPayslipNoteOrSignature(doc, fonts, generatedDateStr, startY, opti
   }
 }
 
+function renderPayslipFooter(doc, fonts, startY, options = {}) {
+  const { fontRegular } = fonts;
+  const includeSignature = options.includeSignature === true;
+  const footerLineY = startY + (includeSignature ? 12 : 10);
+
+  // 1. Thin black horizontal line
+  doc.moveTo(50, footerLineY)
+     .lineTo(545, footerLineY)
+     .strokeColor('#000000')
+     .lineWidth(0.75)
+     .stroke();
+
+  // 2. Muted red centered registered office text
+  const textY = footerLineY + 8;
+  const footerText = 'Manuscript Technomedia LLP, Reg. Office. No. 22, 3rd Cross, Vivekananda Nagar, Bangalore-33, Karnataka, India.';
+
+  doc.fontSize(8.5)
+     .font(fontRegular)
+     .fillColor('#B91C1C')
+     .text(footerText, 50, textY, {
+       width: 495,
+       align: 'center'
+     });
+
+  return textY + 16;
+}
+
 function renderPayslipPage(doc, record, monthName, year, generatedDateStr, logoPath, fonts, options = {}) {
   renderPayslipHeader(doc, record, monthName, year, logoPath, fonts);
   const detailsEndY = renderEmployeeAndAttendanceDetails(doc, record, fonts, 135);
   const { gross, totalDeductions, nextY: earningsEndY } = renderEarningsAndDeductions(doc, record, fonts, detailsEndY);
   const netPayableEndY = renderNetPayable(doc, record, gross, totalDeductions, fonts, earningsEndY);
-  const finalEndY = renderPayslipNoteOrSignature(doc, fonts, generatedDateStr, netPayableEndY, options);
+  const contentEndY = renderPayslipNoteOrSignature(doc, fonts, generatedDateStr, netPayableEndY, options);
+  const finalEndY = renderPayslipFooter(doc, fonts, contentEndY, options);
 
-  const bottomPadding = options.includeSignature ? 15 : 10;
-  const cardHeight = Math.max(500, finalEndY - 35 + bottomPadding);
+  const bottomPadding = 12;
+  const cardHeight = Math.max(520, finalEndY - 35 + bottomPadding);
   doc.rect(40, 35, 515, cardHeight).strokeColor('#CBD5E1').lineWidth(1).stroke();
 }
 
@@ -458,6 +486,7 @@ module.exports = {
   renderEarningsAndDeductions,
   renderNetPayable,
   renderPayslipNoteOrSignature,
+  renderPayslipFooter,
   renderPayslipPage,
   generateSinglePayslipBuffer
 };

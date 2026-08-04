@@ -478,17 +478,30 @@ const sendSelectedPayslipEmails = async ({
   let skipped = 0;
   const details = [];
 
-  for (const empId of employee_ids) {
-    try {
-      const res = await sendSinglePayslipEmail({
-        employee_id: empId,
-        month,
-        year,
-        sent_by,
-        sent_by_name,
-        ipAddress
-      });
+  const BATCH_CONCURRENCY = 5;
+  for (let i = 0; i < employee_ids.length; i += BATCH_CONCURRENCY) {
+    const batch = employee_ids.slice(i, i + BATCH_CONCURRENCY);
+    const batchResults = await Promise.all(
+      batch.map(async (empId) => {
+        try {
+          const res = await sendSinglePayslipEmail({
+            employee_id: empId,
+            month,
+            year,
+            sent_by,
+            sent_by_name,
+            ipAddress
+          });
+          return { empId, res };
+        } catch (err) {
+          return { empId, res: { success: false, message: err.message } };
+        }
+      })
+    );
 
+    for (const item of batchResults) {
+      const empId = item.empId;
+      const res = item.res;
       if (res.success) {
         sent++;
         details.push({ employee_id: empId, status: 'sent', message: res.message });
@@ -499,9 +512,6 @@ const sendSelectedPayslipEmails = async ({
         failed++;
         details.push({ employee_id: empId, status: 'failed', message: res.message });
       }
-    } catch (err) {
-      failed++;
-      details.push({ employee_id: empId, status: 'failed', message: err.message });
     }
   }
 

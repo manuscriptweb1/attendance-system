@@ -18,11 +18,13 @@ function getTransporter() {
       pass: process.env.SMTP_PASSWORD,
     },
     pool: true,
-    maxConnections: 2,
-    maxMessages: 50,
-    connectionTimeout: 15000,
-    greetingTimeout: 10000,
-    socketTimeout: 30000
+    maxConnections: 5,
+    maxMessages: 100,
+    rateDelta: 1000,
+    rateLimit: 10,
+    connectionTimeout: 10000,
+    greetingTimeout: 8000,
+    socketTimeout: 20000
   });
 
   return transporter;

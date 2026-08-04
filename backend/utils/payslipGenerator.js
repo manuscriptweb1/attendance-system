@@ -2,7 +2,12 @@ const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
 
+let cachedLogoPath = undefined;
+let cachedSignaturePath = undefined;
+const fontPathCache = {};
+
 const getCompanyLogoPath = () => {
+  if (cachedLogoPath !== undefined) return cachedLogoPath;
   const possiblePaths = [
     path.join(__dirname, '../../frontend/public/favicon/web-app-manifest-192x192.png'),
     path.join(__dirname, '../../frontend/public/favicon/favicon-96x96.png'),
@@ -13,13 +18,16 @@ const getCompanyLogoPath = () => {
 
   for (const p of possiblePaths) {
     if (fs.existsSync(p)) {
+      cachedLogoPath = p;
       return p;
     }
   }
+  cachedLogoPath = null;
   return null;
 };
 
 const getSignaturePath = () => {
+  if (cachedSignaturePath !== undefined) return cachedSignaturePath;
   const possiblePaths = [
     path.resolve(process.cwd(), "assets", "payslip", "company-seal-signature.png"),
     path.resolve(process.cwd(), "backend", "assets", "payslip", "company-seal-signature.png"),
@@ -29,14 +37,17 @@ const getSignaturePath = () => {
 
   for (const p of possiblePaths) {
     if (fs.existsSync(p)) {
+      cachedSignaturePath = p;
       return p;
     }
   }
   console.warn("Signature image not found at backend/assets/payslip/company-seal-signature.png");
+  cachedSignaturePath = null;
   return null;
 };
 
 function resolvePayslipFont(fileName) {
+  if (fontPathCache[fileName] !== undefined) return fontPathCache[fileName];
   const possiblePaths = [
     path.join(__dirname, '../assets/fonts', fileName),
     path.join(__dirname, '../../backend/assets/fonts', fileName),
@@ -45,7 +56,9 @@ function resolvePayslipFont(fileName) {
     path.resolve(process.cwd(), 'backend/assets/fonts', fileName)
   ];
 
-  return possiblePaths.find((p) => fs.existsSync(p));
+  const found = possiblePaths.find((p) => fs.existsSync(p)) || null;
+  fontPathCache[fileName] = found;
+  return found;
 }
 
 function registerPayslipFonts(doc) {

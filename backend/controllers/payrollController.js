@@ -5,6 +5,12 @@ const path = require('path');
 const fs = require('fs');
 const { buildMonthlyPayroll } = require('../services/attendanceReportService');
 const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
+const {
+  getCompanyLogoPath,
+  registerPayslipFonts,
+  renderPayslipPage,
+  generateSinglePayslipBuffer
+} = require('../utils/payslipGenerator');
 
 const mapRecordToCamelCase = (r) => ({
   id: r.id,
@@ -610,351 +616,13 @@ const clearPayrollRange = async (req, res) => {
   }
 };
 
-function formatDayValue(value) {
-  const num = Number(value || 0);
-  if (Number.isInteger(num)) {
-    return String(num);
-  }
-  return String(parseFloat(num.toFixed(2)));
-}
 
-function formatINR(value) {
-  const num = Number(value || 0);
-  const rounded = Math.round(num);
-
-  return `\u20B9${rounded.toLocaleString("en-IN", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  })}`;
-}
-
-const getCompanyLogoPath = () => {
-  const possiblePaths = [
-    path.join(__dirname, '../../frontend/public/favicon/web-app-manifest-192x192.png'),
-    path.join(__dirname, '../../frontend/public/favicon/favicon-96x96.png'),
-    path.join(__dirname, '../public/favicon/web-app-manifest-192x192.png'),
-    path.join(process.cwd(), 'frontend/public/favicon/web-app-manifest-192x192.png'),
-    path.join(process.cwd(), 'frontend/public/favicon/favicon-96x96.png')
-  ];
-
-  for (const p of possiblePaths) {
-    if (fs.existsSync(p)) {
-      return p;
-    }
-  }
-  return null;
-};
-
-function resolvePayslipFont(fileName) {
-  const possiblePaths = [
-    path.join(__dirname, '../assets/fonts', fileName),
-    path.join(__dirname, '../../backend/assets/fonts', fileName),
-    path.join(__dirname, '../../assets/fonts', fileName),
-    path.join(process.cwd(), 'assets/fonts', fileName),
-    path.join(process.cwd(), 'backend/assets/fonts', fileName)
-  ];
-
-  return possiblePaths.find((p) => fs.existsSync(p));
-}
-
-function registerPayslipFonts(doc) {
-  const regularFontPath = resolvePayslipFont('NotoSans-Regular.ttf') || resolvePayslipFont('Arial-Regular.ttf');
-  const boldFontPath = resolvePayslipFont('NotoSans-Bold.ttf') || resolvePayslipFont('Arial-Bold.ttf');
-  const italicFontPath = resolvePayslipFont('NotoSans-Italic.ttf') || resolvePayslipFont('Arial-Italic.ttf');
-
-  if (!regularFontPath || !boldFontPath) {
-    throw new Error('Payslip Unicode font missing. Add NotoSans-Regular.ttf and NotoSans-Bold.ttf to backend/assets/fonts.');
-  }
-
-  doc.registerFont('PayslipRegular', regularFontPath);
-  doc.registerFont('PayslipBold', boldFontPath);
-  if (italicFontPath) {
-    doc.registerFont('PayslipItalic', italicFontPath);
-  }
-
-  console.log('Payslip Unicode font loaded:', regularFontPath);
-
-  return {
-    fontRegular: 'PayslipRegular',
-    fontBold: 'PayslipBold',
-    fontItalic: italicFontPath ? 'PayslipItalic' : 'PayslipRegular'
-  };
-}
-
-function drawDetailRow(doc, {
-  label,
-  value,
-  labelX,
-  valueX,
-  y,
-  labelWidth,
-  valueWidth,
-  rowWidth,
-  fontSize = 9,
-  boldValue = true,
-  fonts
-}) {
-  const safeValue = (value !== undefined && value !== null && String(value).trim() !== '') ? String(value) : '-';
-  const { fontRegular, fontBold } = fonts;
-
-  doc.font(fontRegular).fontSize(fontSize);
-  const labelHeight = doc.heightOfString(label, { width: labelWidth });
-
-  doc.font(boldValue ? fontBold : fontRegular).fontSize(fontSize);
-  const valueHeight = doc.heightOfString(safeValue, { width: valueWidth, align: 'right' });
-
-  const textHeight = Math.max(labelHeight, valueHeight);
-  const rowHeight = Math.max(16, textHeight + 4);
-
-  doc.font(fontRegular).fontSize(fontSize).fillColor('#475569').text(label, labelX, y, {
-    width: labelWidth,
-    align: 'left'
-  });
-
-  doc.font(boldValue ? fontBold : fontRegular).fontSize(fontSize).fillColor('#0F172A').text(safeValue, valueX, y, {
-    width: valueWidth,
-    align: 'right'
-  });
-
-  const lineY = y + rowHeight - 1;
-
-  doc.moveTo(labelX, lineY).lineTo(labelX + rowWidth, lineY).strokeColor('#F1F5F9').lineWidth(0.5).stroke();
-
-  return lineY + 5;
-}
-
-function renderPayslipHeader(doc, data, monthName, year, logoPath, fonts) {
-  const { fontRegular, fontBold } = fonts;
-
-  // Company Logo & Title (Centered Top)
-  if (logoPath) {
-    try {
-      doc.image(logoPath, 145, 44, { width: 32, height: 32 });
-      doc.fontSize(17).font(fontBold).fillColor('#0F172A').text('Manuscript Technomedia LLP', 185, 50);
-    } catch (logoErr) {
-      console.warn('Could not embed logo in payslip PDF:', logoErr.message);
-      doc.fontSize(17).font(fontBold).fillColor('#0F172A').text('Manuscript Technomedia LLP', 40, 50, { align: 'center' });
-    }
-  } else {
-    doc.fontSize(17).font(fontBold).fillColor('#0F172A').text('Manuscript Technomedia LLP', 40, 50, { align: 'center' });
-  }
-
-  // Title & Subtitle
-  doc.fontSize(14).font(fontBold).fillColor('#0F172A').text('PAY SLIP', 40, 82, { align: 'center' });
-  doc.fontSize(10).font(fontRegular).fillColor('#475569').text(`For the month of ${monthName} ${year}`, 40, 102, { align: 'center' });
-
-  // Header Divider Line
-  doc.moveTo(50, 122).lineTo(545, 122).strokeColor('#CBD5E1').lineWidth(1).stroke();
-}
-
-function renderEmployeeAndAttendanceDetails(doc, r, fonts, startY = 135) {
-  const { fontBold } = fonts;
-
-  let absentDays = parseFloat(r.absent_days) || 0;
-  if (absentDays === 0 && r.paid_days) {
-    absentDays = Math.max(0, parseFloat(r.total_days || 0) - parseFloat(r.paid_days || 0));
-  }
-
-  // --- EMPLOYEE DETAILS (Left Column: X 50 to 280) ---
-  doc.fontSize(10).font(fontBold).fillColor('#0F172A').text('EMPLOYEE DETAILS', 50, startY);
-  doc.moveTo(50, startY + 15).lineTo(280, startY + 15).strokeColor('#CBD5E1').lineWidth(1).stroke();
-
-  // --- ATTENDANCE DETAILS (Right Column: X 315 to 545) ---
-  doc.fontSize(10).font(fontBold).fillColor('#0F172A').text('ATTENDANCE DETAILS', 315, startY);
-  doc.moveTo(315, startY + 15).lineTo(545, startY + 15).strokeColor('#CBD5E1').lineWidth(1).stroke();
-
-  let leftY = startY + 23;
-  const empRows = [
-    { label: 'Employee Code', value: r.emp_code_real || r.employee_code },
-    { label: 'Name', value: r.employee_name },
-    { label: 'Designation', value: r.job_role },
-    { label: 'Department', value: r.department_name }
-  ];
-
-  empRows.forEach(row => {
-    leftY = drawDetailRow(doc, {
-      label: row.label,
-      value: row.value,
-      labelX: 50,
-      valueX: 140,
-      y: leftY,
-      labelWidth: 85,
-      valueWidth: 140,
-      rowWidth: 230,
-      fontSize: 9,
-      boldValue: true,
-      fonts
-    });
-  });
-
-  let rightY = startY + 23;
-  const attRows = [
-    { label: 'Working Days', value: formatDayValue(r.working_days) },
-    { label: 'Paid Days', value: formatDayValue(r.paid_days) },
-    { label: 'Present Days', value: formatDayValue(r.present_days) },
-    { label: 'Absent Days', value: formatDayValue(absentDays) }
-  ];
-
-  attRows.forEach(row => {
-    rightY = drawDetailRow(doc, {
-      label: row.label,
-      value: row.value,
-      labelX: 315,
-      valueX: 430,
-      y: rightY,
-      labelWidth: 110,
-      valueWidth: 115,
-      rowWidth: 230,
-      fontSize: 9,
-      boldValue: true,
-      fonts
-    });
-  });
-
-  const sectionEndY = Math.max(leftY, rightY);
-  doc.moveTo(50, sectionEndY + 2).lineTo(545, sectionEndY + 2).strokeColor('#CBD5E1').lineWidth(1).stroke();
-
-  return sectionEndY + 12;
-}
-
-function renderEarningsAndDeductions(doc, r, fonts, startY) {
-  const { fontBold } = fonts;
-
-  const basic = parseFloat(r.basic_salary) || 0;
-  const hra = parseFloat(r.hra) || 0;
-  const special = parseFloat(r.special_allowance) || 0;
-  const gross = basic + hra + special;
-
-  const lop = parseFloat(r.lop_amount) || 0;
-  const pt = parseFloat(r.professional_tax) || 0;
-  const tds = parseFloat(r.tds) || 0;
-  const advance = parseFloat(r.staff_advance) || 0;
-  const totalDeductions = lop + pt + tds + advance;
-
-  // --- EARNINGS (Left Column: X 50 to 280) ---
-  doc.fontSize(10).font(fontBold).fillColor('#0F172A').text('EARNINGS', 50, startY);
-  doc.moveTo(50, startY + 15).lineTo(280, startY + 15).strokeColor('#CBD5E1').lineWidth(1).stroke();
-
-  // --- DEDUCTIONS (Right Column: X 315 to 545) ---
-  doc.fontSize(10).font(fontBold).fillColor('#0F172A').text('DEDUCTIONS', 315, startY);
-  doc.moveTo(315, startY + 15).lineTo(545, startY + 15).strokeColor('#CBD5E1').lineWidth(1).stroke();
-
-  let leftY = startY + 23;
-  const earningsRows = [
-    { label: 'Basic Salary', value: formatINR(basic) },
-    { label: 'HRA', value: formatINR(hra) },
-    { label: 'Special Allowance', value: formatINR(special) }
-  ];
-
-  earningsRows.forEach(row => {
-    leftY = drawDetailRow(doc, {
-      label: row.label,
-      value: row.value,
-      labelX: 50,
-      valueX: 140,
-      y: leftY,
-      labelWidth: 85,
-      valueWidth: 140,
-      rowWidth: 230,
-      fontSize: 9,
-      boldValue: true,
-      fonts
-    });
-  });
-
-  leftY = drawDetailRow(doc, {
-    label: 'Gross Earnings',
-    value: formatINR(gross),
-    labelX: 50,
-    valueX: 140,
-    y: leftY,
-    labelWidth: 85,
-    valueWidth: 140,
-    rowWidth: 230,
-    fontSize: 9.5,
-    boldValue: true,
-    fonts
-  });
-
-  let rightY = startY + 23;
-  const deductionRows = [
-    { label: 'Loss of Pay / LOP', value: formatINR(lop) },
-    { label: 'Professional Tax', value: formatINR(pt) },
-    { label: 'TDS', value: formatINR(tds) },
-    { label: 'Staff Advance', value: formatINR(advance) }
-  ];
-
-  deductionRows.forEach(row => {
-    rightY = drawDetailRow(doc, {
-      label: row.label,
-      value: row.value,
-      labelX: 315,
-      valueX: 430,
-      y: rightY,
-      labelWidth: 110,
-      valueWidth: 115,
-      rowWidth: 230,
-      fontSize: 9,
-      boldValue: true,
-      fonts
-    });
-  });
-
-  rightY = drawDetailRow(doc, {
-    label: 'Total Deductions',
-    value: formatINR(totalDeductions),
-    labelX: 315,
-    valueX: 430,
-    y: rightY,
-    labelWidth: 110,
-    valueWidth: 115,
-    rowWidth: 230,
-    fontSize: 9.5,
-    boldValue: true,
-    fonts
-  });
-
-  const sectionEndY = Math.max(leftY, rightY);
-  doc.moveTo(50, sectionEndY + 2).lineTo(545, sectionEndY + 2).strokeColor('#CBD5E1').lineWidth(1).stroke();
-
-  return { gross, totalDeductions, nextY: sectionEndY + 15 };
-}
-
-function renderNetPayable(doc, r, gross, totalDeductions, fonts, startY) {
-  const { fontBold } = fonts;
-  const netPayable = parseFloat(r.net_payable) || (gross - totalDeductions);
-
-  doc.rect(50, startY, 495, 48).fillAndStroke('#EFF6FF', '#93C5FD');
-  doc.fontSize(11).font(fontBold).fillColor('#1E40AF').text('NET PAYABLE', 70, startY + 16);
-  doc.fontSize(17).font(fontBold).fillColor('#1E3A8A').text(formatINR(netPayable), 340, startY + 13, { align: 'right', width: 190 });
-
-  return startY + 60;
-}
-
-function renderPayslipNote(doc, fonts, generatedDateStr, startY) {
-  const { fontItalic, fontBold } = fonts;
-
-  doc.moveTo(50, startY).lineTo(545, startY).strokeColor('#CBD5E1').lineWidth(1).stroke();
-  doc.fontSize(8.5).font(fontItalic).fillColor('#64748B').text('Note: This is a computer-generated pay slip and does not require a signature.', 40, startY + 10, { align: 'center' });
-  doc.fontSize(8).font(fontBold).fillColor('#94A3B8').text(`Generated on: ${generatedDateStr}`, 40, startY + 25, { align: 'center' });
-
-  return startY + 42;
-}
-
-function renderPayslipPage(doc, record, monthName, year, generatedDateStr, logoPath, fonts) {
-  renderPayslipHeader(doc, record, monthName, year, logoPath, fonts);
-  const detailsEndY = renderEmployeeAndAttendanceDetails(doc, record, fonts, 135);
-  const { gross, totalDeductions, nextY: earningsEndY } = renderEarningsAndDeductions(doc, record, fonts, detailsEndY);
-  const netPayableEndY = renderNetPayable(doc, record, gross, totalDeductions, fonts, earningsEndY);
-  const finalEndY = renderPayslipNote(doc, fonts, generatedDateStr, netPayableEndY);
-
-  const cardHeight = Math.max(500, finalEndY - 35);
-  doc.rect(40, 35, 515, cardHeight).strokeColor('#CBD5E1').lineWidth(1).stroke();
-}
 
 const downloadAllPayslipsPDF = async (req, res) => {
   try {
     const { month, year } = req.query;
+    const includeSignature = req.query.signature === "true";
+
     if (!month || !year) {
       return res.status(400).json({ success: false, message: 'Month and year are required' });
     }
@@ -964,7 +632,7 @@ const downloadAllPayslipsPDF = async (req, res) => {
               e.employee_id as emp_code_real, e.name as employee_name, e.job_role, e.email as emp_email,
               d.name as department_name
        FROM payroll_records pr
-       JOIN employees e ON pr.employee_id::text = e.id::text OR pr.employee_code::text = e.employee_id::text
+       LEFT JOIN employees e ON pr.employee_id::text = e.id::text OR pr.employee_code::text = e.employee_id::text OR pr.employee_id::text = e.employee_id::text
        LEFT JOIN departments d ON e.department_id = d.id
        WHERE pr.payroll_month = $1 AND pr.payroll_year = $2
        ORDER BY e.name ASC`,
@@ -983,7 +651,7 @@ const downloadAllPayslipsPDF = async (req, res) => {
     const fonts = registerPayslipFonts(doc);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=payslips_${String(month).padStart(2, '0')}_${year}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=payslips_${String(month).padStart(2, '0')}_${year}${includeSignature ? '_signed' : ''}.pdf`);
 
     doc.pipe(res);
 
@@ -994,7 +662,7 @@ const downloadAllPayslipsPDF = async (req, res) => {
         doc.addPage();
       }
       doc.font(fonts.fontRegular);
-      renderPayslipPage(doc, r, monthName, year, generatedDateStr, logoPath, fonts);
+      renderPayslipPage(doc, r, monthName, year, generatedDateStr, logoPath, fonts, { includeSignature });
     });
 
     doc.end();
@@ -1005,7 +673,7 @@ const downloadAllPayslipsPDF = async (req, res) => {
       adminEmail: req.user.email || '',
       actionType: ADMIN_ACTION_TYPES.DOWNLOAD_PAYROLL || 'Download Payslips',
       moduleName: MODULE_NAMES.PAYROLL,
-      description: `Downloaded bulk payslip PDF for ${monthName} ${year} (${result.rows.length} employees).`,
+      description: `Downloaded bulk payslip PDF (${includeSignature ? 'Signed' : 'Unsigned'}) for ${monthName} ${year} (${result.rows.length} employees).`,
       ipAddress: req.ip
     });
 
@@ -1020,6 +688,8 @@ const downloadAllPayslipsPDF = async (req, res) => {
 const downloadSinglePayslipPDF = async (req, res) => {
   try {
     const { employee_id, month, year } = req.query;
+    const includeSignature = req.query.signature === "true" || req.body?.signature === true || req.body?.includeSignature === true;
+
     if (!employee_id || !month || !year) {
       return res.status(400).json({ success: false, message: 'Employee ID, month, and year are required' });
     }
@@ -1051,13 +721,13 @@ const downloadSinglePayslipPDF = async (req, res) => {
 
     const empCodeName = record.emp_code_real || record.employee_code || employee_id;
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=payslip_${empCodeName}_${monthName}_${year}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=payslip_${empCodeName}_${monthName}_${year}${includeSignature ? '_signed' : ''}.pdf`);
 
     doc.pipe(res);
 
     const generatedDateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
-    renderPayslipPage(doc, record, monthName, year, generatedDateStr, logoPath, fonts);
+    renderPayslipPage(doc, record, monthName, year, generatedDateStr, logoPath, fonts, { includeSignature });
 
     doc.end();
 
@@ -1067,7 +737,7 @@ const downloadSinglePayslipPDF = async (req, res) => {
       adminEmail: req.user?.email || '',
       actionType: ADMIN_ACTION_TYPES.DOWNLOAD_PAYROLL || 'Download Payslips',
       moduleName: MODULE_NAMES.PAYROLL || 'Payroll',
-      description: `Downloaded single payslip PDF for ${empCodeName} - ${record.employee_name} (${monthName} ${year}) via Admin Assistant.`,
+      description: `Downloaded single payslip PDF (${includeSignature ? 'Signed' : 'Unsigned'}) for ${empCodeName} - ${record.employee_name} (${monthName} ${year}).`,
       ipAddress: req.ip
     });
 
@@ -1079,6 +749,8 @@ const downloadSinglePayslipPDF = async (req, res) => {
   }
 };
 
+
+
 module.exports = {
   getPayrollRecords,
   calculatePayroll,
@@ -1089,5 +761,6 @@ module.exports = {
   getPaySlipData,
   clearPayrollRange,
   downloadAllPayslipsPDF,
-  downloadSinglePayslipPDF
+  downloadSinglePayslipPDF,
+  generateSinglePayslipBuffer
 };

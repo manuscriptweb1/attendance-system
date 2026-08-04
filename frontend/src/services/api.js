@@ -279,11 +279,29 @@ export const calculatePayroll = (month, year) =>
 export const updatePayrollRecord = (id, data) => api.put(`/payroll/${id}`, data);
 export const exportPayroll = (month, year) => 
   api.get('/payroll/export', { params: { month, year }, responseType: 'blob' });
-export const downloadAllPayslips = (month, year) => 
-  api.get('/payroll/payslips/download-all', { params: { month, year }, responseType: 'blob' });
-export const downloadSinglePayslip = (employeeId, month, year) => 
-  api.get('/payroll/payslip/download-one', { params: { employee_id: employeeId, month, year }, responseType: 'blob' });
+export const downloadAllPayslips = (month, year, signature = false) => 
+  api.get('/payroll/payslips/download-all', { params: { month, year, signature: signature === true ? 'true' : 'false' }, responseType: 'blob' });
+export const downloadSinglePayslip = (employeeId, month, year, signature = false) => 
+  api.get('/payroll/payslip/download-one', { params: { employee_id: employeeId, month, year, signature: signature === true ? 'true' : 'false' }, responseType: 'blob' });
 export const clearPayrollRange = (data) => api.delete('/payroll/clear-range', { data });
+
+// --- Email Service ---
+export const checkEmailHealth = () => api.get('/email/health');
+export const sendTestEmail = (toEmail) => api.post('/email/test', { toEmail });
+
+// --- Payroll Email ---
+export const sendPayslipEmail = (dataOrEmpId, month, year) => {
+  if (typeof dataOrEmpId === 'object' && dataOrEmpId !== null) {
+    return api.post('/payroll-email/send-payslip', dataOrEmpId);
+  }
+  return api.post('/payroll-email/send-payslip', { employee_id: dataOrEmpId, month, year });
+};
+export const sendSelectedPayslipEmails = (employee_ids, month, year) =>
+  api.post('/payroll-email/send-selected-payslips', { employee_ids, month, year });
+export const sendAllPayslipEmails = (month, year) =>
+  api.post('/payroll-email/send-all-payslips', { month, year });
+export const getPayrollEmailLogs = (month, year) =>
+  api.get('/payroll-email/logs', { params: { month, year } });
 
 // --- Expenses ---
 export const getExpenseTypes = () => api.get('/expenses/expense-types');

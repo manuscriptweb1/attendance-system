@@ -1,181 +1,178 @@
-const nodemailer = require('nodemailer');
-const fetch = require('node-fetch');
+const nodemailer = require("nodemailer");
 
-const sendOTPEmail = async (email, employeeName, otp, expiryMinutes, purpose = 'password_reset') => {
+let transporter = null;
+
+function getTransporter() {
+  if (transporter) return transporter;
+
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+    throw new Error("SMTP configuration is missing");
+  }
+
+  transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: process.env.SMTP_SECURE === "true",
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASSWORD,
+    },
+    pool: true,
+    maxConnections: 2,
+    maxMessages: 50,
+    connectionTimeout: 15000,
+    greetingTimeout: 10000,
+    socketTimeout: 30000
+  });
+
+  return transporter;
+}
+
+async function verifyEmailConnection() {
   try {
-    const purposeText = purpose === 'password_change' ? 'change your password' : 'reset your password';
-    const actionText = purpose === 'password_change' ? 'password change' : 'password reset';
+    const mailTransporter = getTransporter();
+    await mailTransporter.verify();
 
-    const htmlContent = `
+    return {
+      success: true,
+      provider: "gmail_smtp",
+      host: process.env.SMTP_HOST || "smtp.gmail.com",
+      port: Number(process.env.SMTP_PORT || 587),
+      secure: process.env.SMTP_SECURE === "true",
+      smtpConfigured: true,
+      smtpVerified: true,
+    };
+  } catch (error) {
+    let safeMessage = error.message;
+    if (safeMessage && (safeMessage.includes("Invalid login") || safeMessage.includes("Username and Password not accepted"))) {
+      safeMessage = "Gmail SMTP authentication failed. Check SMTP_USER and Google App Password. Make sure 2-Step Verification is enabled.";
+    }
+    throw new Error(safeMessage || "SMTP connection failed");
+  }
+}
+
+async function sendEmail({
+  toEmail,
+  toName,
+  subject,
+  html,
+  text,
+  attachments = [],
+}) {
+  if (!toEmail) {
+    throw new Error("Recipient email is missing");
+  }
+
+  // Check feature flags
+  if (process.env.OTP_EMAIL_ENABLED === 'false' && subject?.includes('OTP')) {
+    throw new Error('OTP email sending is disabled in system configuration');
+  }
+  if (process.env.PAYSLIP_EMAIL_ENABLED === 'false' && subject?.includes('Payslip')) {
+    throw new Error('Payslip email sending is disabled in system configuration');
+  }
+
+  const mailTransporter = getTransporter();
+
+  const info = await mailTransporter.sendMail({
+    from: `"${process.env.MAIL_FROM_NAME || "MTM Attendance"}" <${process.env.MAIL_FROM_EMAIL || process.env.SMTP_USER}>`,
+    to: toName ? `"${toName}" <${toEmail}>` : toEmail,
+    replyTo: process.env.MAIL_REPLY_TO || process.env.MAIL_FROM_EMAIL || process.env.SMTP_USER,
+    subject,
+    html,
+    text,
+    attachments,
+  });
+
+  return {
+    messageId: info.messageId,
+    accepted: info.accepted || [],
+    rejected: info.rejected || [],
+    response: info.response,
+  };
+}
+
+/**
+ * Send OTP Email via Google SMTP Nodemailer
+ */
+async function sendOTPEmail(email, employeeName, otp, expiryMinutes = 10, purpose = 'password_reset') {
+  try {
+    const name = employeeName || 'Employee';
+    const subject = 'Your MTM Attendance OTP Code';
+
+    const html = `
 <!DOCTYPE html>
 <html>
 <head>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; }
-    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-    .content { background-color: white; padding: 30px; border-radius: 0 0 10px 10px; }
-    .otp-box { background-color: #f0f4ff; border: 2px dashed #667eea; padding: 20px; text-align: center; margin: 25px 0; border-radius: 8px; }
-    .otp-code { font-size: 32px; font-weight: bold; color: #667eea; letter-spacing: 5px; font-family: 'Courier New', monospace; }
-    .warning { background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px; }
-    .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; }
+    .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; padding: 25px; text-align: center; border-radius: 8px 8px 0 0; }
+    .content { background-color: white; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e2e8f0; border-top: none; }
+    .otp-box { background-color: #f1f5f9; border: 2px dashed #3b82f6; padding: 20px; text-align: center; margin: 25px 0; border-radius: 8px; }
+    .otp-code { font-size: 32px; font-weight: bold; color: #1e40af; letter-spacing: 6px; font-family: 'Courier New', monospace; }
+    .footer { text-align: center; color: #64748b; font-size: 12px; margin-top: 20px; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>Password Reset Request</h1>
+      <h2 style="margin:0;">MTM Attendance System</h2>
     </div>
     <div class="content">
-      <p>Hello <strong>${employeeName}</strong>,</p>
-      <p>We received a request to ${purposeText} for your Attendance Management System account.</p>
-      <p>Your One-Time Password (OTP) is:</p>
+      <p>Dear <strong>${name}</strong>,</p>
+      <p>Your OTP code is <strong>${otp}</strong>.</p>
       <div class="otp-box">
         <div class="otp-code">${otp}</div>
-        <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;">Valid for ${expiryMinutes} minutes</p>
+        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 13px;">Valid for ${expiryMinutes} minutes</p>
       </div>
-      <p><strong>Please use this OTP to complete your ${actionText} process.</strong></p>
-      <div class="warning">
-        <strong>Security Notice:</strong>
-        <ul style="margin: 10px 0 0 0; padding-left: 20px;">
-          <li>This OTP is valid for ${expiryMinutes} minutes only</li>
-          <li>Never share this OTP with anyone</li>
-          <li>Our team will never ask for your OTP</li>
-          <li>If you did not request this, please ignore this email</li>
-        </ul>
-      </div>
-      <p style="margin-top: 25px;">If you did not request this action, please ignore this email and ensure your account is secure.</p>
-      <p style="margin-top: 25px;"><strong>Regards,</strong><br>Attendance Management Team</p>
+      <p>This code is valid for ${expiryMinutes} minutes.</p>
+      <p>If you did not request this, please ignore this email.</p>
+      <br/>
+      <p>Regards,<br/><strong>MTM Attendance</strong></p>
     </div>
     <div class="footer">
       <p>This is an automated email. Please do not reply to this message.</p>
-      <p>&copy; ${new Date().getFullYear()} Attendance Management System. All rights reserved.</p>
     </div>
   </div>
 </body>
 </html>
-    `;
+  `;
 
-    // Use Brevo (Sendinblue) API
-    if (process.env.BREVO_API_KEY) {
-      console.log('Using Brevo API for email sending...');
-      console.log('API Key exists:', process.env.BREVO_API_KEY ? 'Yes' : 'No');
-      console.log('API Key length:', process.env.BREVO_API_KEY?.length);
-      
-      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-        method: 'POST',
-        headers: {
-          'accept': 'application/json',
-          'api-key': process.env.BREVO_API_KEY,
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({
-          sender: {
-            name: process.env.EMAIL_FROM_NAME || 'Attendance System',
-            email: process.env.EMAIL_FROM
-          },
-          to: [{ email: email, name: employeeName }],
-          subject: 'Attendance System - Password Reset OTP',
-          htmlContent: htmlContent
-        })
-      });
+    const text = `Dear ${name},\nYour OTP code is ${otp}.\nThis code is valid for ${expiryMinutes} minutes.\nIf you did not request this, please ignore this email.`;
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Brevo API Response:', errorData);
-        throw new Error(`Brevo API error: ${errorData.message || response.statusText}`);
-      }
+    const result = await sendEmail({
+      toEmail: email,
+      toName: name,
+      subject,
+      html,
+      text,
+    });
 
-      const result = await response.json();
-      console.log('✅ Email sent successfully via Brevo:', result.messageId);
-      
-      return {
-        success: true,
-        messageId: result.messageId
-      };
-    }
-    
-    // Fallback to SMTP (won't work on Render free tier)
-    const transportConfig = {
-      host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
-      port: parseInt(process.env.EMAIL_PORT) || 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS || process.env.BREVO_SMTP_KEY
-      },
-      connectionTimeout: 30000,
-      greetingTimeout: 30000,
-      socketTimeout: 30000
-    };
-
-    const transporter = nodemailer.createTransport(transportConfig);
-
-    const mailOptions = {
-      from: `"${process.env.EMAIL_FROM_NAME || 'Attendance System'}" <${process.env.EMAIL_FROM}>`,
-      to: email,
-      subject: 'Attendance System - Password Reset OTP',
-      html: htmlContent
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email sent successfully via SMTP:', info.messageId);
-    
     return {
       success: true,
-      messageId: info.messageId
+      messageId: result.messageId,
     };
   } catch (error) {
-    console.error('❌ Email sending error:', error);
+    console.error('❌ OTP email sending error:', error.message);
     return {
       success: false,
       error: error.message
     };
   }
-};
+}
 
-const testEmailConfig = async () => {
+async function testEmailConfig() {
   try {
-    // Test Brevo API connection
-    if (process.env.BREVO_API_KEY) {
-      const response = await fetch('https://api.brevo.com/v3/account', {
-        method: 'GET',
-        headers: {
-          'accept': 'application/json',
-          'api-key': process.env.BREVO_API_KEY
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Brevo API connection failed: ${response.statusText}`);
-      }
-
-      return { success: true, message: 'Brevo API connection is valid' };
-    }
-
-    // Test SMTP connection
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
-      port: parseInt(process.env.EMAIL_PORT) || 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS || process.env.BREVO_SMTP_KEY
-      },
-      connectionTimeout: 30000,
-      greetingTimeout: 30000,
-      socketTimeout: 30000
-    });
-    
-    await transporter.verify();
-    return { success: true, message: 'Email configuration is valid' };
+    const res = await verifyEmailConnection();
+    return { success: true, message: 'Google SMTP connection verified successfully', provider: res.provider };
   } catch (error) {
-    console.error('Email configuration error:', error);
     return { success: false, error: error.message };
   }
-};
+}
 
 module.exports = {
+  sendEmail,
+  verifyEmailConnection,
   sendOTPEmail,
   testEmailConfig
 };

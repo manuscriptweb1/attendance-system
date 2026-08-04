@@ -16,7 +16,27 @@ const {
   ensureDailyAttendanceRecords,
   clearAttendanceRange
 } = require('../controllers/attendanceController');
-const { autoCheckoutEmployees } = require('../jobs/autoCheckout');
+const { autoCheckoutEmployees, resetAutoCheckoutLock } = require('../jobs/autoCheckout');
+
+// Utility route to manually trigger auto-checkout (for testing)
+router.post('/trigger-auto-checkout', verifyToken, isAdmin, requirePermission('attendance', 'can_edit'), async (req, res) => {
+  try {
+    resetAutoCheckoutLock();
+    const result = await autoCheckoutEmployees({ force: true });
+    
+    res.json({
+      success: result.success,
+      message: result.message,
+      checkedOut: result.checkedOut || 0
+    });
+  } catch (error) {
+    console.error('Error triggering auto-checkout:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error triggering auto-checkout'
+    });
+  }
+});
 
 // Employee routes (with rate limiting)
 router.post('/checkin', verifyToken, isEmployee, attendanceRateLimit, checkIn);
@@ -24,7 +44,6 @@ router.post('/checkout', verifyToken, isEmployee, attendanceRateLimit, checkOut)
 router.get('/today', verifyToken, isEmployee, getTodayAttendance);
 router.get('/monthly', verifyToken, isEmployee, getEmployeeMonthlyAttendance);
 
-// Admin routes
 // Admin routes
 router.get('/all', verifyToken, isAdmin, requirePermission('attendance', 'can_view'), getAllAttendance);
 router.get('/stats', verifyToken, isAdmin, requirePermission('dashboard', 'can_view'), getDashboardStats);
@@ -50,25 +69,6 @@ router.post('/create-daily-records', verifyToken, isAdmin, requirePermission('at
     res.status(500).json({
       success: false,
       message: 'Error creating daily records'
-    });
-  }
-});
-
-// Utility route to manually trigger auto-checkout (for testing)
-router.post('/trigger-auto-checkout', verifyToken, isAdmin, requirePermission('attendance', 'can_edit'), async (req, res) => {
-  try {
-    const result = await autoCheckoutEmployees();
-    
-    res.json({
-      success: result.success,
-      message: result.message,
-      checkedOut: result.checkedOut || 0
-    });
-  } catch (error) {
-    console.error('Error triggering auto-checkout:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error triggering auto-checkout'
     });
   }
 });

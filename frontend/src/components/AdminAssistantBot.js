@@ -650,16 +650,16 @@ const AdminAssistantBot = () => {
     }
   };
 
-  const runDownloadPayslips = async (month, year) => {
+  const runDownloadPayslips = async (month, year, signature = true) => {
     setProcessing(true);
     const mName = getMonthNameStr(month);
-    const loadingId = addLoadingMessage(`Preparing payslip PDF...`);
+    const loadingId = addLoadingMessage(`Preparing payslip PDF (${signature ? 'Signed' : 'Unsigned'})...`);
     try {
-      const response = await downloadAllPayslips(month, year);
+      const response = await downloadAllPayslips(month, year, signature);
       removeLoadingMessage(loadingId);
-      const filename = `payslips_${String(month).padStart(2, '0')}_${year}.pdf`;
+      const filename = `payslips_${String(month).padStart(2, '0')}_${year}${signature ? '_signed' : ''}.pdf`;
       triggerBrowserDownload(response.data, filename);
-      addMessage('bot', `Payslip download started for ${mName} ${year} (${filename}).`, {
+      addMessage('bot', `Payslip download started for ${mName} ${year} (${signature ? 'With Signature' : 'Without Signature'}).`, {
         cardType: 'download_success',
         filename
       });
@@ -686,17 +686,17 @@ const AdminAssistantBot = () => {
     }
   };
 
-  const runDownloadSinglePayslip = async (employeeId, month, year, empName) => {
+  const runDownloadSinglePayslip = async (employeeId, month, year, empName, signature = true) => {
     setProcessing(true);
     const mName = getMonthNameStr(month);
     const label = `${employeeId}${empName ? ' - ' + empName : ''}`;
-    const loadingId = addLoadingMessage(`Preparing payslip for ${label}...`);
+    const loadingId = addLoadingMessage(`Preparing payslip for ${label} (${signature ? 'Signed' : 'Unsigned'})...`);
     try {
-      const response = await downloadSinglePayslip(employeeId, month, year);
+      const response = await downloadSinglePayslip(employeeId, month, year, signature);
       removeLoadingMessage(loadingId);
-      const filename = `payslip_${employeeId}_${mName}_${year}.pdf`;
+      const filename = `payslip_${employeeId}_${mName}_${year}${signature ? '_signed' : ''}.pdf`;
       triggerBrowserDownload(response.data, filename);
-      addMessage('bot', `Payslip download started for ${label}, ${mName} ${year}.`, {
+      addMessage('bot', `Payslip download started for ${label}, ${mName} ${year} (${signature ? 'With Signature' : 'Without Signature'}).`, {
         cardType: 'download_success',
         filename
       });
@@ -849,20 +849,38 @@ const AdminAssistantBot = () => {
             setPendingAction({ type: 'calculate_payroll', step: 'confirm', month, year });
             addMessage('bot', `Calculate payroll for ${mName} ${year}? Please confirm.`);
           } else if (type === 'download_payslips') {
-            setPendingAction({ type: 'download_payslips', step: 'confirm', month, year });
-            addMessage('bot', `Download payslips for ${mName} ${year}? Please confirm.`);
+            setPendingAction({ type: 'download_payslips', step: 'ask_signature', month, year });
+            addMessage('bot', `Do you want the payslips for ${mName} ${year} with signature or without signature?\n\n1. With Signature\n2. Without Signature`);
           } else if (type === 'calculate_and_download') {
-            setPendingAction({ type: 'calculate_and_download', step: 'confirm', month, year });
-            addMessage('bot', `Calculate payroll and download payslips for ${mName} ${year}? Please confirm.`);
+            setPendingAction({ type: 'calculate_and_download', step: 'ask_signature', month, year });
+            addMessage('bot', `Do you want the payslips for ${mName} ${year} with signature or without signature?\n\n1. With Signature\n2. Without Signature`);
           } else if (type === 'download_single_payslip') {
             const emp = pendingAction.employee;
             const empCodeStr = emp.employeeCode || emp.employee_id || emp.code;
             const targetYear = year || new Date().getFullYear();
-            setPendingAction({ type: 'download_single_payslip', step: 'confirm', employee: emp, month, year: targetYear });
-            addMessage('bot', `Download payslip for ${empCodeStr} - ${emp.name} for ${mName} ${targetYear}? Please confirm.`);
+            setPendingAction({ type: 'download_single_payslip', step: 'ask_signature', employee: emp, month, year: targetYear });
+            addMessage('bot', `Do you want the payslip for ${empCodeStr} - ${emp.name} (${mName} ${targetYear}) with signature or without signature?\n\n1. With Signature\n2. Without Signature`);
           }
           return;
         }
+      }
+
+      if (pendingAction.step === 'ask_signature') {
+        const text = lowerCmd;
+        let isWithoutSig = text.includes('without signature') || text.includes('without') || text === '2' || text.startsWith('2.') || text === 'no' || text === 'false';
+        let isWithSig = text.includes('with signature') || text.includes('with') || text === '1' || text.startsWith('1.') || text === 'yes' || text === 'true';
+
+        let signature = true;
+        if (isWithoutSig && !isWithSig) {
+          signature = false;
+        } else {
+          signature = true;
+        }
+
+        const actionToRun = { ...pendingAction, signature };
+        setPendingAction(null);
+        await executePendingAction(actionToRun);
+        return;
       }
 
       if (pendingAction.type === 'download_single_payslip' && pendingAction.step === 'select_candidate') {
@@ -1344,8 +1362,8 @@ const AdminAssistantBot = () => {
                   } else {
                     const targetYear = year || new Date().getFullYear();
                     const mName = getMonthNameStr(month);
-                    setPendingAction({ type: 'download_single_payslip', step: 'confirm', employee: emp, month, year: targetYear });
-                    addMessage('bot', `Download payslip for ${empCodeStr} - ${emp.name} for ${mName} ${targetYear}? Please confirm.`);
+                    setPendingAction({ type: 'download_single_payslip', step: 'ask_signature', employee: emp, month, year: targetYear });
+                    addMessage('bot', `Do you want the payslip for ${empCodeStr} - ${emp.name} (${mName} ${targetYear}) with signature or without signature?\n\n1. With Signature\n2. Without Signature`);
                     setProcessing(false);
                     return;
                   }
@@ -1376,8 +1394,8 @@ const AdminAssistantBot = () => {
         }
         const mName = getMonthNameStr(month);
         const targetYear = year || new Date().getFullYear();
-        setPendingAction({ type: 'download_payslips', step: 'confirm', month, year: targetYear });
-        addMessage('bot', `Download all payslips for ${mName} ${targetYear}? Please confirm.`);
+        setPendingAction({ type: 'download_payslips', step: 'ask_signature', month, year: targetYear });
+        addMessage('bot', `Do you want the payslips for ${mName} ${targetYear} with signature or without signature?\n\n1. With Signature\n2. Without Signature`);
         setProcessing(false);
         return;
       }
@@ -1709,7 +1727,8 @@ const AdminAssistantBot = () => {
     try {
       if (type === 'download_single_payslip' && employee) {
         const empCodeStr = employee.employeeCode || employee.employee_id || employee.code || action.employeeId;
-        await runDownloadSinglePayslip(empCodeStr, month, year, employee.name);
+        const sig = action.signature !== false;
+        await runDownloadSinglePayslip(empCodeStr, month, year, employee.name, sig);
       } else if (type === 'mark_today_checkin' || type === 'mark_today_attendance' || type === 'mark_checkin') {
         const empCodeStr = employee?.employeeCode || employee?.employee_id || employee?.code || action.employeeId;
         const loadingId = addLoadingMessage('Marking attendance...');
@@ -1777,11 +1796,13 @@ const AdminAssistantBot = () => {
       } else if (type === 'calculate_payroll') {
         await runCalculatePayroll(month, year);
       } else if (type === 'download_payslips') {
-        await runDownloadPayslips(month, year);
+        const sig = action.signature !== false;
+        await runDownloadPayslips(month, year, sig);
       } else if (type === 'calculate_and_download') {
         const calcSuccess = await runCalculatePayroll(month, year);
         if (calcSuccess) {
-          await runDownloadPayslips(month, year);
+          const sig = action.signature !== false;
+          await runDownloadPayslips(month, year, sig);
         }
       }
     } catch (err) {

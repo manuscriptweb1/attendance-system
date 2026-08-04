@@ -4,6 +4,8 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { formatIndianCurrency as formatCurrency } from '../utils/formatCurrency';
 
+import { downloadSinglePayslip } from '../services/api';
+
 const PayrollPaySlip = ({ data, onClose, logoPath }) => {
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -14,67 +16,53 @@ const PayrollPaySlip = ({ data, onClose, logoPath }) => {
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const monthName = monthNames[payroll.month - 1];
 
-
-
   const formatDate = () => {
     const d = new Date();
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
-  const handleDownloadPdf = async () => {
+  const handleDownloadBackendPdf = async (includeSignature) => {
     try {
       setIsDownloading(true);
-      const element = document.querySelector(".payslip-download-area");
-
-      if (!element) {
-        console.error("Pay slip content not found");
-        setIsDownloading(false);
-        return;
-      }
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        logging: false
-      });
-
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-
-      const pageWidth = 210;
-      const pageHeight = 297;
-      const margin = 8;
-      const usableWidth = pageWidth - margin * 2;
-      const usableHeight = pageHeight - margin * 2;
-
-      const imgHeight = (canvas.height * usableWidth) / canvas.width;
-      const finalHeight = Math.min(imgHeight, usableHeight);
-
-      pdf.addImage(imgData, "PNG", margin, margin, usableWidth, finalHeight);
-
-      const safeEmployeeCode = employee.employee_code.replace(/\s+/g, "_");
-      const fileName = `payslip_${safeEmployeeCode}_${monthName}_${payroll.year}.pdf`;
-      pdf.save(fileName);
+      const res = await downloadSinglePayslip(employee.employee_code, payroll.month, payroll.year, includeSignature);
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `payslip_${employee.employee_code}_${monthName}_${payroll.year}${includeSignature ? '_signed' : ''}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("PDF generation failed:", error);
     } finally {
       setIsDownloading(false);
     }
   };
+
   return (
     <div className="payslip-modal fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center z-[100] overflow-y-auto p-4 sm:p-8">
       {/* Modal Actions */}
-      <div className="payslip-modal-actions absolute top-4 right-4 flex gap-3 no-print">
+      <div className="payslip-modal-actions absolute top-4 right-4 flex items-center gap-2.5 no-print">
         <button 
-          onClick={handleDownloadPdf} 
+          onClick={() => handleDownloadBackendPdf(true)} 
           disabled={isDownloading}
-          className={`${isDownloading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'} text-white px-5 py-2 rounded-xl shadow-lg flex items-center gap-2 font-bold transition-all`}
+          className={`${isDownloading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'} text-white px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 font-bold text-xs transition-all`}
+          title="Download Payslip PDF with Signature"
         >
-          <FiDownload size={18} /> {isDownloading ? 'Generating...' : 'Download PDF'}
+          <FiDownload size={16} /> Download Signed
         </button>
-        <button onClick={onClose} className="bg-slate-800 hover:bg-slate-700 text-slate-200 w-10 h-10 rounded-xl shadow-lg flex items-center justify-center transition-all">
-          <FiX size={20} />
+        <button 
+          onClick={() => handleDownloadBackendPdf(false)} 
+          disabled={isDownloading}
+          className={`${isDownloading ? 'bg-slate-500' : 'bg-slate-700 hover:bg-slate-600'} text-white px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 font-bold text-xs transition-all`}
+          title="Download Payslip PDF without Signature"
+        >
+          <FiDownload size={16} /> Download Unsigned
+        </button>
+        <button onClick={onClose} className="bg-slate-800 hover:bg-slate-700 text-slate-200 w-9 h-9 rounded-xl shadow-lg flex items-center justify-center transition-all">
+          <FiX size={18} />
         </button>
       </div>
 

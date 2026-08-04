@@ -2,6 +2,7 @@ const pool = require('../config/database');
 const { clearSettingsCache } = require('../utils/settingsHelper');
 const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
 const { getClientIP } = require('../services/networkValidationService');
+const { resetAutoCheckoutLock, autoCheckoutEmployees } = require('../jobs/autoCheckout');
 
 // Get current settings from database
 const getSettings = async (req, res) => {
@@ -283,6 +284,8 @@ const updateSettings = async (req, res) => {
 
     // Clear settings cache so next request gets fresh data
     clearSettingsCache();
+    resetAutoCheckoutLock();
+    autoCheckoutEmployees().catch(err => console.error('Error running auto checkout after settings update:', err));
 
     // Log activity
     await logAdminActivity({

@@ -57,6 +57,23 @@ async function runMasterMigration() {
       console.log('✅ 09_add_employee_personal_details.sql executed successfully.');
     }
 
+    // 2b-2. Run 10_create_payroll_email_logs.sql
+    console.log('📌 Executing config/10_create_payroll_email_logs.sql...');
+    const emailLogsSqlPath = path.join(__dirname, '../config/10_create_payroll_email_logs.sql');
+    if (fs.existsSync(emailLogsSqlPath)) {
+      const emailLogsSql = fs.readFileSync(emailLogsSqlPath, 'utf8');
+      await dbClient.query(emailLogsSql);
+      console.log('✅ 10_create_payroll_email_logs.sql executed successfully.');
+    }
+
+    await dbClient.query(`
+      ALTER TABLE payroll_email_logs
+      ADD COLUMN IF NOT EXISTS smtp_response TEXT,
+      ADD COLUMN IF NOT EXISTS accepted_recipients TEXT,
+      ADD COLUMN IF NOT EXISTS rejected_recipients TEXT;
+    `);
+    console.log('✅ Payroll email logs columns checked/added.');
+
     // 2c. Run manual attendance migration queries
     console.log('📌 Ensuring attendance columns...');
     await dbClient.query(`

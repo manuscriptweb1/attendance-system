@@ -144,17 +144,18 @@
     {
       "id": "payslip",
       "intent": "DOWNLOAD_PAYSLIP",
-      "title": "Payslips",
-      "description": "Download individual employee payslip or all payslips.",
+      "title": "Payslips & Payslip Emails",
+      "description": "Download individual or all employee payslips, or send payslip PDF emails via MailerSend.",
       "permission": "payroll:export",
-      "keywords": ["payslip", "pay slip", "salary slip", "download payslip"],
-      "aliases": ["download salary slip"],
+      "keywords": ["payslip", "pay slip", "salary slip", "download payslip", "send payslip", "email payslip", "email payslips"],
+      "aliases": ["download salary slip", "email salary slip"],
       "commands": [
         "payslip for MTM-01",
-        "Mushraf payslip",
+        "send payslip to MTM-01",
         "download July 2026 payslip for Bilal",
+        "email payslips for August 2026",
         "download all payslips for July 2026",
-        "download this month payslips"
+        "send all payslips this month"
       ],
       "quickAction": true
     },

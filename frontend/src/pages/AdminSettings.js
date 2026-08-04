@@ -3,8 +3,8 @@ import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
 import { Spinner } from '../components/Loader';
-import { getSettings, updateSettings } from '../services/api';
-import { FiMapPin, FiClock, FiSave, FiShield, FiInfo, FiSliders, FiCheckCircle, FiCpu } from 'react-icons/fi';
+import { getSettings, updateSettings, checkEmailHealth, sendTestEmail } from '../services/api';
+import { FiMapPin, FiClock, FiSave, FiShield, FiInfo, FiSliders, FiCheckCircle, FiCpu, FiMail, FiSend, FiActivity } from 'react-icons/fi';
 
 /* ─── CUSTOM TOGGLE SWITCH ─── */
 const ToggleSwitch = ({ checked, onChange }) => (
@@ -54,6 +54,60 @@ const AdminSettings = () => {
   const [saving,  setSaving]  = useState(false);
   const [alertDialog, setAlertDialog] = useState({ isOpen:false, title:'', message:'', type:'success' });
   const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
+
+  // Email Configuration State
+  const [testRecipientEmail, setTestRecipientEmail] = useState('');
+  const [checkingHealth, setCheckingHealth] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
+  const [emailHealthResult, setEmailHealthResult] = useState(null);
+
+  const handleCheckEmailHealth = async () => {
+    try {
+      setCheckingHealth(true);
+      const res = await checkEmailHealth();
+      if (res.data.success) {
+        setEmailHealthResult({ success: true, message: 'Google SMTP connection verified successfully!' });
+        setToastConfig({ message: 'Google SMTP connection verified successfully!', type: 'success' });
+      } else {
+        const err = res.data.error || 'SMTP connection check failed';
+        setEmailHealthResult({ success: false, message: err });
+        setAlertDialog({ isOpen: true, title: 'SMTP Verification Failed', message: err, type: 'error' });
+      }
+    } catch (error) {
+      const err = error.response?.data?.error || error.response?.data?.message || error.message || 'SMTP connection failed';
+      setEmailHealthResult({ success: false, message: err });
+      setAlertDialog({ isOpen: true, title: 'SMTP Health Check Failed', message: err, type: 'error' });
+    } finally {
+      setCheckingHealth(false);
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!testRecipientEmail || !testRecipientEmail.includes('@')) {
+      setAlertDialog({ isOpen: true, title: 'Validation Error', message: 'Please enter a valid recipient email address', type: 'error' });
+      return;
+    }
+
+    try {
+      setSendingTest(true);
+      const res = await sendTestEmail(testRecipientEmail);
+      if (res.data.success) {
+        setToastConfig({ message: res.data.message || `Test email sent to ${testRecipientEmail}!`, type: 'success' });
+        setTestRecipientEmail('');
+      } else {
+        setAlertDialog({ isOpen: true, title: 'Test Email Failed', message: res.data.message || 'Failed to send test email', type: 'error' });
+      }
+    } catch (error) {
+      setAlertDialog({
+        isOpen: true,
+        title: 'Test Email Failed',
+        message: error.response?.data?.message || error.message || 'Failed to send test email. Use Google App Password, not normal Gmail password. Also make sure 2-Step Verification is enabled.',
+        type: 'error'
+      });
+    } finally {
+      setSendingTest(false);
+    }
+  };
 
   useEffect(() => { fetchSettings(); }, []);
 
@@ -274,6 +328,73 @@ const AdminSettings = () => {
                   <p className="text-xs text-admin-muted mt-1 font-medium">Enable or disable the floating admin assistant bot in the admin panel.</p>
                 </div>
                 <ToggleSwitch checked={settings.admin_assistant_enabled} onChange={() => handleToggle('admin_assistant_enabled')} />
+              </div>
+            </SectionCard></div>
+
+            {/* Email Configuration (Google SMTP) */}
+            <div className="stagger-6"><SectionCard icon={FiMail} iconBg="bg-purple-500/10" iconColor="text-purple-400" title="Email Configuration (Google SMTP)">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-admin-elevated border border-admin-border rounded-xl mb-6">
+                <div>
+                  <span className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider">Provider</span>
+                  <span className="text-sm font-bold text-admin-text font-mono">Gmail SMTP</span>
+                </div>
+                <div>
+                  <span className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider">SMTP Host</span>
+                  <span className="text-sm font-bold text-admin-text font-mono">smtp.gmail.com</span>
+                </div>
+                <div>
+                  <span className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider">SMTP Port / Secure</span>
+                  <span className="text-sm font-bold text-admin-text font-mono">587 (TLS - secure: false)</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-admin-elevated border border-admin-border rounded-xl mb-6">
+                <div>
+                  <h3 className="text-sm font-bold text-admin-text flex items-center gap-2">
+                    <FiActivity className="text-purple-400" /> Connection Status Check
+                  </h3>
+                  <p className="text-xs text-admin-muted mt-1 font-medium">Verify Nodemailer SMTP connection to smtp.gmail.com.</p>
+                  {emailHealthResult && (
+                    <div className={`mt-2 text-xs font-bold ${emailHealthResult.success ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {emailHealthResult.message}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCheckEmailHealth}
+                  disabled={checkingHealth}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 rounded-xl text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
+                >
+                  <FiCheckCircle size={15} className={checkingHealth ? 'animate-spin' : ''} />
+                  {checkingHealth ? 'Verifying...' : 'Check Email Health'}
+                </button>
+              </div>
+
+              <div className="p-4 bg-admin-elevated border border-admin-border rounded-xl">
+                <h3 className="text-sm font-bold text-admin-text mb-2 flex items-center gap-2">
+                  <FiSend className="text-blue-400" /> Send Test Email
+                </h3>
+                <p className="text-xs text-admin-muted mb-4">Send a sample test email to verify end-to-end inbox delivery.</p>
+                
+                <div className="flex flex-col sm:flex-row items-center gap-3">
+                  <input
+                    type="email"
+                    placeholder="Enter test recipient email (e.g. test@gmail.com)"
+                    value={testRecipientEmail}
+                    onChange={(e) => setTestRecipientEmail(e.target.value)}
+                    className="admin-input flex-1 py-2.5 text-sm font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendTestEmail}
+                    disabled={sendingTest || !testRecipientEmail}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-md shadow-blue-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <FiSend size={14} className={sendingTest ? 'animate-spin' : ''} />
+                    {sendingTest ? 'Sending...' : 'Send Test Email'}
+                  </button>
+                </div>
               </div>
             </SectionCard></div>
 

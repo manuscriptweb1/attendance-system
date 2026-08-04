@@ -211,14 +211,13 @@ const processSinglePayslipEmailJob = async ({
 
     const html = `
 <p>Dear <strong>${employeeName}</strong>,</p>
-<p>Your payslip for <strong>${monthName} ${yearNum}</strong> has been generated.</p>
-<p>Please find your payslip attached as a PDF file.</p>
+<p>Your payslip for <strong>${monthName} ${yearNum}</strong> has been issued.</p>
 <p>For any salary-related queries, please contact HR.</p>
 <br/>
 <p>Regards,<br/><strong>Manuscript Technomedia LLP</strong></p>
     `;
 
-    const text = `Dear ${employeeName},\n\nYour payslip for ${monthName} ${yearNum} has been generated.\nPlease find your payslip attached as a PDF file.\n\nFor any salary-related queries, please contact HR.\n\nRegards,\nManuscript Technomedia LLP`;
+    const text = `Dear ${employeeName},\n\nYour payslip for ${monthName} ${yearNum} has been issued.\n\nFor any salary-related queries, please contact HR.\n\nRegards,\nManuscript Technomedia LLP`;
 
     // 3. Send Email via Google SMTP Nodemailer
     console.time(`single-email-smtp-${logId}`);

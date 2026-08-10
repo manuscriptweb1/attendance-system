@@ -154,10 +154,10 @@ const Sidebar = () => {
                     <button
                       type="button"
                       onClick={() => toggleSection(section.label)}
-                      className={`w-full flex items-center justify-between px-3 py-1.5 mb-1 text-[10px] font-bold uppercase tracking-[0.15em] transition-all duration-200 rounded-lg group select-none cursor-pointer ${
+                      className={`w-full flex items-center justify-between px-3 py-1.5 mb-1 text-[11px] font-extrabold uppercase tracking-[0.15em] transition-all duration-200 rounded-lg group select-none cursor-pointer ${
                         hasActiveItem && !isOpen
                           ? 'text-admin-accent font-extrabold bg-admin-accent/10'
-                          : 'text-admin-muted/70 hover:text-admin-text hover:bg-admin-elevated/40'
+                          : 'text-admin-secondary dark:text-slate-300 hover:text-admin-text hover:bg-admin-elevated/50'
                       }`}
                     >
                       <span className="flex items-center gap-1.5">
@@ -167,9 +167,9 @@ const Sidebar = () => {
                         )}
                       </span>
                       <FiChevronDown
-                        size={13}
+                        size={14}
                         className={`transition-transform duration-200 ${
-                          isOpen ? 'rotate-0 text-admin-muted' : '-rotate-90 text-admin-muted/60 group-hover:text-admin-text'
+                          isOpen ? 'rotate-0 text-admin-secondary dark:text-slate-300' : '-rotate-90 text-admin-muted group-hover:text-admin-text'
                         }`}
                       />
                     </button>

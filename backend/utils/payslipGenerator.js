@@ -167,9 +167,20 @@ function renderPayslipHeader(doc, data, monthName, year, logoPath, fonts) {
 function renderEmployeeAndAttendanceDetails(doc, r, fonts, startY = 135) {
   const { fontBold } = fonts;
 
+  const workingDays = parseFloat(r.working_days || r.total_days || 0);
+  const presentDays = parseFloat(r.present_days || 0);
+  const halfDays = parseFloat(r.half_days || 0);
+
   let absentDays = parseFloat(r.absent_days) || 0;
-  if (absentDays === 0 && r.paid_days) {
-    absentDays = Math.max(0, parseFloat(r.total_days || 0) - parseFloat(r.paid_days || 0));
+  let paidDays = parseFloat(r.paid_days) || 0;
+
+  // Calculate Total LOP / Absent Days (Full Absent + Half Day LOP equivalent)
+  let totalLopDays = parseFloat(r.lop_days || r.total_lop_days || 0);
+  if (totalLopDays === 0) {
+    totalLopDays = absentDays + (halfDays * 0.5);
+  }
+  if (paidDays === 0 && workingDays > 0) {
+    paidDays = Math.max(0, workingDays - totalLopDays);
   }
 
   // --- EMPLOYEE DETAILS (Left Column: X 50 to 280) ---
@@ -206,10 +217,12 @@ function renderEmployeeAndAttendanceDetails(doc, r, fonts, startY = 135) {
 
   let rightY = startY + 23;
   const attRows = [
-    { label: 'Working Days', value: formatDayValue(r.working_days) },
-    { label: 'Paid Days', value: formatDayValue(r.paid_days) },
-    { label: 'Present Days', value: formatDayValue(r.present_days) },
-    { label: 'Absent Days', value: formatDayValue(absentDays) }
+    { label: 'Working Days', value: formatDayValue(workingDays) },
+    { label: 'Paid Days', value: formatDayValue(paidDays) },
+    { label: 'Present Days', value: formatDayValue(presentDays) },
+    { label: 'Half Days', value: formatDayValue(halfDays) },
+    { label: 'Absent Days', value: formatDayValue(absentDays) },
+    { label: 'Total LOP / Absent', value: formatDayValue(totalLopDays) }
   ];
 
   attRows.forEach(row => {

@@ -133,6 +133,25 @@ const ProtectedRoute = ({ children, requiredRole, requiredPageKey }) => {
   );
 };
 
+// Public Route Component (redirect if already logged in)
+const PublicRoute = ({ children }) => {
+  const { isAuthenticated, loading, isAdmin, isEmployee, getDefaultAdminRoute } = useAuth();
+
+  if (loading) {
+    return <Loader />;
+  }
+
+  if (isAuthenticated) {
+    if (isAdmin) {
+      return <Navigate to={getDefaultAdminRoute ? getDefaultAdminRoute() : "/admin/dashboard"} replace />;
+    } else if (isEmployee) {
+      return <Navigate to="/employee/dashboard" replace />;
+    }
+  }
+
+  return children;
+};
+
 // ScrollToTop Component
 const ScrollToTop = () => {
   const { pathname, hash } = useLocation();
@@ -166,11 +185,48 @@ function App() {
               <Route path="/public/employee/:employeeId" element={<PublicEmployeeInfo />} />
 
               {/* Auth Pages */}
-              <Route path="/admin/login" element={<AdminLogin />} />
-              <Route path="/employee/login" element={<EmployeeLogin />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route
+                path="/admin"
+                element={
+                  <PublicRoute>
+                    <AdminLogin />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/admin/login"
+                element={
+                  <PublicRoute>
+                    <AdminLogin />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/employee/login"
+                element={
+                  <PublicRoute>
+                    <EmployeeLogin />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/forgot-password"
+                element={
+                  <PublicRoute>
+                    <ForgotPassword />
+                  </PublicRoute>
+                }
+              />
 
               {/* Admin Protected Routes */}
+              <Route
+                path="/admin/access-denied"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AdminAccessDenied />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/admin/dashboard"
                 element={<ProtectedRoute requiredRole="admin" requiredPageKey="dashboard"><AdminDashboard /></ProtectedRoute>}

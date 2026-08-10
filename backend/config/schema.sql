@@ -1787,10 +1787,13 @@ CREATE TABLE IF NOT EXISTS payroll_email_logs (
   email_type VARCHAR(50) NOT NULL,
   subject TEXT,
   status VARCHAR(30) NOT NULL,
-  provider VARCHAR(50) DEFAULT 'mailersend',
+  provider VARCHAR(50) DEFAULT 'gmail_smtp',
   provider_message_id TEXT NULL,
+  smtp_response TEXT NULL,
+  accepted_recipients TEXT NULL,
+  rejected_recipients TEXT NULL,
   error_message TEXT NULL,
-  sent_by INTEGER NULL,
+  sent_by VARCHAR(100) NULL,
   sent_by_name VARCHAR(255) NULL,
   sent_at TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1801,5 +1804,117 @@ CREATE INDEX IF NOT EXISTS idx_payroll_email_logs_employee_id ON payroll_email_l
 CREATE INDEX IF NOT EXISTS idx_payroll_email_logs_month_year ON payroll_email_logs(month, year);
 CREATE INDEX IF NOT EXISTS idx_payroll_email_logs_status ON payroll_email_logs(status);
 CREATE INDEX IF NOT EXISTS idx_payroll_email_logs_email_type ON payroll_email_logs(email_type);
+
+
+-- Employee Personal Details Columns
+ALTER TABLE employees
+ADD COLUMN IF NOT EXISTS bank_name VARCHAR(150),
+ADD COLUMN IF NOT EXISTS bank_address TEXT,
+ADD COLUMN IF NOT EXISTS account_holder_name VARCHAR(150),
+ADD COLUMN IF NOT EXISTS account_number VARCHAR(50),
+ADD COLUMN IF NOT EXISTS ifsc_code VARCHAR(20),
+ADD COLUMN IF NOT EXISTS pan_card_number VARCHAR(20),
+ADD COLUMN IF NOT EXISTS aadhar_card_number VARCHAR(20),
+ADD COLUMN IF NOT EXISTS permanent_address TEXT,
+ADD COLUMN IF NOT EXISTS alternate_phone_number VARCHAR(20);
+
+
+-- Employee Loans System Schema
+CREATE TABLE IF NOT EXISTS employee_loans (
+    id SERIAL PRIMARY KEY,
+    loan_code VARCHAR(50) UNIQUE NOT NULL,
+    employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    employee_code VARCHAR(100) NOT NULL,
+    total_loan_amount_paise BIGINT NOT NULL CHECK (total_loan_amount_paise > 0),
+    repayment_months INTEGER NOT NULL CHECK (repayment_months > 0),
+    monthly_scheduled_deduction_paise BIGINT NOT NULL CHECK (monthly_scheduled_deduction_paise > 0),
+    total_posted_deduction_paise BIGINT NOT NULL DEFAULT 0 CHECK (total_posted_deduction_paise >= 0),
+    remaining_balance_paise BIGINT NOT NULL CHECK (remaining_balance_paise >= 0),
+    loan_issue_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    first_deduction_month INTEGER NOT NULL CHECK (first_deduction_month BETWEEN 1 AND 12),
+    first_deduction_year INTEGER NOT NULL CHECK (first_deduction_year >= 2020),
+    expected_completion_month INTEGER NOT NULL CHECK (expected_completion_month BETWEEN 1 AND 12),
+    expected_completion_year INTEGER NOT NULL CHECK (expected_completion_year >= 2020),
+    completed_instalments INTEGER NOT NULL DEFAULT 0 CHECK (completed_instalments >= 0),
+    remaining_planned_instalments INTEGER NOT NULL CHECK (remaining_planned_instalments >= 0),
+    status VARCHAR(30) NOT NULL DEFAULT 'Scheduled' CHECK (status IN ('Scheduled', 'Active', 'Completed', 'Cancelled')),
+    calculation_mode VARCHAR(50) NOT NULL DEFAULT 'by_months',
+    remarks TEXT,
+    cancellation_reason TEXT,
+    created_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+    last_processed_month INTEGER,
+    last_processed_year INTEGER,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    cancelled_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_employee_loans_emp_id ON employee_loans(employee_id);
+CREATE INDEX IF NOT EXISTS idx_employee_loans_status ON employee_loans(status);
+CREATE INDEX IF NOT EXISTS idx_employee_loans_first_period ON employee_loans(first_deduction_year, first_deduction_month);
+
+CREATE TABLE IF NOT EXISTS loan_repayment_transactions (
+    id SERIAL PRIMARY KEY,
+    transaction_code VARCHAR(50) UNIQUE NOT NULL,
+    loan_id INTEGER NOT NULL REFERENCES employee_loans(id) ON DELETE CASCADE,
+    employee_id VARCHAR(100) NOT NULL,
+    payroll_record_id INTEGER REFERENCES payroll_records(id) ON DELETE SET NULL,
+    payroll_month INTEGER NOT NULL CHECK (payroll_month BETWEEN 1 AND 12),
+    payroll_year INTEGER NOT NULL CHECK (payroll_year >= 2020),
+    scheduled_deduction_paise BIGINT NOT NULL CHECK (scheduled_deduction_paise >= 0),
+    actual_deducted_paise BIGINT NOT NULL CHECK (actual_deducted_paise >= 0),
+    shortfall_paise BIGINT NOT NULL DEFAULT 0 CHECK (shortfall_paise >= 0),
+    balance_before_paise BIGINT NOT NULL CHECK (balance_before_paise >= 0),
+    balance_after_paise BIGINT NOT NULL CHECK (balance_after_paise >= 0),
+    posting_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(30) NOT NULL DEFAULT 'Posted' CHECK (status IN ('Posted', 'Partially Posted', 'Skipped', 'Reversed')),
+    created_by_system BOOLEAN NOT NULL DEFAULT TRUE,
+    reversal_date TIMESTAMP WITH TIME ZONE,
+    reversal_reason TEXT,
+    reversal_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_loan_repayment_month UNIQUE (loan_id, payroll_month, payroll_year)
+);
+
+CREATE INDEX IF NOT EXISTS idx_loan_tx_loan_id ON loan_repayment_transactions(loan_id);
+CREATE INDEX IF NOT EXISTS idx_loan_tx_period ON loan_repayment_transactions(payroll_year, payroll_month);
+CREATE INDEX IF NOT EXISTS idx_loan_tx_status ON loan_repayment_transactions(status);
+
+CREATE TABLE IF NOT EXISTS loan_scheduler_batch_logs (
+    id SERIAL PRIMARY KEY,
+    batch_code VARCHAR(50) UNIQUE NOT NULL,
+    payroll_month INTEGER NOT NULL CHECK (payroll_month BETWEEN 1 AND 12),
+    payroll_year INTEGER NOT NULL CHECK (payroll_year >= 2020),
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    total_employees_checked INTEGER DEFAULT 0,
+    total_loans_processed INTEGER DEFAULT 0,
+    total_posted INTEGER DEFAULT 0,
+    total_partially_posted INTEGER DEFAULT 0,
+    total_skipped INTEGER DEFAULT 0,
+    total_failed INTEGER DEFAULT 0,
+    failure_details JSONB,
+    status VARCHAR(30) NOT NULL DEFAULT 'Running' CHECK (status IN ('Running', 'Completed', 'Completed with Errors', 'Failed'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_loan_batch_period ON loan_scheduler_batch_logs(payroll_year, payroll_month);
+
+ALTER TABLE payroll_records
+ADD COLUMN IF NOT EXISTS loan_deduction NUMERIC(12,2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS loan_deduction_status VARCHAR(30) DEFAULT 'Not Applicable';
+
+
+-- Developer Testing Settings & PIN Table
+CREATE TABLE IF NOT EXISTS developer_settings (
+    id SERIAL PRIMARY KEY,
+    developer_pin_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO developer_settings (id, developer_pin_hash)
+SELECT 1, '$2b$10$pbXAzn7gknd59XxH3gTM6uA05kdV4R2BFTtRRdOhTiTV7zVcODtQK'
+WHERE NOT EXISTS (SELECT 1 FROM developer_settings WHERE id = 1);
 
 

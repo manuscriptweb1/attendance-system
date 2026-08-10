@@ -38,6 +38,8 @@ const mapRecordToCamelCase = (r) => ({
   staffAdvance: parseFloat(r.staff_advance || 0),
   professionalTax: parseFloat(r.professional_tax || 0),
   tds: parseFloat(r.tds || 0),
+  loanDeduction: parseFloat(r.loan_deduction || 0),
+  loanDeductionStatus: r.loan_deduction_status || 'Not Applicable',
   netPayable: parseFloat(r.net_payable || 0),
   status: r.status
 });
@@ -91,13 +93,15 @@ const calculatePayroll = async (req, res) => {
           present_days, late_days, absent_days, blank_unmarked_days, holiday_days,
           total_days, working_days, paid_days, half_days, half_day_loss_amount,
           monthly_earning, per_day_salary, lop_days, lop_amount, net_earning,
-          basic_salary, hra, special_allowance, staff_advance, professional_tax, tds, net_payable, status, is_manual_edited
+          basic_salary, hra, special_allowance, staff_advance, professional_tax, tds,
+          loan_deduction, loan_deduction_status, net_payable, status, is_manual_edited
         ) VALUES (
           $1, $2, $3, $4, 
           $5, $6, $7, $8, $9,
           $10, $11, $12, $13, $14,
           $15, $16, $17, $18, $19,
-          $20, $21, $22, $23, $24, $25, $26, $27, $28
+          $20, $21, $22, $23, $24, $25,
+          $26, $27, $28, $29, $30
         )
         ON CONFLICT (employee_id, payroll_month, payroll_year) DO UPDATE SET
           present_days = EXCLUDED.present_days,
@@ -121,6 +125,8 @@ const calculatePayroll = async (req, res) => {
           staff_advance = EXCLUDED.staff_advance,
           professional_tax = EXCLUDED.professional_tax,
           tds = EXCLUDED.tds,
+          loan_deduction = EXCLUDED.loan_deduction,
+          loan_deduction_status = EXCLUDED.loan_deduction_status,
           net_payable = EXCLUDED.net_payable,
           status = EXCLUDED.status,
           is_manual_edited = EXCLUDED.is_manual_edited,
@@ -130,7 +136,8 @@ const calculatePayroll = async (req, res) => {
           pr.presentDays, pr.lateDays, pr.absentDays, pr.blankUnmarkedDays, pr.holidayDays,
           pr.totalDays, pr.workingDays, pr.paidDays, pr.halfDays, pr.halfDayLossAmount,
           pr.monthlyEarning, pr.perDaySalary, pr.lopDays, pr.lopAmount, pr.netEarning,
-          pr.basicSalary, pr.hra, pr.specialAllowance, pr.staffAdvance, pr.professionalTax, pr.tds, pr.netPayable, pr.status || 'pending', pr.is_manual_edited || false
+          pr.basicSalary, pr.hra, pr.specialAllowance, pr.staffAdvance, pr.professionalTax, pr.tds,
+          pr.loanDeduction || 0, pr.loanDeductionStatus || 'Not Applicable', pr.netPayable, pr.status || 'pending', pr.is_manual_edited || false
         ]
       );
     }
@@ -228,6 +235,7 @@ const exportPayroll = async (req, res) => {
       { header: 'Staff Advance', key: 'staff_advance', width: 15 },
       { header: 'PT', key: 'professional_tax', width: 10 },
       { header: 'TDS', key: 'tds', width: 10 },
+      { header: 'Loan Deduction', key: 'loan_deduction', width: 15 },
       { header: 'Net Payable', key: 'net_payable', width: 18 },
       { header: 'Status', key: 'status', width: 12 },
     ];

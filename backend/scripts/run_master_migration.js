@@ -37,45 +37,16 @@ async function runMasterMigration() {
     await dbClient.connect();
     console.log(`✅ Connected to "${dbName}".`);
 
-    // 2a. Run schema.sql
+    // 2a. Run consolidated schema.sql
     console.log('📌 Executing config/schema.sql...');
     const schemaPath = path.join(__dirname, '../config/schema.sql');
     if (fs.existsSync(schemaPath)) {
       const schemaSql = fs.readFileSync(schemaPath, 'utf8');
       await dbClient.query(schemaSql);
-      console.log('✅ schema.sql executed successfully.');
+      console.log('✅ Master schema.sql executed successfully.');
     } else {
       console.warn('⚠️ schema.sql not found at', schemaPath);
     }
-
-    // 2b. Run 09_add_employee_personal_details.sql
-    console.log('📌 Executing config/09_add_employee_personal_details.sql...');
-    const personalDetailsSqlPath = path.join(__dirname, '../config/09_add_employee_personal_details.sql');
-    if (fs.existsSync(personalDetailsSqlPath)) {
-      const personalSql = fs.readFileSync(personalDetailsSqlPath, 'utf8');
-      await dbClient.query(personalSql);
-      console.log('✅ 09_add_employee_personal_details.sql executed successfully.');
-    }
-
-    // 2b-2. Run 10_create_payroll_email_logs.sql
-    console.log('📌 Executing config/10_create_payroll_email_logs.sql...');
-    const emailLogsSqlPath = path.join(__dirname, '../config/10_create_payroll_email_logs.sql');
-    if (fs.existsSync(emailLogsSqlPath)) {
-      const emailLogsSql = fs.readFileSync(emailLogsSqlPath, 'utf8');
-      await dbClient.query(emailLogsSql);
-      console.log('✅ 10_create_payroll_email_logs.sql executed successfully.');
-    }
-
-    await dbClient.query(`
-      ALTER TABLE payroll_email_logs
-      ADD COLUMN IF NOT EXISTS smtp_response TEXT,
-      ADD COLUMN IF NOT EXISTS accepted_recipients TEXT,
-      ADD COLUMN IF NOT EXISTS rejected_recipients TEXT;
-
-      ALTER TABLE payroll_email_logs
-      ALTER COLUMN sent_by TYPE VARCHAR(100) USING sent_by::text;
-    `);
-    console.log('✅ Payroll email logs columns checked/added.');
 
     // 2c. Run manual attendance migration queries
     console.log('📌 Ensuring attendance columns...');

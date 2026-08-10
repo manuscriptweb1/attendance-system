@@ -829,7 +829,9 @@ const handleBotCommand = async (req, res) => {
         }
 
         try {
+          const requestedDate = payload?.attendanceDate || payload?.date;
           const resAll = await checkOutAllEmployees({
+            attendanceDate: requestedDate,
             adminId,
             adminName,
             adminEmail,

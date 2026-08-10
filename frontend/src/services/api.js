@@ -11,7 +11,7 @@ const api = axios.create({
 // Add token to requests
 api.interceptors.request.use(
   (config) => {
-    const token = sessionStorage.getItem('token');
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -392,5 +392,25 @@ export const executeBotCommand = (action, payload = {}) =>
 
 export const getBotCapabilities = () =>
   api.get('/admin-assistant/capabilities');
+
+// Loan Management APIs
+export const getLoanSummary = () => api.get('/loans/summary');
+export const getAllLoans = (params) => api.get('/loans', { params });
+export const getLoanById = (id) => api.get(`/loans/${id}`);
+export const getRepaymentHistory = (id) => api.get(`/loans/${id}/transactions`);
+export const previewRepaymentSchedule = (data) => api.post('/loans/preview-schedule', data);
+export const createLoan = (data) => api.post('/loans', data);
+export const updateLoan = (id, data) => api.put(`/loans/${id}`, data);
+export const cancelLoan = (id, data) => api.post(`/loans/${id}/cancel`, data);
+export const deleteLoan = (id) => api.delete(`/loans/${id}`);
+export const reverseTransaction = (data) => api.post('/loans/reversal', data);
+export const triggerMonthEndProcessing = (data) => api.post('/loans/trigger-month-end', data);
+
+// Developer Testing Sandbox APIs
+export const verifyDeveloperPin = (pin) => api.post('/developer-testing/verify-pin', { pin });
+export const checkDeveloperSession = (token) => api.get('/developer-testing/check-session', { headers: { Authorization: `Bearer ${token}` } });
+export const runDeveloperSimulation = (data, token) => api.post('/developer-testing/simulate', data, { headers: { Authorization: `Bearer ${token}` } });
+export const exportDeveloperSimulationReport = (data, token) => api.post('/developer-testing/export', data, { headers: { Authorization: `Bearer ${token}` } });
+
 
 

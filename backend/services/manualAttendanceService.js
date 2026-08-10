@@ -196,9 +196,12 @@ const quickCheckOutEmployee = async ({
   ipAddress = '127.0.0.1',
   userAgent = 'Server',
   reasonSource = 'Manual quick check-out',
-  source = null
+  source = null,
+  suppressActivityLog = false
 }) => {
-  const targetDate = attendanceDate || getIndiaDateTime().split('T')[0];
+  const currentIndiaDateTime = getIndiaDateTime();
+  const todayIST = currentIndiaDateTime.split('T')[0];
+  const targetDate = attendanceDate || todayIST;
 
   validateDateInput(targetDate, { allowFuture: false });
 
@@ -220,13 +223,18 @@ const quickCheckOutEmployee = async ({
   const record = checkResult.rows[0];
 
   if (!record || !record.login_time) {
-    throw new Error(`Cannot check out ${realEmpCode} - ${empName} because check-in is not marked today.`);
+    throw new Error(`Cannot check out ${realEmpCode} - ${empName} because check-in is not marked on ${targetDate}.`);
   }
   if (record.logout_time) {
-    throw new Error(`Attendance is already completed for ${realEmpCode} - ${empName} today.`);
+    throw new Error(`Attendance is already completed for ${realEmpCode} - ${empName} on ${targetDate}.`);
   }
 
-  const logoutTime = getIndiaDateTime();
+  let logoutTime = currentIndiaDateTime;
+  if (targetDate !== todayIST) {
+    const timePart = currentIndiaDateTime.split('T')[1] || '18:00:00';
+    logoutTime = `${targetDate}T${timePart}`;
+  }
+
   const settings = await getSettingsFromDB();
   const officeTimes = getOfficeTimes(settings);
 
@@ -264,19 +272,21 @@ const quickCheckOutEmployee = async ({
       [record.id, realEmpCode, targetDate, 'CHECKOUT_ROW', adminId, reasonSource]
     );
 
-    const effectiveSource = source || (reasonSource && reasonSource.toLowerCase().includes('admin assistant') ? 'ADMIN_ASSISTANT' : null);
+    if (!suppressActivityLog) {
+      const effectiveSource = source || (reasonSource && reasonSource.toLowerCase().includes('admin assistant') ? 'ADMIN_ASSISTANT' : null);
 
-    await logAdminActivity({
-      adminId,
-      adminName,
-      adminEmail,
-      actionType: 'CHECK-OUT',
-      moduleName: 'Manual Attendance',
-      description: `Quick check-out for employee ${realEmpCode} (${empName})`,
-      ipAddress,
-      browserInfo: userAgent,
-      source: effectiveSource
-    });
+      await logAdminActivity({
+        adminId,
+        adminName,
+        adminEmail,
+        actionType: 'CHECK-OUT',
+        moduleName: 'Manual Attendance',
+        description: `Quick check-out for employee ${realEmpCode} (${empName}) on ${targetDate}`,
+        ipAddress,
+        browserInfo: userAgent,
+        source: effectiveSource
+      });
+    }
 
     await client.query('COMMIT');
     return {
@@ -301,9 +311,10 @@ const quickCheckOutEmployee = async ({
 };
 
 /**
- * Perform check-out for ALL employees currently checked in without check-out today
+ * Perform check-out for ALL employees currently checked in without check-out for specified date (or today)
  */
 const checkOutAllEmployees = async ({
+  attendanceDate,
   adminId,
   adminName = 'System Admin',
   adminEmail = '',
@@ -311,7 +322,9 @@ const checkOutAllEmployees = async ({
   userAgent = 'Server',
   source = 'ADMIN_ASSISTANT'
 }) => {
-  const targetDate = getIndiaDateTime().split('T')[0];
+  const targetDate = attendanceDate || getIndiaDateTime().split('T')[0];
+
+  validateDateInput(targetDate, { allowFuture: false });
 
   const blockedCheck = await getAttendanceBlockedReason(targetDate, 'check-out all');
   if (blockedCheck.blocked) {
@@ -342,7 +355,7 @@ const checkOutAllEmployees = async ({
   if (pendingCheckout.length === 0) {
     return {
       success: true,
-      message: 'No employees are currently pending check-out today.',
+      message: `No employees are currently pending check-out for ${targetDate}.`,
       summary: {
         totalTargeted: 0,
         successCount: 0,
@@ -353,7 +366,7 @@ const checkOutAllEmployees = async ({
         successes: [],
         skipped: [
           ...alreadyCheckedOut.map(r => ({ employeeCode: r.employee_id, name: r.name, reason: 'Already checked out' })),
-          ...noCheckIn.map(r => ({ employeeCode: r.employee_id, name: r.name, reason: 'No check-in today' }))
+          ...noCheckIn.map(r => ({ employeeCode: r.employee_id, name: r.name, reason: 'No check-in' }))
         ],
         failed: []
       }
@@ -363,7 +376,7 @@ const checkOutAllEmployees = async ({
   const successes = [];
   const skipped = [
     ...alreadyCheckedOut.map(r => ({ employeeCode: r.employee_id, name: r.name, reason: 'Already checked out' })),
-    ...noCheckIn.map(r => ({ employeeCode: r.employee_id, name: r.name, reason: 'No check-in today' }))
+    ...noCheckIn.map(r => ({ employeeCode: r.employee_id, name: r.name, reason: 'No check-in' }))
   ];
   const failed = [];
 
@@ -378,7 +391,8 @@ const checkOutAllEmployees = async ({
         ipAddress,
         userAgent,
         reasonSource: 'Admin Assistant Bot check-out all',
-        source: 'ADMIN_ASSISTANT'
+        source: 'ADMIN_ASSISTANT',
+        suppressActivityLog: true
       });
       const hrsInt = Math.floor(res.totalMinutes / 60);
       const minsInt = res.totalMinutes % 60;
@@ -406,7 +420,7 @@ const checkOutAllEmployees = async ({
     adminEmail,
     actionType: 'CHECK-OUT ALL',
     moduleName: 'Manual Attendance',
-    description: `Marked check-out for all employees. Success: ${successes.length}, Skipped: ${skipped.length}, Failed: ${failed.length}`,
+    description: `Marked check-out for all employees on ${targetDate}. Success: ${successes.length}, Skipped: ${skipped.length}, Failed: ${failed.length}`,
     ipAddress,
     browserInfo: userAgent,
     source: 'ADMIN_ASSISTANT'
@@ -414,7 +428,7 @@ const checkOutAllEmployees = async ({
 
   return {
     success: true,
-    message: `Check-out completed for ${successes.length} employee(s).`,
+    message: `Check-out completed for ${successes.length} employee(s) on ${targetDate}.`,
     summary: {
       totalTargeted: pendingCheckout.length,
       successCount: successes.length,

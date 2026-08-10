@@ -44,6 +44,7 @@ const AdminPermissions = lazy(() => import('./pages/AdminPermissions'));
 const AdminReports = lazy(() => import('./pages/AdminReports'));
 const AdminDatabaseMonitor = lazy(() => import('./pages/AdminDatabaseMonitor'));
 const AdminAccessDenied = lazy(() => import('./pages/AdminAccessDenied'));
+const DeveloperTestingSandbox = lazy(() => import('./pages/DeveloperTestingSandbox'));
 
 // Employee Pages
 const EmployeeDashboard = lazy(() => import('./pages/EmployeeDashboard'));
@@ -57,14 +58,10 @@ const ProtectedRoute = ({ children, requiredRole, requiredPageKey }) => {
   const navigate = useNavigate();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
-  // Show logout warning when trying to close tab/window
   useEffect(() => {
     if (isAuthenticated) {
       const handleBeforeUnload = (e) => {
-        // This will trigger the browser's native dialog
-        // We cannot show ONLY our custom dialog due to browser security
         e.preventDefault();
-        // Modern browsers require returnValue to be set
         e.returnValue = 'Are you sure you want to leave? Please logout properly.';
         return 'Are you sure you want to leave? Please logout properly.';
       };
@@ -77,11 +74,9 @@ const ProtectedRoute = ({ children, requiredRole, requiredPageKey }) => {
     }
   }, [isAuthenticated]);
 
-  // Add keyboard shortcut (Ctrl/Cmd + W) to show custom logout dialog
   useEffect(() => {
     if (isAuthenticated) {
       const handleKeyDown = (e) => {
-        // Detect Ctrl+W or Cmd+W (close tab shortcut)
         if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
           e.preventDefault();
           setShowLogoutDialog(true);
@@ -100,7 +95,7 @@ const ProtectedRoute = ({ children, requiredRole, requiredPageKey }) => {
     try {
       await logout();
       setShowLogoutDialog(false);
-      navigate('/');
+      navigate('/admin/login');
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -111,23 +106,19 @@ const ProtectedRoute = ({ children, requiredRole, requiredPageKey }) => {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/admin/login" replace />;
   }
 
-  if (requiredRole) {
-    if (requiredRole === 'admin' && !isAdmin) {
-      return <Navigate to="/" replace />;
-    }
-    if (requiredRole === 'employee' && !isEmployee) {
-      return <Navigate to="/" replace />;
-    }
-    if (requiredRole !== 'admin' && requiredRole !== 'employee' && user?.role !== requiredRole) {
-      return <Navigate to="/" replace />;
-    }
+  if (requiredRole === 'admin' && !isAdmin) {
+    return <Navigate to="/employee/dashboard" replace />;
+  }
+
+  if (requiredRole === 'employee' && !isEmployee) {
+    return <Navigate to="/admin/dashboard" replace />;
   }
 
   if (requiredRole === 'admin' && requiredPageKey && !hasPageAccess(requiredPageKey)) {
-    return <Navigate to="/admin/access-denied" replace />;
+    return <AdminAccessDenied pageKey={requiredPageKey} />;
   }
 
   return (
@@ -136,47 +127,20 @@ const ProtectedRoute = ({ children, requiredRole, requiredPageKey }) => {
       <LogoutWarningDialog
         isOpen={showLogoutDialog}
         onClose={() => setShowLogoutDialog(false)}
-        onLogout={handleLogout}
-        userRole={user?.role === 'admin' ? 'Administrator' : 'Employee'}
+        onConfirm={handleLogout}
       />
     </>
   );
 };
 
-// Public Route Component (redirect if already logged in)
-const PublicRoute = ({ children }) => {
-  const { isAuthenticated, loading, isAdmin, isEmployee, getDefaultAdminRoute } = useAuth();
-
-  if (loading) {
-    return <Loader />;
-  }
-
-  if (isAuthenticated) {
-    if (isAdmin) {
-      return <Navigate to={getDefaultAdminRoute()} replace />;
-    } else if (isEmployee) {
-      return <Navigate to="/employee/dashboard" replace />;
-    }
-  }
-
-  return children;
-};
-
 // ScrollToTop Component
 const ScrollToTop = () => {
   const { pathname, hash } = useLocation();
-
   useEffect(() => {
-    if (hash) {
-      const element = document.getElementById(hash.substring(1));
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
-      }
-    } else {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (!hash) {
+      window.scrollTo(0, 0);
     }
   }, [pathname, hash]);
-
   return null;
 };
 
@@ -186,167 +150,145 @@ function App() {
       <AdminThemeProvider>
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <ScrollToTop />
-          <GlobalErrorDialog />
-          <AdminAssistantBot />
           <Suspense fallback={<Loader />}>
-          <Routes>
-            {/* Public Landing Page */}
-            <Route path="/" element={<LandingPage />} />
-            
-            {/* New Public Info Page */}
-            <Route path="/public/employee-info" element={<PublicEmployeeInfo />} />
-            
-            {/* Public Pages */}
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/features" element={<FeaturesPage />} />
-            <Route path="/faq" element={<FAQPage />} />
-            <Route path="/contact" element={<ContactPage />} />
-            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-            <Route path="/terms-and-conditions" element={<TermsAndConditionsPage />} />
-            <Route path="/support" element={<SupportPage />} />
+            <AdminAssistantBot />
+            <GlobalErrorDialog />
+            <Routes>
+              {/* Public Pages */}
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/features" element={<FeaturesPage />} />
+              <Route path="/faq" element={<FAQPage />} />
+              <Route path="/contact" element={<ContactPage />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms-and-conditions" element={<TermsAndConditionsPage />} />
+              <Route path="/support" element={<SupportPage />} />
+              <Route path="/public/employee/:employeeId" element={<PublicEmployeeInfo />} />
 
-            {/* Auth Routes */}
-            <Route
-              path="/employee/login"
-              element={
-                <PublicRoute>
-                  <EmployeeLogin />
-                </PublicRoute>
-              }
-            />
-            <Route
-              path="/admin"
-              element={
-                <PublicRoute>
-                  <AdminLogin />
-                </PublicRoute>
-              }
-            />
-            <Route
-              path="/forgot-password"
-              element={
-                <PublicRoute>
-                  <ForgotPassword />
-                </PublicRoute>
-              }
-            />
+              {/* Auth Pages */}
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/employee/login" element={<EmployeeLogin />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
 
-            {/* Admin Protected Routes */}
-            <Route path="/admin/access-denied" element={<ProtectedRoute requiredRole="admin"><AdminAccessDenied /></ProtectedRoute>} />
-            <Route
-              path="/admin/dashboard"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="dashboard"><AdminDashboard /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/employees"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="employees"><AdminEmployees /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/departments"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="departments"><AdminDepartments /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/attendance"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="attendance"><AdminAttendance /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/management"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="admin_management"><AdminManagement /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/manage"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="manage"><AdminManage /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/settings"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="settings"><AdminSettings /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/holidays"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="holidays"><AdminHolidays /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/manual-attendance"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="manual_attendance"><AdminManualAttendance /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/absent-reasons"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="absent_reasons"><AdminAbsentReasons /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/otp-settings"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="otp_settings"><AdminOTPSettings /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/security-logs"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="security_logs"><AdminSecurityLogs /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/database-monitor"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="database_monitor"><AdminDatabaseMonitor /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/trusted-devices"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="trusted_devices"><AdminTrustedDevices /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/activity-logs"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="activity_logs"><AdminActivityLogs /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/payroll"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="payroll"><AdminPayroll /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/expenses"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="expenses"><AdminExpenses /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/permissions"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="permissions"><AdminPermissions /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin/reports"
-              element={<ProtectedRoute requiredRole="admin" requiredPageKey="reports"><AdminReports /></ProtectedRoute>}
-            />
+              {/* Admin Protected Routes */}
+              <Route
+                path="/admin/dashboard"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="dashboard"><AdminDashboard /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/employees"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="employees"><AdminEmployees /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/departments"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="departments"><AdminDepartments /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/attendance"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="attendance"><AdminAttendance /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/settings"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="settings"><AdminSettings /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/manage"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="manage"><AdminManage /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/management"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="admin_management"><AdminManagement /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/holidays"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="holidays"><AdminHolidays /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/manual-attendance"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="manual_attendance"><AdminManualAttendance /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/absent-reasons"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="absent_reasons"><AdminAbsentReasons /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/otp-settings"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="otp_settings"><AdminOTPSettings /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/security-logs"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="security_logs"><AdminSecurityLogs /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/database-monitor"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="database_monitor"><AdminDatabaseMonitor /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/trusted-devices"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="trusted_devices"><AdminTrustedDevices /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/activity-logs"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="activity_logs"><AdminActivityLogs /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/payroll"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="payroll"><AdminPayroll /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/expenses"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="expenses"><AdminExpenses /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/permissions"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="permissions"><AdminPermissions /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/reports"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="reports"><AdminReports /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/developer-testing"
+                element={<DeveloperTestingSandbox />}
+              />
 
-            {/* Employee Protected Routes */}
-            <Route
-              path="/employee/dashboard"
-              element={
-                <ProtectedRoute requiredRole="employee">
-                  <EmployeeDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/employee/attendance"
-              element={
-                <ProtectedRoute requiredRole="employee">
-                  <EmployeeAttendance />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/employee/profile"
-              element={
-                <ProtectedRoute requiredRole="employee">
-                  <EmployeeProfile />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/employee/change-password"
-              element={
-                <ProtectedRoute requiredRole="employee">
-                  <ChangePassword />
-                </ProtectedRoute>
-              }
-            />
+              {/* Employee Protected Routes */}
+              <Route
+                path="/employee/dashboard"
+                element={
+                  <ProtectedRoute requiredRole="employee">
+                    <EmployeeDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/employee/attendance"
+                element={
+                  <ProtectedRoute requiredRole="employee">
+                    <EmployeeAttendance />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/employee/profile"
+                element={
+                  <ProtectedRoute requiredRole="employee">
+                    <EmployeeProfile />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/employee/change-password"
+                element={
+                  <ProtectedRoute requiredRole="employee">
+                    <ChangePassword />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* 404 Route */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+              {/* 404 Route */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
           </Suspense>
         </Router>
       </AdminThemeProvider>

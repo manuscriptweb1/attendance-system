@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAdminTheme } from '../context/AdminThemeContext';
 import {
   FiHome, FiUsers, FiCalendar, FiLogOut, FiUser, FiClock,
   FiSettings, FiShield, FiMenu, FiX, FiLock, FiKey,
-  FiAlertCircle, FiUmbrella, FiChevronRight, FiSmartphone, FiActivity, FiLayers, FiGrid,
+  FiAlertCircle, FiUmbrella, FiChevronRight, FiChevronDown, FiSmartphone, FiActivity, FiLayers, FiGrid,
   FiDollarSign, FiTrendingUp, FiPieChart, FiClipboard, FiUserX, FiSun, FiMoon
 } from 'react-icons/fi';
 
@@ -64,6 +64,34 @@ const Sidebar = () => {
   const { logout, isAdmin, user, hasPageAccess } = useAuth();
   const { theme, toggleTheme } = useAdminTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // State to track open/collapsed sections for Admin Sidebar
+  // Defaults: Overview, Time & Attendance, HR & Finance open; People & System closed
+  const [openSections, setOpenSections] = useState(() => ({
+    'Overview': true,
+    'People': false,
+    'Time & Attendance': true,
+    'HR & Finance': true,
+    'System': false
+  }));
+
+  // Auto-expand section if current pathname belongs to that section
+  useEffect(() => {
+    adminSections.forEach(section => {
+      const hasActive = section.items.some(item => location.pathname === item.path);
+      if (hasActive) {
+        setOpenSections(prev => ({ ...prev, [section.label]: true }));
+      }
+    });
+  }, [location.pathname]);
+
+  const toggleSection = (label) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [label]: !prev[label]
+    }));
+  };
+
   const handleLogoutClick = async () => { try { await logout(); navigate('/'); } catch (e) { console.error(e); } };
 
   // Filter sections based on permissions
@@ -81,7 +109,7 @@ const Sidebar = () => {
   const isWideTablePage = location.pathname.includes('/admin/attendance') || location.pathname.includes('/admin/payroll');
   const isCollapsed = isAdmin && isWideTablePage;
 
-  /* ─── Admin Sidebar (COMPLETELY UNCHANGED aside from collapse logic) ─── */
+  /* ─── Admin Sidebar ─── */
   if (isAdmin) {
     return (
       <>
@@ -115,15 +143,54 @@ const Sidebar = () => {
             </div>
           </div>
           {/* Nav */}
-          <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5 dark-scroll">
-            {sections.map(section => (
-              <div key={section.label}>
-                {!isCollapsed && <p className="px-3 mb-2 text-[9px] font-bold uppercase tracking-[0.15em] text-admin-muted/50">{section.label}</p>}
-                <ul className="space-y-0.5">
-                  {section.items.map(item => <AdminNavItem key={item.path} {...item} isActive={location.pathname === item.path} onClick={() => setIsMobileMenuOpen(false)} isCollapsed={isCollapsed} />)}
-                </ul>
-              </div>
-            ))}
+          <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-3 dark-scroll">
+            {sections.map(section => {
+              const isOpen = openSections[section.label] ?? true;
+              const hasActiveItem = section.items.some(item => location.pathname === item.path);
+
+              return (
+                <div key={section.label} className="transition-all duration-200">
+                  {!isCollapsed ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleSection(section.label)}
+                      className={`w-full flex items-center justify-between px-3 py-1.5 mb-1 text-[10px] font-bold uppercase tracking-[0.15em] transition-all duration-200 rounded-lg group select-none cursor-pointer ${
+                        hasActiveItem && !isOpen
+                          ? 'text-admin-accent font-extrabold bg-admin-accent/10'
+                          : 'text-admin-muted/70 hover:text-admin-text hover:bg-admin-elevated/40'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        {section.label}
+                        {hasActiveItem && !isOpen && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-admin-accent" />
+                        )}
+                      </span>
+                      <FiChevronDown
+                        size={13}
+                        className={`transition-transform duration-200 ${
+                          isOpen ? 'rotate-0 text-admin-muted' : '-rotate-90 text-admin-muted/60 group-hover:text-admin-text'
+                        }`}
+                      />
+                    </button>
+                  ) : null}
+
+                  {(isOpen || isCollapsed) && (
+                    <ul className="space-y-0.5 transition-all duration-200">
+                      {section.items.map(item => (
+                        <AdminNavItem
+                          key={item.path}
+                          {...item}
+                          isActive={location.pathname === item.path}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          isCollapsed={isCollapsed}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
           </nav>
           
           {/* Theme Toggle */}

@@ -246,7 +246,8 @@ function renderEarningsAndDeductions(doc, r, fonts, startY) {
   const pt = parseFloat(r.professional_tax) || 0;
   const tds = parseFloat(r.tds) || 0;
   const advance = parseFloat(r.staff_advance) || 0;
-  const totalDeductions = lop + pt + tds + advance;
+  const loanDeduction = parseFloat(r.loan_deduction) || 0;
+  const totalDeductions = lop + pt + tds + advance + loanDeduction;
 
   // --- EARNINGS (Left Column: X 50 to 280) ---
   doc.fontSize(10).font(fontBold).fillColor('#0F172A').text('EARNINGS', 50, startY);
@@ -298,7 +299,8 @@ function renderEarningsAndDeductions(doc, r, fonts, startY) {
     { label: 'Loss of Pay / LOP', value: formatINR(lop) },
     { label: 'Professional Tax', value: formatINR(pt) },
     { label: 'TDS', value: formatINR(tds) },
-    { label: 'Staff Advance', value: formatINR(advance) }
+    { label: 'Staff Advance', value: formatINR(advance) },
+    { label: 'Loan Deduction', value: formatINR(loanDeduction) }
   ];
 
   deductionRows.forEach(row => {

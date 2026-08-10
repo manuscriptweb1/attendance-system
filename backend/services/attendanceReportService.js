@@ -1,6 +1,7 @@
 const pool = require('../config/database');
 const { getSettingsFromDB } = require('../utils/settingsHelper');
 const { parseTime, getLocalMinutesFromUTC } = require('../utils/timeUtils');
+const { getCalculatedLoanDeductionForEmployee } = require('./loanSchedulerService');
 function isSunday(year, month, day) {
   const date = new Date(year, month - 1, day);
   return date.getDay() === 0;
@@ -445,7 +446,32 @@ async function buildMonthlyPayroll(month, year, targetEmployeeId = null) {
     const lopAmount = lopDays * perDaySalary;
     const netEarning = monthlyEarning - lopAmount;
 
-    const netPayable = netEarning - staffAdvance - professionalTax - tds;
+    const salaryAvailableBeforeLoan = Math.max(0, netEarning - staffAdvance - professionalTax - tds);
+
+    // Calculate expected or posted loan deduction for employee
+    let loanDeduction = 0;
+    let loanDeductionStatus = 'Not Applicable';
+
+    const postedTxRes = await pool.query(
+      `SELECT * FROM loan_repayment_transactions
+       WHERE (employee_id::text = $1 OR employee_id::text = $2)
+         AND payroll_month = $3 AND payroll_year = $4
+         AND status != 'Reversed'
+       ORDER BY id DESC LIMIT 1`,
+      [String(emp.employeeCode), String(emp.id), numMonth, numYear]
+    );
+
+    if (postedTxRes.rows.length > 0) {
+      const tx = postedTxRes.rows[0];
+      loanDeduction = (parseInt(tx.actual_deducted_paise) || 0) / 100;
+      loanDeductionStatus = tx.status;
+    } else {
+      const loanInfo = await getCalculatedLoanDeductionForEmployee(emp.employeeCode, month, year, salaryAvailableBeforeLoan);
+      loanDeduction = loanInfo.loanDeductionRupees;
+      loanDeductionStatus = loanInfo.status;
+    }
+
+    const netPayable = Math.max(0, salaryAvailableBeforeLoan - loanDeduction);
 
     payrollRecords.push({
       employeeId: emp.id,
@@ -473,6 +499,8 @@ async function buildMonthlyPayroll(month, year, targetEmployeeId = null) {
       staffAdvance: parseFloat(staffAdvance.toFixed(2)),
       professionalTax: parseFloat(professionalTax.toFixed(2)),
       tds: parseFloat(tds.toFixed(2)),
+      loanDeduction: parseFloat(loanDeduction.toFixed(2)),
+      loanDeductionStatus,
       netPayable: parseFloat(netPayable.toFixed(2)),
       status: existing && existing.status ? existing.status : "pending",
       is_manual_edited: false

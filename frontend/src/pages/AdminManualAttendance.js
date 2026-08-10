@@ -56,6 +56,9 @@ const AdminManualAttendance = () => {
 
   useEffect(() => {
     fetchData();
+    const handleUpdate = () => fetchData({ silent: true });
+    window.addEventListener('attendanceUpdated', handleUpdate);
+    return () => window.removeEventListener('attendanceUpdated', handleUpdate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, departmentId, statusFilter]);
 

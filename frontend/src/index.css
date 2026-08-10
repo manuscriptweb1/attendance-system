@@ -296,6 +296,33 @@ html.admin-theme-light .admin-toast-text,
 .admin-input:focus { outline: none; border-color: rgba(59,130,246,0.5) !important; box-shadow: 0 0 0 1px rgba(59,130,246,0.5) !important; }
 .admin-input:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* Currency & Input Prefix Utilities */
+.currency-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.currency-prefix {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--admin-secondary);
+  pointer-events: none;
+  user-select: none;
+  z-index: 10;
+  line-height: 1;
+  font-family: inherit;
+}
+
+.admin-input-has-prefix {
+  padding-left: 2.5rem !important;
+}
+
 .admin-select {
   background: var(--admin-input-bg) !important; 
   border: 1px solid var(--admin-border) !important;

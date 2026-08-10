@@ -29,10 +29,13 @@ const permissionRoutes = require('./routes/permissionRoutes');
 const adminAssistantRoutes = require('./routes/adminAssistantRoutes');
 const payrollEmailRoutes = require('./routes/payrollEmailRoutes');
 const emailRoutes = require('./routes/emailRoutes');
+const loanRoutes = require('./routes/loanRoutes');
+const developerSandboxRoutes = require('./routes/developerSandboxRoutes');
 
 // Import cron jobs
 const { createDailyAbsentRecords } = require('./jobs/createDailyAbsentRecords');
 const { autoCheckoutEmployees } = require('./jobs/autoCheckout');
+const { initLoanScheduler } = require('./services/loanSchedulerService');
 const { seedEmergencyAdmin } = require('./utils/emergencySeed');
 const pool = require('./config/database');
 
@@ -113,6 +116,8 @@ app.use('/api/permissions', permissionRoutes);
 app.use('/api/admin-assistant', adminAssistantRoutes);
 app.use('/api/payroll-email', payrollEmailRoutes);
 app.use('/api/email', emailRoutes);
+app.use('/api/loans', loanRoutes);
+app.use('/api/developer-testing', developerSandboxRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {
@@ -169,7 +174,11 @@ app.listen(PORT, '0.0.0.0', async () => {
     await createDailyAbsentRecords();
   });
   
+  // Initialize Interest-Free Loan Scheduler (Daily 2:00 AM Asia/Kolkata)
+  initLoanScheduler();
+
   console.log('⏰ Cron jobs scheduled:');
   console.log('   - Auto-checkout: Checks every minute');
   console.log('   - Daily absent records: 12:01 AM daily');
+  console.log('   - Employee Loan Month-End Deductions: 2:00 AM daily (Asia/Kolkata)');
 });

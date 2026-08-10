@@ -1034,11 +1034,14 @@ const AdminAssistantBot = () => {
       // 1. Check-Out All Employees
       const isCheckOutAll = lowerCmd.includes('checkout all') || lowerCmd.includes('check out all') || lowerCmd.includes('check-out all') || lowerCmd.includes('checkout everyone') || lowerCmd.includes('check out everyone') || lowerCmd.includes('check-out everyone') || lowerCmd.includes('close attendance for all') || lowerCmd.includes('today checkout for all') || lowerCmd.includes('all employees checkout');
       if (isCheckOutAll) {
-        const confirmMsg = 'Do you want to mark check-out for all currently checked-in employees using current time?';
+        const extractedDate = parseHolidayDate(cmd);
+        const targetDateStr = extractedDate || 'today';
+        const dateText = targetDateStr === 'today' ? 'today' : targetDateStr;
+        const confirmMsg = `Do you want to mark check-out for all currently checked-in employees for ${dateText}?`;
         setPendingAction({
           type: 'checkout_all_employees',
           step: 'confirm',
-          date: 'today',
+          date: targetDateStr,
           awaitingConfirmation: true,
           confirmationText: confirmMsg,
           prompt: confirmMsg
@@ -1735,6 +1738,9 @@ const AdminAssistantBot = () => {
         try {
           const res = await executeBotCommand('mark_today_attendance', { employeeCode: empCodeStr });
           removeLoadingMessage(loadingId);
+          if (res.data?.success) {
+            window.dispatchEvent(new CustomEvent('attendanceUpdated'));
+          }
           addMessage('bot', res.data?.message || 'Attendance processed.');
         } catch (err) {
           removeLoadingMessage(loadingId);
@@ -1746,16 +1752,23 @@ const AdminAssistantBot = () => {
         try {
           const res = await executeBotCommand('mark_today_checkout', { employeeCode: empCodeStr });
           removeLoadingMessage(loadingId);
+          if (res.data?.success) {
+            window.dispatchEvent(new CustomEvent('attendanceUpdated'));
+          }
           addMessage('bot', res.data?.message || 'Check-out processed.');
         } catch (err) {
           removeLoadingMessage(loadingId);
           addMessage('bot', 'Failed to mark check-out.');
         }
       } else if (type === 'checkout_all_employees') {
+        const targetDateParam = action.date && action.date !== 'today' ? action.date : null;
         const loadingId = addLoadingMessage('Checking pending employees and marking check-out...');
         try {
-          const res = await executeBotCommand('checkout_all_employees');
+          const res = await executeBotCommand('checkout_all_employees', { date: targetDateParam });
           removeLoadingMessage(loadingId);
+          if (res.data?.success) {
+            window.dispatchEvent(new CustomEvent('attendanceUpdated'));
+          }
           addMessage('bot', res.data?.message || 'Check-out all processed.');
         } catch (err) {
           removeLoadingMessage(loadingId);
@@ -1767,6 +1780,9 @@ const AdminAssistantBot = () => {
         try {
           const res = await executeBotCommand('mark_today_absent', { employeeCode: empCodeStr, reason });
           removeLoadingMessage(loadingId);
+          if (res.data?.success) {
+            window.dispatchEvent(new CustomEvent('attendanceUpdated'));
+          }
           addMessage('bot', res.data?.message || 'Absent marked.');
         } catch (err) {
           removeLoadingMessage(loadingId);

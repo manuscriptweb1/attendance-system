@@ -37,7 +37,12 @@ const AdminAttendance = () => {
     finally { setLoading(false); }
   };
   
-  useEffect(() => { fetchAttendance(); }, [filters]); // eslint-disable-line
+  useEffect(() => { 
+    fetchAttendance(); 
+    const handleUpdate = () => fetchAttendance();
+    window.addEventListener('attendanceUpdated', handleUpdate);
+    return () => window.removeEventListener('attendanceUpdated', handleUpdate);
+  }, [filters]); // eslint-disable-line
 
   const handleFilterChange = (e) => {
     if (e.target.name === 'date') {

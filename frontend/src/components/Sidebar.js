@@ -150,32 +150,44 @@ const Sidebar = () => {
 
               return (
                 <div key={section.label} className="transition-all duration-200">
-                  {!isCollapsed ? (
-                    <button
-                      type="button"
-                      onClick={() => toggleSection(section.label)}
-                      className={`w-full flex items-center justify-between px-3 py-1.5 mb-1 text-[11px] font-extrabold uppercase tracking-[0.15em] transition-all duration-200 rounded-lg group select-none cursor-pointer ${
-                        hasActiveItem && !isOpen
-                          ? 'text-admin-accent font-extrabold bg-admin-accent/10'
-                          : 'text-admin-secondary dark:text-slate-300 hover:text-admin-text hover:bg-admin-elevated/50'
-                      }`}
-                    >
-                      <span className="flex items-center gap-1.5">
-                        {section.label}
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.label)}
+                    title={isCollapsed ? `${section.label} (${isOpen ? 'Click to collapse' : 'Click to expand'})` : undefined}
+                    className={`w-full flex items-center ${
+                      isCollapsed ? 'justify-center px-0 py-1 my-1' : 'justify-between px-3 py-1.5 mb-1'
+                    } text-[11px] font-extrabold uppercase tracking-[0.15em] transition-all duration-200 rounded-lg group select-none cursor-pointer ${
+                      hasActiveItem && !isOpen
+                        ? 'text-admin-accent font-extrabold bg-admin-accent/10'
+                        : 'text-admin-secondary dark:text-slate-300 hover:text-admin-text hover:bg-admin-elevated/50'
+                    }`}
+                  >
+                    {!isCollapsed ? (
+                      <>
+                        <span className="flex items-center gap-1.5">
+                          {section.label}
+                          {hasActiveItem && !isOpen && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-admin-accent" />
+                          )}
+                        </span>
+                        <FiChevronDown
+                          size={14}
+                          className={`transition-transform duration-200 ${
+                            isOpen ? 'rotate-0 text-admin-secondary dark:text-slate-300' : '-rotate-90 text-admin-muted group-hover:text-admin-text'
+                          }`}
+                        />
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-center relative w-full py-1">
+                        <span className="w-6 border-t border-admin-border/70 group-hover:border-admin-accent/50 transition-colors" />
                         {hasActiveItem && !isOpen && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-admin-accent" />
+                          <span className="absolute w-2 h-2 rounded-full bg-admin-accent shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
                         )}
-                      </span>
-                      <FiChevronDown
-                        size={14}
-                        className={`transition-transform duration-200 ${
-                          isOpen ? 'rotate-0 text-admin-secondary dark:text-slate-300' : '-rotate-90 text-admin-muted group-hover:text-admin-text'
-                        }`}
-                      />
-                    </button>
-                  ) : null}
+                      </div>
+                    )}
+                  </button>
 
-                  {(isOpen || isCollapsed) && (
+                  {isOpen && (
                     <ul className="space-y-0.5 transition-all duration-200">
                       {section.items.map(item => (
                         <AdminNavItem

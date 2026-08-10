@@ -17,6 +17,7 @@ function getTransporter() {
     port: port,
     secure: isSecure,
     requireTLS: !isSecure,
+    family: 4, // Force IPv4 resolution to prevent ENETUNREACH IPv6 routing errors on cloud instances (Render/Railway/AWS)
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASSWORD,
@@ -93,17 +94,24 @@ async function sendEmail({
       response: info.response,
     };
   } catch (err) {
-    const isTimeoutErr = err.message && (
+    const isNetworkOrTimeoutErr = err.message && (
       err.message.toLowerCase().includes('timeout') ||
       err.message.includes('ECONNRESET') ||
       err.message.includes('ETIMEDOUT') ||
-      err.message.includes('ESOCKET')
+      err.message.includes('ESOCKET') ||
+      err.message.includes('ENETUNREACH') ||
+      err.message.includes('EHOSTUNREACH') ||
+      err.message.includes('ENOTFOUND') ||
+      err.message.includes('ECONNREFUSED') ||
+      err.code === 'ENETUNREACH' ||
+      err.code === 'EHOSTUNREACH' ||
+      err.code === 'ETIMEDOUT'
     );
 
-    if (isTimeoutErr) {
-      console.warn(`⚠️ SMTP send encountered network timeout (${err.message}). Retrying once with fresh connection...`);
+    if (isNetworkOrTimeoutErr) {
+      console.warn(`⚠️ SMTP send encountered network error (${err.message}). Retrying with fresh IPv4 connection...`);
       try {
-        transporter = null;
+        transporter = null; // Reset cached transporter to force fresh lookup
         const freshTransporter = getTransporter();
         const retryInfo = await freshTransporter.sendMail(mailOptions);
         return {

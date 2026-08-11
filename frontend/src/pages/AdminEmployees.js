@@ -367,12 +367,12 @@ const AdminEmployees = () => {
 
           {/* Table */}
           <div className="bg-admin-surface border border-admin-border rounded-2xl overflow-hidden shadow-clay-admin">
-            <div className="table-responsive dark-scroll">
+            <div className="table-responsive overflow-y-auto max-h-[calc(100vh-270px)] min-h-[350px] dark-scroll relative">
               <table className="min-w-full divide-y divide-white/[0.04]">
-                <thead className="bg-admin-bg">
+                <thead className="bg-admin-bg sticky top-0 z-10 shadow-sm">
                   <tr>
                     {['Emp ID','Name','Department','Job Role','Monthly Salary','Mobile','Email','Status','Joining Date','WFH','Early CO','Actions'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
+                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-10">{h}</th>
                     ))}
                   </tr>
                 </thead>

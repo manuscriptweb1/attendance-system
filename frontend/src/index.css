@@ -801,6 +801,26 @@ html.admin-theme-light .admin-table-row:hover,
   -webkit-overflow-scrolling: touch;
 }
 
+.table-scroll-container {
+  overflow-x: auto;
+  overflow-y: auto;
+  position: relative;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sticky-table-header,
+.sticky-table-header th,
+.table-scroll-container thead,
+.table-scroll-container thead th,
+.table-responsive thead.sticky-header,
+.table-responsive thead.sticky-header th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: var(--admin-bg);
+}
+
 .attendance-table {
   width: 100%;
   min-width: 1400px;

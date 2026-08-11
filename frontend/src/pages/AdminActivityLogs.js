@@ -240,12 +240,12 @@ const AdminActivityLogs = () => {
                 <p className="text-xs mt-1">Adjust filters to see more results.</p>
               </div>
             ) : (
-              <div className="table-responsive dark-scroll">
+              <div className="table-responsive overflow-y-auto max-h-[calc(100vh-270px)] min-h-[350px] dark-scroll relative">
                 <table className="min-w-full relative">
-                  <thead>
+                  <thead className="bg-admin-bg sticky top-0 z-10 shadow-sm">
                     <tr>
                       {['Time', 'Admin', 'Action', 'Module', 'Description', 'Actions'].map((h) => (
-                        <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 backdrop-blur-md z-10">{h}</th>
+                        <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-10">{h}</th>
                       ))}
                     </tr>
                   </thead>

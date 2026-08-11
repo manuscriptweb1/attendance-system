@@ -644,11 +644,11 @@ const AdminPayroll = () => {
                     <p className="text-sm text-admin-secondary max-w-md text-center">Click "Calculate All" to generate salary records for {currentMonthName} {year}.</p>
                   </div>
                 ) : (
-                  <div className="table-responsive dark-scroll w-full">
+                  <div className="table-responsive overflow-y-auto max-h-[calc(100vh-330px)] min-h-[350px] dark-scroll w-full relative">
                     <table className="w-full min-w-[1550px] table-auto divide-y divide-white/[0.04]">
-                      <thead className="bg-admin-bg">
+                      <thead className="bg-admin-bg sticky top-0 z-10 shadow-sm">
                         <tr>
-                          <th className="px-2 py-2 w-[3%] text-center align-middle">
+                          <th className="px-2 py-2 w-[3%] text-center align-middle bg-admin-bg sticky top-0 z-10">
                             <input
                               type="checkbox"
                               checked={isAllSelected}
@@ -678,7 +678,7 @@ const AdminPayroll = () => {
                             { label: 'Status', w: 'w-[5%]' },
                             { label: 'Actions', w: 'actions-column', center: true }
                           ].map(c => (
-                            <th key={c.label} className={`px-2 py-2 text-[10px] font-bold text-admin-secondary uppercase tracking-tighter leading-tight ${c.w} ${c.center ? 'text-center' : 'text-left'} align-middle`}>{c.label}</th>
+                            <th key={c.label} className={`px-2 py-2 text-[10px] font-bold text-admin-secondary uppercase tracking-tighter leading-tight ${c.w} ${c.center ? 'text-center' : 'text-left'} align-middle bg-admin-bg sticky top-0 z-10`}>{c.label}</th>
                           ))}
                         </tr>
                       </thead>

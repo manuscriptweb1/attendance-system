@@ -214,11 +214,11 @@ const AdminAttendance = () => {
                 <p className="text-sm font-medium text-admin-secondary mt-4 animate-pulse">Loading records...</p>
               </div>
             ) : (
-              <div className="table-responsive attendance-table-wrapper dark-scroll">
+              <div className="table-responsive attendance-table-wrapper overflow-y-auto max-h-[calc(100vh-320px)] min-h-[350px] dark-scroll relative">
                 <table className="attendance-table divide-y divide-white/[0.04]">
-                  <thead className="bg-admin-bg">
+                  <thead className="bg-admin-bg sticky top-0 z-10 shadow-sm">
                     <tr>{['DATE', 'EMP ID', 'NAME', 'DEPT', 'CHECK IN', 'CHECK OUT', 'HOURS', 'IN STATUS', 'OUT STATUS', 'STATUS', 'ABSENT REASON', 'TYPE', 'ACTIONS'].map(h => (
-                      <th key={h} className={`px-3 py-2.5 text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap ${h === 'ACTIONS' ? 'actions-column' : 'text-left'}`}>{h}</th>
+                      <th key={h} className={`px-3 py-2.5 text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-10 ${h === 'ACTIONS' ? 'actions-column' : 'text-left'}`}>{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">

@@ -336,22 +336,22 @@ export default function EmployeeLoansTab({ employees = [], showToast }) {
             <p className="text-xs mt-1">Click "+ Add Employee Loan" above to create an interest-free loan.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto dark-scroll">
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-330px)] min-h-[350px] dark-scroll relative">
             <table className="w-full text-left table-auto border-collapse">
-              <thead className="bg-admin-bg border-b border-admin-border sticky top-0 z-10">
+              <thead className="bg-admin-bg border-b border-admin-border sticky top-0 z-10 shadow-sm">
                 <tr className="text-[10px] font-bold text-admin-secondary uppercase tracking-wider">
-                  <th className="px-4 py-3">S.No</th>
-                  <th className="px-4 py-3">Loan Code</th>
-                  <th className="px-4 py-3">Employee</th>
-                  <th className="px-4 py-3 text-right">Total Loan (₹)</th>
-                  <th className="px-4 py-3 text-center">Duration</th>
-                  <th className="px-4 py-3 text-right">Monthly Deduction (₹)</th>
-                  <th className="px-4 py-3 text-right">Total Repaid (₹)</th>
-                  <th className="px-4 py-3 text-right">Remaining Balance (₹)</th>
-                  <th className="px-4 py-3 text-center">Instalments</th>
-                  <th className="px-4 py-3">First Month</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-center">Actions</th>
+                  <th className="px-4 py-3 bg-admin-bg sticky top-0 z-10">S.No</th>
+                  <th className="px-4 py-3 bg-admin-bg sticky top-0 z-10">Loan Code</th>
+                  <th className="px-4 py-3 bg-admin-bg sticky top-0 z-10">Employee</th>
+                  <th className="px-4 py-3 text-right bg-admin-bg sticky top-0 z-10">Total Loan (₹)</th>
+                  <th className="px-4 py-3 text-center bg-admin-bg sticky top-0 z-10">Duration</th>
+                  <th className="px-4 py-3 text-right bg-admin-bg sticky top-0 z-10">Monthly Deduction (₹)</th>
+                  <th className="px-4 py-3 text-right bg-admin-bg sticky top-0 z-10">Total Repaid (₹)</th>
+                  <th className="px-4 py-3 text-right bg-admin-bg sticky top-0 z-10">Remaining Balance (₹)</th>
+                  <th className="px-4 py-3 text-center bg-admin-bg sticky top-0 z-10">Instalments</th>
+                  <th className="px-4 py-3 bg-admin-bg sticky top-0 z-10">First Month</th>
+                  <th className="px-4 py-3 bg-admin-bg sticky top-0 z-10">Status</th>
+                  <th className="px-4 py-3 text-center bg-admin-bg sticky top-0 z-10">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-admin-border/30 text-xs">

@@ -234,7 +234,7 @@ const ManageHolidays = () => {
               </div>
             </div>
             
-            <div className="flex-1 table-responsive overflow-y-auto max-h-[600px] dark-scroll relative">
+            <div className="flex-1 table-responsive overflow-y-auto max-h-[calc(100vh-270px)] min-h-[350px] dark-scroll relative">
               {loading ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-admin-elevated backdrop-blur-sm z-20">
                   <Spinner size={40} color="blue" />
@@ -249,10 +249,10 @@ const ManageHolidays = () => {
               ) : (
                 <div className="min-w-[800px]">
                   <table className="min-w-full relative">
-                    <thead>
+                    <thead className="bg-admin-bg sticky top-0 z-10 shadow-sm">
                       <tr>
                         {['Date', 'Holiday Title', 'Type', 'Notes', 'Status', 'Actions'].map((h) => (
-                          <th key={h} className="px-6 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 backdrop-blur-md z-10">{h}</th>
+                          <th key={h} className="px-6 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-10">{h}</th>
                         ))}
                       </tr>
                     </thead>

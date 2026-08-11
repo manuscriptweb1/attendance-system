@@ -427,18 +427,18 @@ const AdminExpenses = () => {
                 <Spinner size={36} color="blue" />
               </div>
             ) : (
-              <div className="table-responsive dark-scroll">
+              <div className="table-responsive overflow-y-auto max-h-[calc(100vh-340px)] min-h-[350px] dark-scroll relative">
                 <table className="min-w-full divide-y divide-white/[0.04]">
-                  <thead className="bg-admin-bg cursor-pointer select-none">
+                  <thead className="bg-admin-bg sticky top-0 z-10 shadow-sm cursor-pointer select-none">
                     <tr>
-                      <th onClick={() => handleSort('expense_type_name')} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap hover:text-admin-text">Type</th>
-                      <th onClick={() => handleSort('name')} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap hover:text-admin-text">Name</th>
-                      <th onClick={() => handleSort('amount')} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap hover:text-admin-text">Amount</th>
-                      <th onClick={() => handleSort('payment_status')} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap hover:text-admin-text">Status</th>
-                      <th onClick={() => handleSort('payment_method')} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap hover:text-admin-text">Payment Method</th>
-                      <th onClick={() => handleSort('expense_date')} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap hover:text-admin-text">Date</th>
-                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Notes</th>
-                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Actions</th>
+                      <th onClick={() => handleSort('expense_type_name')} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap hover:text-admin-text bg-admin-bg sticky top-0 z-10">Type</th>
+                      <th onClick={() => handleSort('name')} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap hover:text-admin-text bg-admin-bg sticky top-0 z-10">Name</th>
+                      <th onClick={() => handleSort('amount')} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap hover:text-admin-text bg-admin-bg sticky top-0 z-10">Amount</th>
+                      <th onClick={() => handleSort('payment_status')} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap hover:text-admin-text bg-admin-bg sticky top-0 z-10">Status</th>
+                      <th onClick={() => handleSort('payment_method')} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap hover:text-admin-text bg-admin-bg sticky top-0 z-10">Payment Method</th>
+                      <th onClick={() => handleSort('expense_date')} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap hover:text-admin-text bg-admin-bg sticky top-0 z-10">Date</th>
+                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-10">Notes</th>
+                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-10">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">

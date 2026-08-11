@@ -11,7 +11,7 @@ import api, { clearExpenseRange } from '../services/api';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateMonthYear } from '../utils/dateValidation';
 import { formatIndianCurrency } from '../utils/formatCurrency';
-import { FiDownload, FiPlus, FiEdit, FiTrash2, FiTrendingUp, FiCreditCard, FiDollarSign, FiArchive, FiX, FiSettings, FiCheckCircle, FiMinusCircle } from 'react-icons/fi';
+import { FiDownload, FiPlus, FiEdit, FiTrash2, FiTrendingUp, FiCreditCard, FiDollarSign, FiArchive, FiX, FiSettings, FiCheckCircle, FiMinusCircle, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 
 const getBadgePalette = (str) => {
   if (!str) return { bg: "#f1f5f9", text: "#475569", border: "#cbd5e1" };
@@ -65,6 +65,7 @@ const AdminExpenses = () => {
   const { hasPermission } = useAuth();
   const [expenses, setExpenses] = useState([]);
   const [summary, setSummary] = useState(null);
+  const [showTypeSummary, setShowTypeSummary] = useState(false);
   const [activeExpenseTypes, setActiveExpenseTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -405,16 +406,33 @@ const AdminExpenses = () => {
 
               {summary.byType && summary.byType.length > 0 && (
                 <div className="mb-6 animate-fadeInUp stagger-3">
-                  <h3 className="text-sm font-bold text-admin-heading uppercase tracking-wider mb-3">Expense Summary by Type</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                    {summary.byType.map((type, idx) => (
-                      <div key={idx} className="bg-admin-surface border border-admin-border rounded-xl p-3 shadow-sm hover:shadow-md transition-all">
-                        <p className="text-xs font-semibold text-admin-secondary truncate mb-1">{type.name}</p>
-                        <p className="text-lg font-bold text-admin-text">{formatIndianCurrency(type.amount)}</p>
-                        <p className="text-[10px] text-admin-muted mt-1">{type.count} {type.count === 1 ? 'entry' : 'entries'}</p>
-                      </div>
-                    ))}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowTypeSummary(prev => !prev)}
+                    className="flex items-center gap-2 text-sm font-bold text-admin-heading uppercase tracking-wider mb-3 hover:text-blue-400 transition-colors cursor-pointer group select-none bg-admin-surface/50 border border-admin-border px-3.5 py-2 rounded-xl"
+                  >
+                    <span>Expense Summary by Type ({summary.byType.length})</span>
+                    {showTypeSummary ? (
+                      <FiChevronUp size={16} className="text-blue-400" />
+                    ) : (
+                      <FiChevronDown size={16} className="text-admin-secondary group-hover:text-blue-400" />
+                    )}
+                    <span className="text-[11px] font-semibold text-admin-muted normal-case tracking-normal ml-1">
+                      {showTypeSummary ? '(Click to hide)' : '(Click to show)'}
+                    </span>
+                  </button>
+
+                  {showTypeSummary && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 animate-fadeIn">
+                      {summary.byType.map((type, idx) => (
+                        <div key={idx} className="bg-admin-surface border border-admin-border rounded-xl p-3 shadow-sm hover:shadow-md transition-all">
+                          <p className="text-xs font-semibold text-admin-secondary truncate mb-1">{type.name}</p>
+                          <p className="text-lg font-bold text-admin-text">{formatIndianCurrency(type.amount)}</p>
+                          <p className="text-[10px] text-admin-muted mt-1">{type.count} {type.count === 1 ? 'entry' : 'entries'}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </>

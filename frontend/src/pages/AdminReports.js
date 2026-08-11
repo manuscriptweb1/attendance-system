@@ -346,27 +346,28 @@ const AdminReports = () => {
   };
 
   return (
-    <div className="flex h-screen bg-admin-bg dark-scroll">
+    <div className="flex h-screen bg-admin-bg dark-scroll overflow-hidden">
       <Sidebar />
-      <div className="flex-1 overflow-y-auto min-w-0 dark-scroll">
-        <div className="px-5 py-6 lg:px-8 lg:py-8 max-w-[1600px] mx-auto pt-16 lg:pt-8">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        {/* Fixed Header & Report Control Box */}
+        <div className="px-5 pt-16 lg:pt-8 pb-3 lg:px-8 max-w-[1600px] w-full mx-auto shrink-0 bg-admin-bg z-20">
           
           {/* Header */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 mb-6 animate-fadeInUp stagger-1">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 mb-4 animate-fadeInUp stagger-1">
             <div>
               <h1 className="text-2xl lg:text-3xl font-extrabold text-admin-heading tracking-tight">Reports Central</h1>
-              <p className="text-sm text-admin-muted mt-1.5 font-medium">Generate and download comprehensive HR reports.</p>
+              <p className="text-sm text-admin-muted mt-1 font-medium">Generate and download comprehensive HR reports.</p>
             </div>
           </div>
 
           {/* Report Generator Box */}
-          <div className="bg-admin-modal text-admin-modal-text border border-admin-border rounded-2xl p-6 mb-6 shadow-clay-admin animate-fadeInUp stagger-2 w-full">
-            <h2 className="text-sm font-bold text-admin-text mb-4 flex items-center gap-2">
+          <div className="bg-admin-modal text-admin-modal-text border border-admin-border rounded-2xl p-5 shadow-clay-admin animate-fadeInUp stagger-2 w-full">
+            <h2 className="text-sm font-bold text-admin-text mb-3 flex items-center gap-2">
               <FiFileText className="text-blue-400" /> Monthly Attendance Report
             </h2>
             <div className="flex flex-col lg:flex-row gap-4 lg:items-end flex-wrap">
               <div className="flex-1 min-w-[120px]">
-                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Month</label>
+                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-1.5">Month</label>
                 <select value={month} onChange={e => setMonth(Number(e.target.value))} className="admin-select report-filter-select w-full py-2.5 text-sm font-semibold">
                   {monthOptions.map(m => (
                     <option key={m.value} value={m.value}>{m.label}</option>
@@ -374,7 +375,7 @@ const AdminReports = () => {
                 </select>
               </div>
               <div className="flex-1 min-w-[120px]">
-                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Year</label>
+                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-1.5">Year</label>
                 <select value={year} onChange={e => setYear(Number(e.target.value))} className="admin-select report-filter-select w-full py-2.5 text-sm font-semibold">
                   {yearOptions.map(y => (
                     <option key={y} value={y}>{y}</option>
@@ -382,7 +383,7 @@ const AdminReports = () => {
                 </select>
               </div>
               <div className="flex-1 min-w-[150px]">
-                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Sort By</label>
+                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-1.5">Sort By</label>
                 <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="admin-select report-filter-select w-full py-2.5 text-sm font-semibold cursor-pointer">
                   {sortOptions.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -412,7 +413,7 @@ const AdminReports = () => {
                 )}
               </div>
             </div>
-            <div className="mt-6 pt-6 border-t border-admin-border flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="mt-4 pt-4 border-t border-admin-border flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
                 <div className="flex items-center gap-3">
                   <label className="relative inline-flex items-center cursor-pointer shrink-0">
@@ -448,7 +449,10 @@ const AdminReports = () => {
               </div>
             </div>
           </div>
-          
+        </div>
+
+        {/* Scrollable Container for Remaining Tables & Details */}
+        <div className="flex-1 overflow-y-auto dark-scroll px-5 lg:px-8 pb-8 max-w-[1600px] w-full mx-auto">
           {treatLateAsPresent && reportData && (
             <div className="mb-6 p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-start gap-3">
               <div className="text-blue-500 mt-0.5">
@@ -471,21 +475,21 @@ const AdminReports = () => {
               </div>
               <div className="table-responsive dark-scroll">
                 <table className="reports-summary-table min-w-full divide-y divide-white/[0.04]">
-                  <thead className="bg-admin-bg">
+                  <thead className="bg-admin-bg sticky top-0 z-10 shadow-sm">
                     <tr>
-                      <th style={{ width: '70px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Emp ID</th>
-                      <th style={{ width: '140px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Name</th>
-                      <th style={{ width: '110px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Department</th>
-                      <th style={{ width: '60px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Present</th>
-                      <th style={{ width: '60px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Absent</th>
-                      <th style={{ width: '70px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Half Day</th>
-                      <th style={{ width: '60px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Holiday</th>
-                      <th style={{ width: '70px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Late Count</th>
-                      {!hideActualLateTime && <th style={{ width: '100px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Actual Late Time</th>}
-                      <th style={{ width: '100px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Counted Late Time</th>
-                      <th style={{ width: '110px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Total Permission Time</th>
-                      <th style={{ width: '120px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Counted Late + Permission Time</th>
-                      <th style={{ width: '80px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider">Total Hours</th>
+                      <th style={{ width: '70px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Emp ID</th>
+                      <th style={{ width: '140px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Name</th>
+                      <th style={{ width: '110px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Department</th>
+                      <th style={{ width: '60px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Present</th>
+                      <th style={{ width: '60px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Absent</th>
+                      <th style={{ width: '70px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Half Day</th>
+                      <th style={{ width: '60px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Holiday</th>
+                      <th style={{ width: '70px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Late Count</th>
+                      {!hideActualLateTime && <th style={{ width: '100px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Actual Late Time</th>}
+                      <th style={{ width: '100px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Counted Late Time</th>
+                      <th style={{ width: '110px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Total Permission Time</th>
+                      <th style={{ width: '120px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Counted Late + Permission Time</th>
+                      <th style={{ width: '80px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Total Hours</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
@@ -536,11 +540,11 @@ const AdminReports = () => {
               </div>
               <div className="table-responsive dark-scroll">
                 <table className="min-w-full divide-y divide-white/[0.04]">
-                  <thead className="bg-admin-bg">
+                  <thead className="bg-admin-bg sticky top-0 z-10 shadow-sm">
                     <tr>
-                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap sticky left-0 bg-admin-bg z-10">Employee</th>
+                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap sticky left-0 bg-admin-bg z-20">Employee</th>
                       {matrixData.days.map(d => (
-                        <th key={d} className="px-2 py-4 text-center text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{d}</th>
+                        <th key={d} className="px-2 py-4 text-center text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-10">{d}</th>
                       ))}
                     </tr>
                   </thead>
@@ -606,9 +610,9 @@ const AdminReports = () => {
               </div>
               <div className="table-responsive dark-scroll">
                 <table className="min-w-full divide-y divide-white/[0.04]">
-                  <thead className="bg-admin-bg">
+                  <thead className="bg-admin-bg sticky top-0 z-10 shadow-sm">
                     <tr>{['S.No', 'Employee ID', 'Employee Name', 'Date', 'Absent Reason'].map(h => (
-                      <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
+                      <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-10">{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
@@ -635,9 +639,9 @@ const AdminReports = () => {
               </div>
               <div className="table-responsive dark-scroll">
                 <table className="min-w-full divide-y divide-white/[0.04]">
-                  <thead className="bg-admin-bg">
+                  <thead className="bg-admin-bg sticky top-0 z-10 shadow-sm">
                     <tr>{['S.No', 'Holiday Date', 'Holiday Type', 'Holiday Name', 'Notes'].map(h => (
-                      <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">{h}</th>
+                      <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-10">{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">

@@ -20,7 +20,7 @@ import { validateMonthYear } from '../utils/dateValidation';
 import EmployeeLoansTab from '../components/loans/EmployeeLoansTab';
 import {
   FiDownload, FiRefreshCw, FiDollarSign, FiEdit2, FiFileText, FiX, FiTrash2,
-  FiMail, FiClock, FiCheckCircle, FiAlertCircle, FiUsers, FiLayers
+  FiMail, FiClock, FiCheckCircle, FiAlertCircle, FiUsers, FiLayers, FiCalendar
 } from 'react-icons/fi';
 import { sortEmployeeRows } from '../utils/sorting';
 import { formatIndianCurrency as formatCurrency } from '../utils/formatCurrency';
@@ -62,7 +62,7 @@ const AdminPayroll = () => {
   const [editingRow, setEditingRow] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [calculatingRowId, setCalculatingRowId] = useState(null);
-  const [sortBy, setSortBy] = useState('name_asc');
+  const [sortBy] = useState('name_asc');
 
   // Pay Slip & Download State
   const [paySlipData, setPaySlipData] = useState(null);
@@ -535,21 +535,36 @@ const AdminPayroll = () => {
                 </div>
 
                 <div className="flex flex-nowrap items-center justify-start lg:justify-end gap-2.5 w-full lg:flex-1 min-w-0 overflow-x-auto dark-scroll pb-1">
-                  <select value={month} onChange={e => setMonth(parseInt(e.target.value))} className="admin-select py-2.5 text-sm text-admin-muted min-w-[130px] shrink-0">
-                    {[...Array(12).keys()].map(m => (
-                      <option key={m + 1} value={m + 1}>{monthNames[m]}</option>
-                    ))}
-                  </select>
-                  <select value={year} onChange={e => setYear(parseInt(e.target.value))} className="admin-select py-2.5 text-sm text-admin-muted min-w-[110px] shrink-0">
-                    {[...Array(5).keys()].map(y => {
-                      const yearVal = new Date().getFullYear() - 2 + y;
-                      return <option key={yearVal} value={yearVal}>{yearVal}</option>
-                    })}
-                  </select>
-                  <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="admin-select py-2.5 text-sm text-admin-muted cursor-pointer min-w-[130px] shrink-0">
-                    <option value="name_asc">Name A-Z</option>
-                    <option value="name_desc">Name Z-A</option>
-                  </select>
+                  <label className="flex items-center gap-2 bg-admin-surface border border-admin-border hover:bg-admin-border/30 text-admin-text px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shrink-0 whitespace-nowrap cursor-pointer">
+                    <FiCalendar size={16} className="text-blue-400" />
+                    <span className="text-admin-secondary">Month</span>
+                    <select
+                      value={month}
+                      onChange={e => setMonth(parseInt(e.target.value))}
+                      className="bg-transparent border-0 text-admin-text font-semibold focus:outline-none cursor-pointer min-w-[92px]"
+                      aria-label="Filter payroll by month"
+                    >
+                      {[...Array(12).keys()].map(m => (
+                        <option key={m + 1} value={m + 1}>{monthNames[m]}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="flex items-center gap-2 bg-admin-surface border border-admin-border hover:bg-admin-border/30 text-admin-text px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shrink-0 whitespace-nowrap cursor-pointer">
+                    <FiCalendar size={16} className="text-emerald-400" />
+                    <span className="text-admin-secondary">Year</span>
+                    <select
+                      value={year}
+                      onChange={e => setYear(parseInt(e.target.value))}
+                      className="bg-transparent border-0 text-admin-text font-semibold focus:outline-none cursor-pointer min-w-[64px]"
+                      aria-label="Filter payroll by year"
+                    >
+                      {[...Array(5).keys()].map(y => {
+                        const yearVal = new Date().getFullYear() - 2 + y;
+                        return <option key={yearVal} value={yearVal}>{yearVal}</option>
+                      })}
+                    </select>
+                  </label>
 
                   {hasPermission('payroll', 'can_view') && (
                     <button

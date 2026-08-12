@@ -562,10 +562,10 @@ const AdminPayroll = () => {
                     </button>
                   )}
 
-                  {hasPermission('payroll', 'can_export') && selectedEmployeeIds.length > 0 && (
+                  {hasPermission('payroll', 'can_export') && (
                     <button
                       onClick={handleInitiateSelectedEmails}
-                      disabled={sendingEmail}
+                      disabled={selectedEmployeeIds.length === 0 || sendingEmail}
                       className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-lg shadow-purple-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
                       title="Send Payslips to Selected Employees"
                     >

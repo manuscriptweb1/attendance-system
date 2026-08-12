@@ -528,92 +528,98 @@ const AdminPayroll = () => {
           ) : (
             <>
               {/* Header */}
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 mb-6 animate-fadeInUp stagger-1">
+              <div className="flex flex-col gap-4 mb-6 animate-fadeInUp stagger-1">
                 <div>
                   <h1 className="text-2xl lg:text-3xl font-extrabold text-admin-heading tracking-tight">Payroll Management</h1>
                   <p className="text-sm text-admin-muted mt-1.5 font-medium">Calculate and process monthly employee salaries.</p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <select value={month} onChange={e => setMonth(parseInt(e.target.value))} className="admin-select py-2 text-sm text-admin-muted">
-                      {[...Array(12).keys()].map(m => (
-                        <option key={m + 1} value={m + 1}>{monthNames[m]}</option>
-                      ))}
-                    </select>
-                    <select value={year} onChange={e => setYear(parseInt(e.target.value))} className="admin-select py-2 text-sm text-admin-muted">
-                      {[...Array(5).keys()].map(y => {
-                        const yearVal = new Date().getFullYear() - 2 + y;
-                        return <option key={yearVal} value={yearVal}>{yearVal}</option>
-                      })}
-                    </select>
-                    <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="admin-select py-2 text-sm text-admin-muted cursor-pointer max-w-[160px]">
-                      <option value="name_asc">Name A-Z</option>
-                      <option value="name_desc">Name Z-A</option>
-                    </select>
-                  </div>
+                <div className="bg-admin-surface border border-admin-border rounded-2xl p-3 shadow-clay-admin">
+                  <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto">
+                      <select value={month} onChange={e => setMonth(parseInt(e.target.value))} className="admin-select py-2.5 text-sm text-admin-muted min-w-[130px]">
+                        {[...Array(12).keys()].map(m => (
+                          <option key={m + 1} value={m + 1}>{monthNames[m]}</option>
+                        ))}
+                      </select>
+                      <select value={year} onChange={e => setYear(parseInt(e.target.value))} className="admin-select py-2.5 text-sm text-admin-muted min-w-[110px]">
+                        {[...Array(5).keys()].map(y => {
+                          const yearVal = new Date().getFullYear() - 2 + y;
+                          return <option key={yearVal} value={yearVal}>{yearVal}</option>
+                        })}
+                      </select>
+                      <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="admin-select py-2.5 text-sm text-admin-muted cursor-pointer min-w-[130px]">
+                        <option value="name_asc">Name A-Z</option>
+                        <option value="name_desc">Name Z-A</option>
+                      </select>
+                    </div>
 
-                  <div className="flex flex-wrap gap-2.5">
-                    {hasPermission('payroll', 'can_view') && (
-                      <button
-                        onClick={() => { fetchEmailLogsData(month, year); setShowEmailLogsModal(true); }}
-                        className="flex items-center gap-2 bg-admin-surface border border-admin-border hover:bg-admin-border/30 text-admin-text px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm"
-                        title="View Email Logs"
-                      >
-                        <FiClock size={16} className="text-purple-400" />
-                        <span>Email Logs</span>
-                      </button>
-                    )}
+                    <div className="flex flex-col lg:flex-row lg:items-center gap-2.5">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        {hasPermission('payroll', 'can_view') && (
+                          <button
+                            onClick={() => { fetchEmailLogsData(month, year); setShowEmailLogsModal(true); }}
+                            className="flex items-center gap-2 bg-admin-elevated border border-admin-border hover:bg-admin-border/30 text-admin-text px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm"
+                            title="View Email Logs"
+                          >
+                            <FiClock size={16} className="text-purple-400" />
+                            <span>Email Logs</span>
+                          </button>
+                        )}
 
-                    {hasPermission('payroll', 'can_export') && (
-                      <button
-                        onClick={handleInitiateSelectedEmails}
-                        disabled={selectedEmployeeIds.length === 0 || sendingEmail}
-                        className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-lg shadow-purple-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
-                        title="Send Payslips to Selected Employees"
-                      >
-                        {sendingEmail ? <FiRefreshCw size={16} className="animate-spin" /> : <FiMail size={16} />}
-                        <span>Send Selected Emails ({selectedEmployeeIds.length})</span>
-                      </button>
-                    )}
+                        {hasPermission('payroll', 'can_export') && selectedEmployeeIds.length > 0 && (
+                          <button
+                            onClick={handleInitiateSelectedEmails}
+                            disabled={sendingEmail}
+                            className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-lg shadow-purple-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                            title="Send Payslips to Selected Employees"
+                          >
+                            {sendingEmail ? <FiRefreshCw size={16} className="animate-spin" /> : <FiMail size={16} />}
+                            <span>Send Selected Emails ({selectedEmployeeIds.length})</span>
+                          </button>
+                        )}
 
-                    {hasPermission('payroll', 'can_clear') && (
-                      <button
-                        onClick={() => setClearDialog({ isOpen: true })}
-                        className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
-                        <FiTrash2 size={16} /> Clear Month
-                      </button>
-                    )}
+                        {hasPermission('payroll', 'can_clear') && (
+                          <button
+                            onClick={() => setClearDialog({ isOpen: true })}
+                            className="flex items-center gap-2 bg-admin-elevated border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                            <FiTrash2 size={16} /> Clear Month
+                          </button>
+                        )}
+                      </div>
 
-                    {hasPermission('payroll', 'can_calculate') && (
-                      <button
-                        onClick={handleCalculate}
-                        disabled={calculating}
-                        className="flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-glow-blue-sm disabled:opacity-50">
-                        <FiRefreshCw size={16} className={calculating ? 'animate-spin' : ''} />
-                        {calculating ? 'Calculating...' : 'Calculate All'}
-                      </button>
-                    )}
+                      <div className="flex flex-wrap items-center gap-2.5 lg:justify-end">
+                        {hasPermission('payroll', 'can_calculate') && (
+                          <button
+                            onClick={handleCalculate}
+                            disabled={calculating}
+                            className="flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-glow-blue-sm disabled:opacity-50">
+                            <FiRefreshCw size={16} className={calculating ? 'animate-spin' : ''} />
+                            {calculating ? 'Calculating...' : 'Calculate All'}
+                          </button>
+                        )}
 
-                    {hasPermission('payroll', 'can_export') && (
-                      <button
-                        onClick={() => setBulkDownloadModal(true)}
-                        disabled={!isCalculated || records.length === 0}
-                        className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50"
-                        title="Bulk Download Payslip PDFs"
-                      >
-                        <FiFileText size={16} /> Bulk Payslips PDF
-                      </button>
-                    )}
+                        {hasPermission('payroll', 'can_export') && (
+                          <button
+                            onClick={() => setBulkDownloadModal(true)}
+                            disabled={!isCalculated || records.length === 0}
+                            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50"
+                            title="Bulk Download Payslip PDFs"
+                          >
+                            <FiFileText size={16} /> Bulk Payslips PDF
+                          </button>
+                        )}
 
-                    {hasPermission('payroll', 'can_export') && (
-                      <button
-                        onClick={handleExport}
-                        disabled={!isCalculated || records.length === 0}
-                        className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(16,185,129,0.2)] disabled:opacity-50">
-                        <FiDownload size={16} /> Export Excel
-                      </button>
-                    )}
+                        {hasPermission('payroll', 'can_export') && (
+                          <button
+                            onClick={handleExport}
+                            disabled={!isCalculated || records.length === 0}
+                            className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(16,185,129,0.2)] disabled:opacity-50">
+                            <FiDownload size={16} /> Export Excel
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

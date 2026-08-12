@@ -528,25 +528,25 @@ const AdminPayroll = () => {
           ) : (
             <>
               {/* Header */}
-              <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-6 animate-fadeInUp stagger-1">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6 animate-fadeInUp stagger-1">
                 <div className="shrink-0">
                   <h1 className="text-2xl lg:text-3xl font-extrabold text-admin-heading tracking-tight">Payroll Management</h1>
                   <p className="text-sm text-admin-muted mt-1.5 font-medium">Calculate and process monthly employee salaries.</p>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-start xl:justify-end gap-2.5 xl:max-w-[calc(100%-360px)]">
-                  <select value={month} onChange={e => setMonth(parseInt(e.target.value))} className="admin-select py-2.5 text-sm text-admin-muted min-w-[130px]">
+                <div className="flex flex-nowrap items-center justify-start lg:justify-end gap-2.5 w-full lg:flex-1 min-w-0 overflow-x-auto dark-scroll pb-1">
+                  <select value={month} onChange={e => setMonth(parseInt(e.target.value))} className="admin-select py-2.5 text-sm text-admin-muted min-w-[130px] shrink-0">
                     {[...Array(12).keys()].map(m => (
                       <option key={m + 1} value={m + 1}>{monthNames[m]}</option>
                     ))}
                   </select>
-                  <select value={year} onChange={e => setYear(parseInt(e.target.value))} className="admin-select py-2.5 text-sm text-admin-muted min-w-[110px]">
+                  <select value={year} onChange={e => setYear(parseInt(e.target.value))} className="admin-select py-2.5 text-sm text-admin-muted min-w-[110px] shrink-0">
                     {[...Array(5).keys()].map(y => {
                       const yearVal = new Date().getFullYear() - 2 + y;
                       return <option key={yearVal} value={yearVal}>{yearVal}</option>
                     })}
                   </select>
-                  <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="admin-select py-2.5 text-sm text-admin-muted cursor-pointer min-w-[130px]">
+                  <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="admin-select py-2.5 text-sm text-admin-muted cursor-pointer min-w-[130px] shrink-0">
                     <option value="name_asc">Name A-Z</option>
                     <option value="name_desc">Name Z-A</option>
                   </select>
@@ -554,7 +554,7 @@ const AdminPayroll = () => {
                   {hasPermission('payroll', 'can_view') && (
                     <button
                       onClick={() => { fetchEmailLogsData(month, year); setShowEmailLogsModal(true); }}
-                      className="flex items-center gap-2 bg-admin-surface border border-admin-border hover:bg-admin-border/30 text-admin-text px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm"
+                      className="flex items-center gap-2 bg-admin-surface border border-admin-border hover:bg-admin-border/30 text-admin-text px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shrink-0 whitespace-nowrap"
                       title="View Email Logs"
                     >
                       <FiClock size={16} className="text-purple-400" />
@@ -566,7 +566,7 @@ const AdminPayroll = () => {
                     <button
                       onClick={handleInitiateSelectedEmails}
                       disabled={sendingEmail}
-                      className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-lg shadow-purple-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-lg shadow-purple-500/20 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 whitespace-nowrap"
                       title="Send Payslips to Selected Employees"
                     >
                       {sendingEmail ? <FiRefreshCw size={16} className="animate-spin" /> : <FiMail size={16} />}
@@ -577,7 +577,7 @@ const AdminPayroll = () => {
                   {hasPermission('payroll', 'can_clear') && (
                     <button
                       onClick={() => setClearDialog({ isOpen: true })}
-                      className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                      className="flex items-center gap-2 bg-admin-surface border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shrink-0 whitespace-nowrap">
                       <FiTrash2 size={16} /> Clear Month
                     </button>
                   )}
@@ -586,7 +586,7 @@ const AdminPayroll = () => {
                     <button
                       onClick={handleCalculate}
                       disabled={calculating}
-                      className="flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-glow-blue-sm disabled:opacity-50">
+                      className="flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-glow-blue-sm disabled:opacity-50 shrink-0 whitespace-nowrap">
                       <FiRefreshCw size={16} className={calculating ? 'animate-spin' : ''} />
                       {calculating ? 'Calculating...' : 'Calculate All'}
                     </button>
@@ -596,7 +596,7 @@ const AdminPayroll = () => {
                     <button
                       onClick={() => setBulkDownloadModal(true)}
                       disabled={!isCalculated || records.length === 0}
-                      className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50"
+                      className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 shrink-0 whitespace-nowrap"
                       title="Bulk Download Payslip PDFs"
                     >
                       <FiFileText size={16} /> Bulk Payslips PDF
@@ -607,7 +607,7 @@ const AdminPayroll = () => {
                     <button
                       onClick={handleExport}
                       disabled={!isCalculated || records.length === 0}
-                      className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(16,185,129,0.2)] disabled:opacity-50">
+                      className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(16,185,129,0.2)] disabled:opacity-50 shrink-0 whitespace-nowrap">
                       <FiDownload size={16} /> Export Excel
                     </button>
                   )}

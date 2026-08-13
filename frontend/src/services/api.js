@@ -68,7 +68,20 @@ export const updateEmployee = (id, data) =>
 export const deleteEmployee = (id) => 
   api.delete(`/employees/${id}`);
 
+export const getResignedEmployees = () =>
+  api.get('/employees/resigned');
+
+export const updateResignedEmployee = (id, data) =>
+  api.put(`/employees/resigned/${id}`, data);
+
+export const deleteResignedEmployee = (id) =>
+  api.delete(`/employees/resigned/${id}`);
+
+export const restoreResignedEmployee = (id) =>
+  api.post(`/employees/resigned/${id}/restore`);
+
 export const getAllDepartments = () => 
+
   api.get('/departments');
 
 export const addDepartment = (data) => 

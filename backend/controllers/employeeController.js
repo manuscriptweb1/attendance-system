@@ -512,22 +512,45 @@ const updateEmployee = async (req, res) => {
   }
 };
 
-// Delete employee
+// Delete employee (moves employee to resigned_employees table)
 const deleteEmployee = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
-      'DELETE FROM employees WHERE id = $1 RETURNING *',
-      [id]
-    );
-
-    if (result.rows.length === 0) {
+    // Check if employee exists first
+    const empRes = await pool.query('SELECT * FROM employees WHERE id = $1', [id]);
+    if (empRes.rows.length === 0) {
       return res.status(404).json({ 
         success: false, 
         message: 'Employee not found' 
       });
     }
+
+    const emp = empRes.rows[0];
+
+    // Insert into resigned_employees table
+    await pool.query(
+      `INSERT INTO resigned_employees (
+        original_id, employee_id, name, department_id, job_role, mobile, email, password, status,
+        date_of_birth, joining_date, resigned_date, monthly_salary, basic_salary, hra, special_allowance,
+        staff_advance, professional_tax, tds, bank_name, bank_address, account_holder_name, account_number,
+        ifsc_code, pan_card_number, aadhar_card_number, permanent_address, alternate_phone_number, created_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, 'Resigned',
+        $9, $10, CURRENT_DATE, $11, $12, $13, $14,
+        $15, $16, $17, $18, $19, $20, $21,
+        $22, $23, $24, $25, $26, $27
+      )`,
+      [
+        emp.id, emp.employee_id, emp.name, emp.department_id, emp.job_role, emp.mobile, emp.email, emp.password,
+        emp.date_of_birth, emp.joining_date, emp.monthly_salary || 0, emp.basic_salary || 0, emp.hra || 0, emp.special_allowance || 0,
+        emp.staff_advance || 0, emp.professional_tax || 0, emp.tds || 0, emp.bank_name || null, emp.bank_address || null, emp.account_holder_name || null, emp.account_number || null,
+        emp.ifsc_code || null, emp.pan_card_number || null, emp.aadhar_card_number || null, emp.permanent_address || null, emp.alternate_phone_number || null, emp.created_at || new Date()
+      ]
+    );
+
+    // Delete from active employees
+    await pool.query('DELETE FROM employees WHERE id = $1', [id]);
 
     // Log activity
     await logAdminActivity({
@@ -536,15 +559,15 @@ const deleteEmployee = async (req, res) => {
       adminEmail: req.user.email || '',
       actionType: ADMIN_ACTION_TYPES.DELETE_EMPLOYEE,
       moduleName: MODULE_NAMES.EMPLOYEE,
-      description: `Deleted employee ${result.rows[0].employee_id} - ${result.rows[0].name}`,
-      oldData: { employee_id: result.rows[0].employee_id, name: result.rows[0].name, email: result.rows[0].email },
+      description: `Moved employee ${emp.employee_id} - ${emp.name} to Resigned Employees`,
+      oldData: { employee_id: emp.employee_id, name: emp.name, email: emp.email },
       ipAddress: getClientIP(req),
       browserInfo: req.headers['user-agent']
     });
 
     res.json({
       success: true,
-      message: 'Employee deleted successfully'
+      message: 'Employee moved to Resigned Employees successfully'
     });
 
   } catch (error) {
@@ -552,6 +575,201 @@ const deleteEmployee = async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Server error' 
+    });
+  }
+};
+
+// Get all resigned employees
+const getResignedEmployees = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT r.*, d.name as department_name
+       FROM resigned_employees r
+       LEFT JOIN departments d ON r.department_id = d.id
+       ORDER BY r.resigned_date DESC, r.id DESC`
+    );
+
+    res.json({
+      success: true,
+      employees: result.rows
+    });
+  } catch (error) {
+    console.error('Get resigned employees error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+// Update resigned date for a resigned employee
+const updateResignedEmployee = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { resigned_date } = req.body;
+
+    if (!resigned_date) {
+      return res.status(400).json({
+        success: false,
+        message: 'Resigned / Quit Date is required'
+      });
+    }
+
+    const checkRes = await pool.query('SELECT * FROM resigned_employees WHERE id = $1', [id]);
+    if (checkRes.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Resigned employee record not found'
+      });
+    }
+
+    const result = await pool.query(
+      `UPDATE resigned_employees
+       SET resigned_date = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2
+       RETURNING *`,
+      [resigned_date, id]
+    );
+
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.UPDATE_EMPLOYEE,
+      moduleName: MODULE_NAMES.EMPLOYEE,
+      description: `Updated resigned date for former employee ${result.rows[0].employee_id} - ${result.rows[0].name} to ${resigned_date}`,
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
+    });
+
+    res.json({
+      success: true,
+      message: 'Resigned date updated successfully',
+      employee: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Update resigned employee error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+// Permanently delete a resigned employee
+const deleteResignedEmployeePermanently = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      'DELETE FROM resigned_employees WHERE id = $1 RETURNING *',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Resigned employee record not found'
+      });
+    }
+
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.DELETE_EMPLOYEE,
+      moduleName: MODULE_NAMES.EMPLOYEE,
+      description: `Permanently deleted resigned employee record ${result.rows[0].employee_id} - ${result.rows[0].name}`,
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
+    });
+
+    res.json({
+      success: true,
+      message: 'Resigned employee record deleted permanently'
+    });
+  } catch (error) {
+    console.error('Delete resigned employee error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+// Restore a resigned employee back to active employees table
+const restoreResignedEmployee = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const checkRes = await pool.query('SELECT * FROM resigned_employees WHERE id = $1', [id]);
+    if (checkRes.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Resigned employee record not found'
+      });
+    }
+
+    const emp = checkRes.rows[0];
+
+    // Check if employee_id or email already exists in employees table
+    const existCheck = await pool.query(
+      'SELECT * FROM employees WHERE employee_id = $1 OR email = $2',
+      [emp.employee_id, emp.email]
+    );
+
+    if (existCheck.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'An active employee with the same Employee ID or Email already exists'
+      });
+    }
+
+    // Insert back into employees
+    const restored = await pool.query(
+      `INSERT INTO employees (
+        employee_id, name, department_id, job_role, mobile, email, password, status,
+        date_of_birth, joining_date, monthly_salary, basic_salary, hra, special_allowance,
+        staff_advance, professional_tax, tds, bank_name, bank_address, account_holder_name, account_number,
+        ifsc_code, pan_card_number, aadhar_card_number, permanent_address, alternate_phone_number
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, 'Active',
+        $8, $9, $10, $11, $12, $13,
+        $14, $15, $16, $17, $18, $19, $20,
+        $21, $22, $23, $24, $25
+      ) RETURNING *`,
+      [
+        emp.employee_id, emp.name, emp.department_id, emp.job_role, emp.mobile, emp.email, emp.password,
+        emp.date_of_birth, emp.joining_date, emp.monthly_salary || 0, emp.basic_salary || 0, emp.hra || 0, emp.special_allowance || 0,
+        emp.staff_advance || 0, emp.professional_tax || 0, emp.tds || 0, emp.bank_name, emp.bank_address, emp.account_holder_name, emp.account_number,
+        emp.ifsc_code, emp.pan_card_number, emp.aadhar_card_number, emp.permanent_address, emp.alternate_phone_number
+      ]
+    );
+
+    // Remove from resigned_employees
+    await pool.query('DELETE FROM resigned_employees WHERE id = $1', [id]);
+
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.CREATE_EMPLOYEE,
+      moduleName: MODULE_NAMES.EMPLOYEE,
+      description: `Restored former employee ${emp.employee_id} - ${emp.name} to active employees`,
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
+    });
+
+    res.json({
+      success: true,
+      message: 'Employee restored to active list successfully',
+      employee: restored.rows[0]
+    });
+  } catch (error) {
+    console.error('Restore resigned employee error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
   }
 };
@@ -581,5 +799,10 @@ module.exports = {
   addEmployee,
   updateEmployee,
   deleteEmployee,
+  getResignedEmployees,
+  updateResignedEmployee,
+  deleteResignedEmployeePermanently,
+  restoreResignedEmployee,
   getAllDepartments
 };
+

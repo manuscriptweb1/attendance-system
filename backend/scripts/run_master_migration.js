@@ -146,6 +146,46 @@ async function runMasterMigration() {
 
     console.log('✅ RBAC setup completed.');
 
+    // 2g. Ensure resigned_employees table exists
+    console.log('📌 Ensuring resigned_employees table...');
+    await dbClient.query(`
+      CREATE TABLE IF NOT EXISTS resigned_employees (
+        id SERIAL PRIMARY KEY,
+        original_id INTEGER,
+        employee_id VARCHAR(50) NOT NULL,
+        name VARCHAR(150) NOT NULL,
+        department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL,
+        job_role VARCHAR(100) NOT NULL,
+        mobile VARCHAR(15),
+        email VARCHAR(150),
+        password VARCHAR(255),
+        status VARCHAR(20) DEFAULT 'Resigned',
+        date_of_birth DATE,
+        joining_date DATE,
+        resigned_date DATE DEFAULT CURRENT_DATE,
+        resigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        monthly_salary NUMERIC(12,2) DEFAULT 0,
+        basic_salary NUMERIC(12,2) DEFAULT 0,
+        hra NUMERIC(12,2) DEFAULT 0,
+        special_allowance NUMERIC(12,2) DEFAULT 0,
+        staff_advance NUMERIC(12,2) DEFAULT 0,
+        professional_tax NUMERIC(12,2) DEFAULT 0,
+        tds NUMERIC(12,2) DEFAULT 0,
+        bank_name VARCHAR(150),
+        bank_address TEXT,
+        account_holder_name VARCHAR(150),
+        account_number VARCHAR(50),
+        ifsc_code VARCHAR(20),
+        pan_card_number VARCHAR(20),
+        aadhar_card_number VARCHAR(20),
+        permanent_address TEXT,
+        alternate_phone_number VARCHAR(20),
+        created_at TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✅ resigned_employees table checked/added.');
+
     // 2f. Verification of database tables count & names
     const tablesRes = await dbClient.query(`
       SELECT table_name 

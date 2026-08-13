@@ -6,8 +6,8 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
-import { getAllEmployees, getAllDepartments, addEmployee, updateEmployee, deleteEmployee, enableWFH, disableWFH, toggleEarlyCheckout, clearDataByDate } from '../services/api';
-import { FiPlus, FiEdit, FiTrash2, FiSearch, FiHome, FiClock, FiEye, FiEyeOff, FiX, FiUsers, FiDownload } from 'react-icons/fi';
+import { getAllEmployees, getResignedEmployees, updateResignedEmployee, deleteResignedEmployee, restoreResignedEmployee, getAllDepartments, addEmployee, updateEmployee, deleteEmployee, enableWFH, disableWFH, toggleEarlyCheckout, clearDataByDate } from '../services/api';
+import { FiPlus, FiEdit, FiTrash2, FiSearch, FiHome, FiClock, FiEye, FiEyeOff, FiX, FiUsers, FiUserX, FiRotateCcw, FiCalendar, FiDownload } from 'react-icons/fi';
 import { sortEmployeeRows } from '../utils/sorting';
 import { toDateInputValue } from '../utils/dateUtils';
 import ClearDataModal from '../components/ClearDataModal';
@@ -52,12 +52,18 @@ const formatDate = (dateStr) => {
 
 const AdminEmployees = () => {
   const { hasPermission } = useAuth();
+  const [activeTab,    setActiveTab]    = useState('active'); // 'active' | 'resigned'
   const [employees,    setEmployees]    = useState([]);
+  const [resignedEmployees, setResignedEmployees] = useState([]);
   const [departments,  setDepartments]  = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [showModal,    setShowModal]    = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+
+  const [showEditResignedDateModal, setShowEditResignedDateModal] = useState(false);
+  const [editingResignedEmp, setEditingResignedEmp] = useState(null);
+  const [resignedDateInput, setResignedDateInput] = useState('');
 
   const [showClearModal, setShowClearModal] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -103,8 +109,13 @@ const AdminEmployees = () => {
 
   const fetchData = async () => {
     try {
-      const [empRes, deptRes] = await Promise.all([getAllEmployees(), getAllDepartments()]);
+      const [empRes, resignedRes, deptRes] = await Promise.all([
+        getAllEmployees(),
+        getResignedEmployees(),
+        getAllDepartments()
+      ]);
       if (empRes.data.success)  setEmployees(empRes.data.employees);
+      if (resignedRes.data.success) setResignedEmployees(resignedRes.data.employees);
       if (deptRes.data.success) setDepartments(deptRes.data.departments);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -167,7 +178,6 @@ const AdminEmployees = () => {
   };
 
   const handleEdit = emp => {
-    // Format date_of_birth to YYYY-MM-DD for the date input if it exists
     const dob = emp.date_of_birth ? toDateInputValue(emp.date_of_birth) : '';
     const joinDate = emp.joining_date ? toDateInputValue(emp.joining_date) : '';
     setFormData({ ...emp, password:'', date_of_birth: dob, joining_date: joinDate });
@@ -177,12 +187,73 @@ const AdminEmployees = () => {
 
   const handleDelete = emp => setConfirmDialog({
     isOpen:true, title:'Delete Employee', type:'danger',
-    message:`Are you sure you want to delete "${emp.name}"? This cannot be undone.`,
+    message:`Are you sure you want to delete "${emp.name}"? This employee will be moved to the "Resigned / Quit Employees" tab with today's date as default quit date.`,
     onConfirm: async () => {
-      try { const r = await deleteEmployee(emp.id); if (r.data.success) { fetchData(); } }
+      try { 
+        const r = await deleteEmployee(emp.id); 
+        if (r.data.success) { 
+          setAlertDialog({ isOpen:true, title:'Moved to Resigned', message: `Employee "${emp.name}" moved to Resigned / Quit Employees list successfully.`, type:'success' });
+          fetchData(); 
+        } 
+      }
       catch (error) { setAlertDialog({ isOpen:true, title:'Error', message: error.response?.data?.message || 'Delete failed.', type:'error' }); }
     },
   });
+
+  const handleOpenEditResignedDate = emp => {
+    setEditingResignedEmp(emp);
+    setResignedDateInput(emp.resigned_date ? toDateInputValue(emp.resigned_date) : toDateInputValue(new Date()));
+    setShowEditResignedDateModal(true);
+  };
+
+  const handleSaveResignedDate = async (e) => {
+    e.preventDefault();
+    if (!editingResignedEmp || !resignedDateInput) return;
+    try {
+      const res = await updateResignedEmployee(editingResignedEmp.id, { resigned_date: resignedDateInput });
+      if (res.data.success) {
+        setAlertDialog({ isOpen: true, title: 'Success', message: 'Resigned / Quit Date updated successfully.', type: 'success' });
+        setShowEditResignedDateModal(false);
+        setEditingResignedEmp(null);
+        fetchData();
+      }
+    } catch (error) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Failed to update date.', type: 'error' });
+    }
+  };
+
+  const handleDeleteResignedPermanently = emp => setConfirmDialog({
+    isOpen: true, title: 'Permanently Delete Record', type: 'danger',
+    message: `Are you sure you want to permanently delete the resigned record for "${emp.name}"? This action cannot be undone.`,
+    onConfirm: async () => {
+      try {
+        const res = await deleteResignedEmployee(emp.id);
+        if (res.data.success) {
+          setAlertDialog({ isOpen: true, title: 'Deleted', message: `Record for "${emp.name}" deleted permanently.`, type: 'success' });
+          fetchData();
+        }
+      } catch (error) {
+        setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Delete failed.', type: 'error' });
+      }
+    }
+  });
+
+  const handleRestoreResigned = emp => setConfirmDialog({
+    isOpen: true, title: 'Restore Employee', type: 'info',
+    message: `Are you sure you want to restore "${emp.name}" back to the Active Employees list?`,
+    onConfirm: async () => {
+      try {
+        const res = await restoreResignedEmployee(emp.id);
+        if (res.data.success) {
+          setAlertDialog({ isOpen: true, title: 'Restored', message: `Employee "${emp.name}" restored to active list.`, type: 'success' });
+          fetchData();
+        }
+      } catch (error) {
+        setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Restore failed.', type: 'error' });
+      }
+    }
+  });
+
 
   const handleWFHToggle = emp => {
     const action = emp.wfh_enabled ? 'disable' : 'enable';
@@ -209,11 +280,12 @@ const AdminEmployees = () => {
   };
 
   const handleExportEmployeesExcel = () => {
+    const listToExport = activeTab === 'active' ? employees : resignedEmployees;
     const getEmployeeName = (emp) => {
       return (emp.employee_name || emp.name || emp.full_name || "").trim();
     };
 
-    const sortedEmployees = [...employees].sort((a, b) => {
+    const sortedEmployees = [...listToExport].sort((a, b) => {
       const nameA = getEmployeeName(a).toLowerCase();
       const nameB = getEmployeeName(b).toLowerCase();
 
@@ -227,32 +299,41 @@ const AdminEmployees = () => {
       });
     });
 
-    const exportData = sortedEmployees.map((emp, index) => ({
-      "S.No": index + 1,
-      "Employee ID": emp.employee_id || emp.employee_code || "-",
-      "Employee Name": emp.employee_name || emp.name || "-",
-      "Department": emp.department_name || emp.department || "-",
-      "Job Role / Designation": emp.designation || emp.job_role || "-",
-      "Monthly Salary": emp.monthly_salary || emp.salary || 0,
-      "Mobile Number": emp.mobile || emp.phone || "-",
-      "Email": emp.email || "-",
-      "Status": emp.status || (emp.is_active ? "Active" : "Inactive"),
-      "Joining Date": emp.joining_date ? formatDate(emp.joining_date) : "-",
-      "WFH Permission": emp.wfh_enabled || emp.is_wfh ? "Yes" : "No",
-      "Early Checkout Permission": emp.early_checkout_enabled ? "Yes" : "No",
+    const exportData = sortedEmployees.map((emp, index) => {
+      const row = {
+        "S.No": index + 1,
+        "Employee ID": emp.employee_id || emp.employee_code || "-",
+        "Employee Name": emp.employee_name || emp.name || "-",
+        "Department": emp.department_name || emp.department || "-",
+        "Job Role / Designation": emp.designation || emp.job_role || "-",
+        "Monthly Salary": emp.monthly_salary || emp.salary || 0,
+        "Mobile Number": emp.mobile || emp.phone || "-",
+        "Email": emp.email || "-",
+        "Status": emp.status || (emp.is_active ? "Active" : "Resigned"),
+        "Joining Date": emp.joining_date ? formatDate(emp.joining_date) : "-",
+      };
 
-      "Bank Name": emp.bank_name || "-",
-      "Bank Address": emp.bank_address || "-",
-      "Account Holder Name": emp.account_holder_name || "-",
-      "Account Number": emp.account_number || "-",
-      "IFSC Code": emp.ifsc_code || "-",
+      if (activeTab === 'resigned') {
+        row["Resigned / Quit Date"] = emp.resigned_date ? formatDate(emp.resigned_date) : "-";
+      } else {
+        row["WFH Permission"] = emp.wfh_enabled || emp.is_wfh ? "Yes" : "No";
+        row["Early Checkout Permission"] = emp.early_checkout_enabled ? "Yes" : "No";
+      }
 
-      "PAN Card Number": emp.pan_card_number || "-",
-      "Aadhaar Card Number": emp.aadhar_card_number || "-",
+      Object.assign(row, {
+        "Bank Name": emp.bank_name || "-",
+        "Bank Address": emp.bank_address || "-",
+        "Account Holder Name": emp.account_holder_name || "-",
+        "Account Number": emp.account_number || "-",
+        "IFSC Code": emp.ifsc_code || "-",
+        "PAN Card Number": emp.pan_card_number || "-",
+        "Aadhaar Card Number": emp.aadhar_card_number || "-",
+        "Permanent Address": emp.permanent_address || "-",
+        "Alternate Phone Number": emp.alternate_phone_number || "-"
+      });
 
-      "Permanent Address": emp.permanent_address || "-",
-      "Alternate Phone Number": emp.alternate_phone_number || "-"
-    }));
+      return row;
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
@@ -280,10 +361,11 @@ const AdminEmployees = () => {
       { wch: 18 }
     ];
 
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
+    const sheetName = activeTab === 'active' ? "Active_Employees" : "Resigned_Employees";
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
     const today = toDateInputValue(new Date());
-    XLSX.writeFile(workbook, `employees_export_${today}.xlsx`);
+    XLSX.writeFile(workbook, `${sheetName.toLowerCase()}_export_${today}.xlsx`);
   };
 
   const closeModal = () => { 
@@ -296,12 +378,18 @@ const AdminEmployees = () => {
   };
 
   const filteredEmployeesRaw = employees.filter(emp =>
-    emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.employee_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.email.toLowerCase().includes(searchTerm.toLowerCase())
+    (emp.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (emp.employee_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (emp.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
-  
   const filteredEmployees = sortEmployeeRows(filteredEmployeesRaw, sortBy);
+
+  const filteredResignedRaw = resignedEmployees.filter(emp =>
+    (emp.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (emp.employee_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (emp.email || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const filteredResigned = sortEmployeeRows(filteredResignedRaw, sortBy);
 
   if (loading) return (
     <div className="flex h-screen bg-admin-bg"><Sidebar /><div className="flex-1 flex items-center justify-center"><Spinner size={36} /></div></div>
@@ -317,29 +405,66 @@ const AdminEmployees = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pt-14 lg:pt-0">
             <div>
               <h1 className="text-xl font-bold text-admin-heading">Employee Management</h1>
-              <p className="text-sm text-slate-400 mt-0.5">{employees.length} total employees</p>
+              <p className="text-sm text-slate-400 mt-0.5">
+                {employees.length} active employees &bull; {resignedEmployees.length} resigned/former employees
+              </p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
               {hasPermission('employees', 'can_export') && (
                 <button onClick={handleExportEmployeesExcel}
                   className="inline-flex items-center gap-2 bg-[#10B981] hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-glow-emerald-sm hover:shadow-glow-emerald hover:-translate-y-0.5">
-                  <FiDownload size={16} /> Export Excel
+                  <FiDownload size={16} /> Export {activeTab === 'active' ? 'Active' : 'Resigned'} Excel
                 </button>
               )}
-              {hasPermission('employees', 'can_clear') && (
+              {hasPermission('employees', 'can_clear') && activeTab === 'active' && (
                 <button onClick={() => setShowClearModal(true)}
                   className="inline-flex items-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200">
                   <FiTrash2 size={16} /> Clear Data
                 </button>
               )}
-              {hasPermission('employees', 'can_create') && (
+              {hasPermission('employees', 'can_create') && activeTab === 'active' && (
                 <button onClick={() => setShowModal(true)}
                   className="inline-flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-glow-blue-sm hover:shadow-glow-blue hover:-translate-y-0.5">
                   <FiPlus size={16} /> Add Employee
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div className="flex border-b border-admin-border mb-6">
+            <button
+              type="button"
+              onClick={() => setActiveTab('active')}
+              className={`flex items-center gap-2.5 px-5 py-3 font-semibold text-sm border-b-2 transition-all cursor-pointer ${
+                activeTab === 'active'
+                  ? 'border-[#3B82F6] text-[#3B82F6] bg-blue-500/10 rounded-t-xl'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <FiUsers size={16} />
+              <span>Active Employees</span>
+              <span className={`px-2 py-0.5 text-xs rounded-full ${activeTab === 'active' ? 'bg-[#3B82F6] text-white' : 'bg-white/10 text-slate-400'}`}>
+                {employees.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('resigned')}
+              className={`flex items-center gap-2.5 px-5 py-3 font-semibold text-sm border-b-2 transition-all cursor-pointer ${
+                activeTab === 'resigned'
+                  ? 'border-amber-500 text-amber-500 bg-amber-500/10 rounded-t-xl'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <FiUserX size={16} />
+              <span>Resigned / Quit Employees</span>
+              <span className={`px-2 py-0.5 text-xs rounded-full ${activeTab === 'resigned' ? 'bg-amber-500 text-white' : 'bg-white/10 text-slate-400'}`}>
+                {resignedEmployees.length}
+              </span>
+            </button>
           </div>
 
           {/* Search & Sort */}
@@ -370,60 +495,130 @@ const AdminEmployees = () => {
             <div className="table-responsive overflow-y-auto max-h-[calc(100vh-270px)] min-h-[350px] dark-scroll relative">
               <table className="min-w-full divide-y divide-white/[0.04]">
                 <thead className="bg-admin-bg sticky top-0 z-10 shadow-sm">
-                  <tr>
-                    {['Emp ID','Name','Department','Job Role','Monthly Salary','Mobile','Email','Status','Joining Date','WFH','Early CO','Actions'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-10">{h}</th>
-                    ))}
-                  </tr>
+                  {activeTab === 'active' ? (
+                    <tr>
+                      {['Emp ID','Name','Department','Job Role','Monthly Salary','Mobile','Email','Status','Joining Date','WFH','Early CO','Actions'].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-10">{h}</th>
+                      ))}
+                    </tr>
+                  ) : (
+                    <tr>
+                      {['Emp ID','Name','Department','Job Role','Monthly Salary','Mobile','Email','Status','Joining Date','Resigned / Quit Date','Actions'].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-10">{h}</th>
+                      ))}
+                    </tr>
+                  )}
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
-                  {filteredEmployees.length > 0 ? filteredEmployees.map(emp => (
-                    <tr key={emp.id} className="admin-table-row">
-                      <td className="px-4 py-3.5 text-sm text-slate-400 font-mono whitespace-nowrap">{emp.employee_id}</td>
-                      <td className="px-4 py-3.5 text-sm font-semibold whitespace-nowrap">
-                        <button onClick={() => { setSelectedEmployee(emp); setShowDetailModal(true); }} className="employee-name-clickable text-left">
-                          {emp.name}
-                        </button>
-                      </td>
-                      <td className="hidden md:table-cell px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.department_name}</td>
-                      <td className="hidden lg:table-cell px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.job_role}</td>
-                      <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">
-                        {(() => {
-                          const monthlySalary = getMonthlySalaryValue(emp);
-                          return monthlySalary ? formatCurrency(monthlySalary) : '-';
-                        })()}
-                      </td>
-                      <td className="hidden xl:table-cell px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.mobile}</td>
-                      <td className="hidden xl:table-cell px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.email}</td>
-                      <td className="px-4 py-3.5 whitespace-nowrap"><StatusBadge status={emp.status} dark /></td>
-                      <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{formatDate(emp.joining_date)}</td>
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <button onClick={() => handleWFHToggle(emp)} title={emp.wfh_enabled ? 'WFH Enabled' : 'WFH Disabled'}
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${emp.wfh_enabled ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30' : 'bg-white/5 text-admin-secondary hover:bg-white/10'}`}>
-                          <FiHome size={14} />
-                        </button>
-                      </td>
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <button onClick={() => handleEarlyCheckoutToggle(emp)} title={emp.early_checkout_enabled ? 'Early CO Enabled' : 'Early CO Disabled'}
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${emp.early_checkout_enabled ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-white/5 text-admin-secondary hover:bg-white/10'}`}>
-                          <FiClock size={14} />
-                        </button>
-                      </td>
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                          {hasPermission('employees', 'can_edit') && (
-                            <button onClick={() => handleEdit(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#60A5FA] hover:bg-blue-500/10 transition-colors" title="Edit"><FiEdit size={14} /></button>
-                          )}
-                          {hasPermission('employees', 'can_delete') && (
-                            <button onClick={() => handleDelete(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors" title="Delete"><FiTrash2 size={14} /></button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr><td colSpan={10} className="px-4 py-16 text-center">
-                      <div className="flex flex-col items-center gap-3"><FiUsers size={28} className="text-[#475569]" /><p className="text-sm font-medium text-admin-secondary">{searchTerm ? 'No employees match your search' : 'No employees yet'}</p></div>
-                    </td></tr>
+                  {activeTab === 'active' ? (
+                    filteredEmployees.length > 0 ? filteredEmployees.map(emp => (
+                      <tr key={emp.id} className="admin-table-row">
+                        <td className="px-4 py-3.5 text-sm text-slate-400 font-mono whitespace-nowrap">{emp.employee_id}</td>
+                        <td className="px-4 py-3.5 text-sm font-semibold whitespace-nowrap">
+                          <button onClick={() => { setSelectedEmployee(emp); setShowDetailModal(true); }} className="employee-name-clickable text-left">
+                            {emp.name}
+                          </button>
+                        </td>
+                        <td className="hidden md:table-cell px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.department_name}</td>
+                        <td className="hidden lg:table-cell px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.job_role}</td>
+                        <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">
+                          {(() => {
+                            const monthlySalary = getMonthlySalaryValue(emp);
+                            return monthlySalary ? formatCurrency(monthlySalary) : '-';
+                          })()}
+                        </td>
+                        <td className="hidden xl:table-cell px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.mobile}</td>
+                        <td className="hidden xl:table-cell px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.email}</td>
+                        <td className="px-4 py-3.5 whitespace-nowrap"><StatusBadge status={emp.status} dark /></td>
+                        <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{formatDate(emp.joining_date)}</td>
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          <button onClick={() => handleWFHToggle(emp)} title={emp.wfh_enabled ? 'WFH Enabled' : 'WFH Disabled'}
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${emp.wfh_enabled ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30' : 'bg-white/5 text-admin-secondary hover:bg-white/10'}`}>
+                            <FiHome size={14} />
+                          </button>
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          <button onClick={() => handleEarlyCheckoutToggle(emp)} title={emp.early_checkout_enabled ? 'Early CO Enabled' : 'Early CO Disabled'}
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${emp.early_checkout_enabled ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-white/5 text-admin-secondary hover:bg-white/10'}`}>
+                            <FiClock size={14} />
+                          </button>
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          <div className="flex items-center gap-1">
+                            {hasPermission('employees', 'can_edit') && (
+                              <button onClick={() => handleEdit(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#60A5FA] hover:bg-blue-500/10 transition-colors" title="Edit"><FiEdit size={14} /></button>
+                            )}
+                            {hasPermission('employees', 'can_delete') && (
+                              <button onClick={() => handleDelete(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors" title="Delete Employee (Move to Resigned)"><FiTrash2 size={14} /></button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr><td colSpan={12} className="px-4 py-16 text-center">
+                        <div className="flex flex-col items-center gap-3"><FiUsers size={28} className="text-[#475569]" /><p className="text-sm font-medium text-admin-secondary">{searchTerm ? 'No employees match your search' : 'No active employees yet'}</p></div>
+                      </td></tr>
+                    )
+                  ) : (
+                    filteredResigned.length > 0 ? filteredResigned.map(emp => (
+                      <tr key={emp.id} className="admin-table-row">
+                        <td className="px-4 py-3.5 text-sm text-slate-400 font-mono whitespace-nowrap">{emp.employee_id}</td>
+                        <td className="px-4 py-3.5 text-sm font-semibold whitespace-nowrap">
+                          <button onClick={() => { setSelectedEmployee(emp); setShowDetailModal(true); }} className="employee-name-clickable text-left">
+                            {emp.name}
+                          </button>
+                        </td>
+                        <td className="hidden md:table-cell px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.department_name || '—'}</td>
+                        <td className="hidden lg:table-cell px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.job_role}</td>
+                        <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">
+                          {(() => {
+                            const monthlySalary = getMonthlySalaryValue(emp);
+                            return monthlySalary ? formatCurrency(monthlySalary) : '-';
+                          })()}
+                        </td>
+                        <td className="hidden xl:table-cell px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.mobile || '—'}</td>
+                        <td className="hidden xl:table-cell px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{emp.email || '—'}</td>
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20">
+                            Resigned
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">{formatDate(emp.joining_date)}</td>
+                        <td className="px-4 py-3.5 text-sm font-semibold text-amber-400 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <span>{formatDate(emp.resigned_date)}</span>
+                            {hasPermission('employees', 'can_edit') && (
+                              <button onClick={() => handleOpenEditResignedDate(emp)} className="text-slate-400 hover:text-amber-300 transition-colors p-1" title="Edit Resigned / Quit Date">
+                                <FiCalendar size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          <div className="flex items-center gap-1">
+                            {hasPermission('employees', 'can_edit') && (
+                              <button onClick={() => handleOpenEditResignedDate(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-amber-400 hover:bg-amber-500/10 transition-colors" title="Edit Resigned Date">
+                                <FiCalendar size={14} />
+                              </button>
+                            )}
+                            {hasPermission('employees', 'can_create') && (
+                              <button onClick={() => handleRestoreResigned(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-emerald-400 hover:bg-emerald-500/10 transition-colors" title="Restore to Active List">
+                                <FiRotateCcw size={14} />
+                              </button>
+                            )}
+                            {hasPermission('employees', 'can_delete') && (
+                              <button onClick={() => handleDeleteResignedPermanently(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors" title="Permanently Delete Record">
+                                <FiTrash2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr><td colSpan={11} className="px-4 py-16 text-center">
+                        <div className="flex flex-col items-center gap-3"><FiUserX size={28} className="text-[#475569]" /><p className="text-sm font-medium text-admin-secondary">{searchTerm ? 'No resigned employees match your search' : 'No resigned employees yet'}</p></div>
+                      </td></tr>
+                    )
                   )}
                 </tbody>
               </table>
@@ -431,6 +626,7 @@ const AdminEmployees = () => {
           </div>
         </div>
       </div>
+
 
       <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(d => ({ ...d, isOpen:false }))} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText={confirmDialog.type === 'danger' ? 'Delete' : 'Confirm'} />
       <AlertDialog   isOpen={alertDialog.isOpen}   onClose={() => setAlertDialog(d => ({ ...d, isOpen:false }))}   title={alertDialog.title}   message={alertDialog.message}   type={alertDialog.type} />
@@ -596,8 +792,11 @@ const AdminEmployees = () => {
                   <div><p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Designation</p><p className="text-sm font-medium text-admin-text">{selectedEmployee.job_role || '—'}</p></div>
                   <div><p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Phone</p><p className="text-sm font-medium text-admin-text">{selectedEmployee.mobile || '—'}</p></div>
                   <div><p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Email</p><p className="text-sm font-medium text-admin-text truncate">{selectedEmployee.email || '—'}</p></div>
-                  <div><p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Status</p><div className="mt-0.5"><StatusBadge status={selectedEmployee.status} dark /></div></div>
+                  <div><p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Status</p><div className="mt-0.5"><StatusBadge status={selectedEmployee.status || 'Resigned'} dark /></div></div>
                   <div><p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Joining Date</p><p className="text-sm font-medium text-admin-text">{formatDate(selectedEmployee.joining_date) || '—'}</p></div>
+                  {selectedEmployee.resigned_date && (
+                    <div><p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Resigned / Quit Date</p><p className="text-sm font-semibold text-amber-400">{formatDate(selectedEmployee.resigned_date)}</p></div>
+                  )}
                 </div>
               </div>
 
@@ -638,6 +837,40 @@ const AdminEmployees = () => {
         </div>
       )}
 
+      {/* Edit Resigned / Quit Date Modal */}
+      {showEditResignedDateModal && editingResignedEmp && (
+        <div className="fixed inset-0 bg-admin-overlay backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-admin-elevated border border-admin-border rounded-2xl shadow-clay-admin-modal w-full max-w-md flex flex-col animate-scale-in">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-admin-border">
+              <div>
+                <h2 className="text-base font-bold text-admin-text">Edit Resigned / Quit Date</h2>
+                <p className="text-xs text-slate-400 mt-0.5">{editingResignedEmp.employee_id} - {editingResignedEmp.name}</p>
+              </div>
+              <button onClick={() => { setShowEditResignedDateModal(false); setEditingResignedEmp(null); }} className="w-8 h-8 rounded-lg flex items-center justify-center text-admin-secondary hover:bg-admin-elevated transition-colors"><FiX size={18} /></button>
+            </div>
+            <form onSubmit={handleSaveResignedDate} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Resigned / Quit Date</label>
+                <input
+                  type="date"
+                  value={resignedDateInput}
+                  onChange={(e) => setResignedDateInput(e.target.value)}
+                  required
+                  className="admin-input"
+                />
+                <p className="text-xs text-slate-400 mt-2">By default, this is auto-populated with the date the employee was deleted from the admin panel. You can edit and update this date if needed.</p>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => { setShowEditResignedDateModal(false); setEditingResignedEmp(null); }} className="admin-btn-neutral rounded-xl px-4 py-2 text-sm font-semibold">Cancel</button>
+                <button type="submit" className="px-5 py-2 text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-glow-amber-sm transition-all duration-200">
+                  Save Date
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <ClearDataModal 
         isOpen={showClearModal}
         onClose={() => setShowClearModal(false)}
@@ -646,6 +879,7 @@ const AdminEmployees = () => {
         title="Clear Employee Records"
         description="This will permanently delete employees who joined between the selected dates. This action cannot be undone."
       />
+
     </div>
   );
 };

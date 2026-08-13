@@ -15,7 +15,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev_sandbox_secret_key_2026';
  */
 function requireDeveloperSession(req, res, next) {
   // Check development environment or sandbox access configuration
-  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEV_SANDBOX !== 'true') {
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEV_SANDBOX === 'false') {
     return res.status(403).json({ success: false, message: 'Developer Testing Sandbox is disabled in production' });
   }
 

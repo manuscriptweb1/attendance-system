@@ -237,11 +237,12 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
            const mins = getWorkedMinutes(att, officeStartTimeMins);
            dailyMinutes = Math.max(dailyMinutes, mins);
 
-           if (att.login_time || att.late_minutes) {
-             const savedLateMins = (att.late_minutes && Number(att.late_minutes) > 0) ? Number(att.late_minutes) : 0;
+           if (att.login_time || (att.late_minutes !== null && att.late_minutes !== undefined)) {
+             const isLateMinutesDefined = att.late_minutes !== null && att.late_minutes !== undefined;
              const loginMins = att.login_time ? getLocalMinutesFromUTC(att.login_time) : 0;
              const calculatedLateMins = (loginMins > 0 && loginMins > officeLateTimeInMinutes) ? (loginMins - officeLateTimeInMinutes) : 0;
-             const effectiveLateMins = Math.max(savedLateMins, calculatedLateMins);
+
+             const effectiveLateMins = isLateMinutesDefined ? Math.max(0, Number(att.late_minutes)) : calculatedLateMins;
              if (effectiveLateMins > 0) {
                totalLateMinutes += effectiveLateMins;
              }
@@ -252,15 +253,19 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
              
              if (!isSun && !isGovH && !isOffH && !isAbsentStatus) {
                let dailyCountedLate = 0;
-               if (loginMins < morningShiftEnd) {
-                 if (loginMins > morningLateAfter) {
-                   dailyCountedLate = loginMins - morningLateAfter;
-                 }
-               } else if (loginMins >= lunchStart && loginMins <= lunchEnd) {
-                 dailyCountedLate = 0;
-               } else if (loginMins >= eveningShiftStart) {
-                 if (loginMins > eveningLateAfter) {
-                   dailyCountedLate = loginMins - eveningLateAfter;
+               if (isLateMinutesDefined) {
+                 dailyCountedLate = Math.max(0, Number(att.late_minutes));
+               } else {
+                 if (loginMins < morningShiftEnd) {
+                   if (loginMins > morningLateAfter) {
+                     dailyCountedLate = loginMins - morningLateAfter;
+                   }
+                 } else if (loginMins >= lunchStart && loginMins <= lunchEnd) {
+                   dailyCountedLate = 0;
+                 } else if (loginMins >= eveningShiftStart) {
+                   if (loginMins > eveningLateAfter) {
+                     dailyCountedLate = loginMins - eveningLateAfter;
+                   }
                  }
                }
 

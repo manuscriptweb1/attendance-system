@@ -143,19 +143,26 @@ function drawDetailRow(doc, {
   return lineY + 5;
 }
 
-function renderPayslipHeader(doc, data, monthName, year, logoPath, fonts) {
-  const { fontRegular, fontBold } = fonts;
+const { getBrandingSettings } = require('./brandingSettingsHelper');
 
-  if (logoPath) {
+function renderPayslipHeader(doc, data, monthName, year, logoPath, fonts, branding = null) {
+  const { fontRegular, fontBold } = fonts;
+  const companyName = branding?.company_name || 'Manuscript Technomedia LLP';
+  const logoWidth = branding?.logo_width || 32;
+  const logoHeight = branding?.logo_height || 32;
+  const fontSize = branding?.company_name_font_size || 17;
+  const actualLogoPath = branding?.physical_logo_path || logoPath || getCompanyLogoPath();
+
+  if (actualLogoPath && fs.existsSync(actualLogoPath)) {
     try {
-      doc.image(logoPath, 145, 44, { width: 32, height: 32 });
-      doc.fontSize(17).font(fontBold).fillColor('#0F172A').text('Manuscript Technomedia LLP', 185, 50);
+      doc.image(actualLogoPath, 145, 44, { width: logoWidth, height: logoHeight });
+      doc.fontSize(fontSize).font(fontBold).fillColor('#0F172A').text(companyName, 150 + logoWidth + 8, 48);
     } catch (logoErr) {
       console.warn('Could not embed logo in payslip PDF:', logoErr.message);
-      doc.fontSize(17).font(fontBold).fillColor('#0F172A').text('Manuscript Technomedia LLP', 40, 50, { align: 'center' });
+      doc.fontSize(fontSize).font(fontBold).fillColor('#0F172A').text(companyName, 40, 50, { align: 'center' });
     }
   } else {
-    doc.fontSize(17).font(fontBold).fillColor('#0F172A').text('Manuscript Technomedia LLP', 40, 50, { align: 'center' });
+    doc.fontSize(fontSize).font(fontBold).fillColor('#0F172A').text(companyName, 40, 50, { align: 'center' });
   }
 
   doc.fontSize(14).font(fontBold).fillColor('#0F172A').text('PAY SLIP', 40, 82, { align: 'center' });
@@ -397,13 +404,14 @@ function renderPayslipNoteOrSignature(doc, fonts, generatedDateStr, startY, opti
     }
 
     const textY = signatureY + (renderedImageHeight > 0 ? renderedImageHeight + 6 : 10);
+    const companyName = options?.branding?.company_name || 'Manuscript Technomedia LLP';
 
     doc.fontSize(8.5).font(fontBold).fillColor('#111827').text('Authorized Signatory', textBlockX, textY, {
       width: signatureBlockWidth,
       align: 'center'
     });
 
-    doc.fontSize(8.5).font(fontRegular).fillColor('#334155').text('Manuscript Technomedia LLP', textBlockX, textY + 13, {
+    doc.fontSize(8.5).font(fontRegular).fillColor('#334155').text(companyName, textBlockX, textY + 13, {
       width: signatureBlockWidth,
       align: 'center'
     });
@@ -426,7 +434,7 @@ function renderPayslipNoteOrSignature(doc, fonts, generatedDateStr, startY, opti
   }
 }
 
-function renderPayslipFooter(doc, fonts, cardBottomY) {
+function renderPayslipFooter(doc, fonts, cardBottomY, branding = null) {
   const { fontRegular } = fonts;
   const footerLineY = Math.max(775, cardBottomY + 30);
 
@@ -439,7 +447,7 @@ function renderPayslipFooter(doc, fonts, cardBottomY) {
 
   // 2. Black centered registered office text
   const textY = footerLineY + 8;
-  const footerText = 'Manuscript Technomedia LLP, Reg. Office. No. 22, 3rd Cross, Vivekananda Nagar, Bangalore-33, Karnataka, India.';
+  const footerText = branding?.registered_office_address || 'Manuscript Technomedia LLP, Reg. Office. No. 22, 3rd Cross, Vivekananda Nagar, Bangalore-33, Karnataka, India.';
 
   doc.fontSize(8.5)
      .font(fontRegular)
@@ -453,7 +461,8 @@ function renderPayslipFooter(doc, fonts, cardBottomY) {
 }
 
 function renderPayslipPage(doc, record, monthName, year, generatedDateStr, logoPath, fonts, options = {}) {
-  renderPayslipHeader(doc, record, monthName, year, logoPath, fonts);
+  const branding = options.branding || null;
+  renderPayslipHeader(doc, record, monthName, year, logoPath, fonts, branding);
   const detailsEndY = renderEmployeeAndAttendanceDetails(doc, record, fonts, 135);
   const { gross, totalDeductions, nextY: earningsEndY } = renderEarningsAndDeductions(doc, record, fonts, detailsEndY);
   const netPayableEndY = renderNetPayable(doc, record, gross, totalDeductions, fonts, earningsEndY);
@@ -467,15 +476,18 @@ function renderPayslipPage(doc, record, monthName, year, generatedDateStr, logoP
   const cardBottomY = 35 + cardHeight;
 
   // Render footer OUTSIDE and BELOW the main content border card, in lower page whitespace
-  renderPayslipFooter(doc, fonts, cardBottomY);
+  renderPayslipFooter(doc, fonts, cardBottomY, branding);
 }
 
 const generateSinglePayslipBuffer = async (record, month, year, options = {}) => {
+  const branding = options.branding || await getBrandingSettings();
+  const mergedOptions = { ...options, branding };
+
   return new Promise((resolve, reject) => {
     try {
       const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
       const monthName = monthNames[parseInt(month) - 1] || month;
-      const logoPath = getCompanyLogoPath();
+      const logoPath = branding.physical_logo_path || getCompanyLogoPath();
       const doc = new PDFDocument({ margin: 40, size: 'A4' });
       const fonts = registerPayslipFonts(doc);
 
@@ -487,7 +499,7 @@ const generateSinglePayslipBuffer = async (record, month, year, options = {}) =>
       doc.on('error', reject);
 
       const generatedDateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-      renderPayslipPage(doc, record, monthName, year, generatedDateStr, logoPath, fonts, options);
+      renderPayslipPage(doc, record, monthName, year, generatedDateStr, logoPath, fonts, mergedOptions);
       doc.end();
     } catch (err) {
       reject(err);

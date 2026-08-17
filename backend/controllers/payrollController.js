@@ -11,6 +11,7 @@ const {
   renderPayslipPage,
   generateSinglePayslipBuffer
 } = require('../utils/payslipGenerator');
+const { getBrandingSettings } = require('../utils/brandingSettingsHelper');
 
 const mapRecordToCamelCase = (r) => ({
   id: r.id,
@@ -653,7 +654,8 @@ const downloadAllPayslipsPDF = async (req, res) => {
 
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const monthName = monthNames[parseInt(month) - 1] || month;
-    const logoPath = getCompanyLogoPath();
+    const branding = await getBrandingSettings();
+    const logoPath = branding.physical_logo_path || getCompanyLogoPath();
 
     const doc = new PDFDocument({ margin: 40, size: 'A4' });
     const fonts = registerPayslipFonts(doc);
@@ -670,7 +672,7 @@ const downloadAllPayslipsPDF = async (req, res) => {
         doc.addPage();
       }
       doc.font(fonts.fontRegular);
-      renderPayslipPage(doc, r, monthName, year, generatedDateStr, logoPath, fonts, { includeSignature });
+      renderPayslipPage(doc, r, monthName, year, generatedDateStr, logoPath, fonts, { includeSignature, branding });
     });
 
     doc.end();
@@ -710,7 +712,7 @@ const downloadSinglePayslipPDF = async (req, res) => {
        JOIN employees e ON pr.employee_id::text = e.id::text OR pr.employee_code::text = e.employee_id::text
        LEFT JOIN departments d ON e.department_id = d.id
        WHERE (pr.employee_id::text = $1 OR pr.employee_code::text = $1 OR e.employee_id::text = $1 OR e.id::text = $1)
-         AND pr.payroll_month = $2 AND pr.payroll_year = $3
+          AND pr.payroll_month = $2 AND pr.payroll_year = $3
        LIMIT 1`,
       [employee_id, month, year]
     );
@@ -722,7 +724,8 @@ const downloadSinglePayslipPDF = async (req, res) => {
     const record = result.rows[0];
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const monthName = monthNames[parseInt(month) - 1] || month;
-    const logoPath = getCompanyLogoPath();
+    const branding = await getBrandingSettings();
+    const logoPath = branding.physical_logo_path || getCompanyLogoPath();
 
     const doc = new PDFDocument({ margin: 40, size: 'A4' });
     const fonts = registerPayslipFonts(doc);
@@ -735,7 +738,7 @@ const downloadSinglePayslipPDF = async (req, res) => {
 
     const generatedDateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
-    renderPayslipPage(doc, record, monthName, year, generatedDateStr, logoPath, fonts, { includeSignature });
+    renderPayslipPage(doc, record, monthName, year, generatedDateStr, logoPath, fonts, { includeSignature, branding });
 
     doc.end();
 

@@ -7,10 +7,11 @@ import AlertDialog from '../components/AlertDialog';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
 import { getAllEmployees, getResignedEmployees, updateResignedEmployee, deleteResignedEmployee, restoreResignedEmployee, getAllDepartments, addEmployee, updateEmployee, deleteEmployee, enableWFH, disableWFH, toggleEarlyCheckout, clearDataByDate } from '../services/api';
-import { FiPlus, FiEdit, FiTrash2, FiSearch, FiHome, FiClock, FiEye, FiEyeOff, FiX, FiUsers, FiUserX, FiRotateCcw, FiCalendar, FiDownload } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiTrash2, FiSearch, FiHome, FiClock, FiEye, FiEyeOff, FiX, FiUsers, FiUserX, FiRotateCcw, FiCalendar, FiDownload, FiFileText } from 'react-icons/fi';
 import { sortEmployeeRows } from '../utils/sorting';
 import { toDateInputValue } from '../utils/dateUtils';
 import ClearDataModal from '../components/ClearDataModal';
+import EmployeeDetailsFormModal from '../components/EmployeeDetailsFormModal';
 
 const getMonthlySalaryValue = (employee) => {
   const value =
@@ -60,6 +61,8 @@ const AdminEmployees = () => {
   const [showModal,    setShowModal]    = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [formModalEmployee, setFormModalEmployee] = useState(null);
 
   const [showEditResignedDateModal, setShowEditResignedDateModal] = useState(false);
   const [editingResignedEmp, setEditingResignedEmp] = useState(null);
@@ -548,6 +551,13 @@ const AdminEmployees = () => {
                             {hasPermission('employees', 'can_edit') && (
                               <button onClick={() => handleEdit(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#60A5FA] hover:bg-blue-500/10 transition-colors" title="Edit"><FiEdit size={14} /></button>
                             )}
+                            <button 
+                              onClick={() => { setFormModalEmployee(emp); setShowFormModal(true); }} 
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-purple-400 hover:bg-purple-500/10 transition-colors" 
+                              title="View & Download Employee Form"
+                            >
+                              <FiFileText size={14} />
+                            </button>
                             {hasPermission('employees', 'can_delete') && (
                               <button onClick={() => handleDelete(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors" title="Delete Employee (Move to Resigned)"><FiTrash2 size={14} /></button>
                             )}
@@ -601,6 +611,13 @@ const AdminEmployees = () => {
                                 <FiCalendar size={14} />
                               </button>
                             )}
+                            <button 
+                              onClick={() => { setFormModalEmployee(emp); setShowFormModal(true); }} 
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-purple-400 hover:bg-purple-500/10 transition-colors" 
+                              title="View & Download Employee Form"
+                            >
+                              <FiFileText size={14} />
+                            </button>
                             {hasPermission('employees', 'can_create') && (
                               <button onClick={() => handleRestoreResigned(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-emerald-400 hover:bg-emerald-500/10 transition-colors" title="Restore to Active List">
                                 <FiRotateCcw size={14} />
@@ -830,7 +847,19 @@ const AdminEmployees = () => {
                 </div>
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-admin-border bg-admin-bg rounded-b-2xl flex justify-end">
+            <div className="px-6 py-4 border-t border-admin-border bg-admin-bg rounded-b-2xl flex justify-between items-center">
+              <button 
+                type="button"
+                onClick={() => { 
+                  const emp = selectedEmployee;
+                  setShowDetailModal(false);
+                  setFormModalEmployee(emp); 
+                  setShowFormModal(true); 
+                }} 
+                className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md flex items-center gap-2 transition-all"
+              >
+                <FiFileText size={14} /> Download Form
+              </button>
               <button onClick={() => { setShowDetailModal(false); setSelectedEmployee(null); }} className="admin-btn-neutral rounded-xl px-5 py-2 text-sm font-semibold shadow-sm hover:shadow transition-all">Close</button>
             </div>
           </div>
@@ -879,6 +908,14 @@ const AdminEmployees = () => {
         title="Clear Employee Records"
         description="This will permanently delete employees who joined between the selected dates. This action cannot be undone."
       />
+
+      {/* Employee Details Form Preview & Download Modal */}
+      {showFormModal && formModalEmployee && (
+        <EmployeeDetailsFormModal
+          employee={formModalEmployee}
+          onClose={() => { setShowFormModal(false); setFormModalEmployee(null); }}
+        />
+      )}
 
     </div>
   );

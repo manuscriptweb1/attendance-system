@@ -1,7 +1,10 @@
 const bcrypt = require('bcrypt');
+const PDFDocument = require('pdfkit');
 const pool = require('../config/database');
 const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
-const { getClientIP } = require('../services/networkValidationService');
+const { getCompanyLogoPath, registerPayslipFonts } = require('../utils/payslipGenerator');
+const { renderEmployeeFormPage } = require('../utils/employeeFormGenerator');
+const { getBrandingSettings } = require('../utils/brandingSettingsHelper');
 
 function parseMoney(value, fieldName) {
   if (value === undefined || value === null || String(value).trim() === '') {
@@ -793,6 +796,65 @@ const getAllDepartments = async (req, res) => {
   }
 };
 
+// Download employee details form PDF
+const downloadEmployeeDetailsForm = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Search active employees first
+    let result = await pool.query(
+      `SELECT e.*, d.name as department_name
+       FROM employees e
+       LEFT JOIN departments d ON e.department_id = d.id
+       WHERE e.id::text = $1 OR e.employee_id = $1`,
+      [id]
+    );
+
+    // If not found in active, search resigned_employees
+    if (result.rows.length === 0) {
+      result = await pool.query(
+        `SELECT r.*, d.name as department_name
+         FROM resigned_employees r
+         LEFT JOIN departments d ON r.department_id = d.id
+         WHERE r.id::text = $1 OR r.employee_id = $1 OR r.original_id::text = $1`,
+        [id]
+      );
+    }
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Employee not found'
+      });
+    }
+
+    const employee = result.rows[0];
+    const branding = await getBrandingSettings();
+    const logoPath = branding.physical_logo_path || getCompanyLogoPath();
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    const fonts = registerPayslipFonts(doc);
+
+    const empId = employee.employee_id || 'employee';
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=employee_details_${empId}.pdf`);
+
+    doc.pipe(res);
+
+    const generatedDateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    renderEmployeeFormPage(doc, employee, generatedDateStr, logoPath, fonts, { branding });
+
+    doc.end();
+  } catch (error) {
+    console.error('Download employee details form error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to generate employee details form PDF'
+      });
+    }
+  }
+};
+
 module.exports = {
   getAllEmployees,
   getEmployeeById,
@@ -803,6 +865,8 @@ module.exports = {
   updateResignedEmployee,
   deleteResignedEmployeePermanently,
   restoreResignedEmployee,
-  getAllDepartments
+  getAllDepartments,
+  downloadEmployeeDetailsForm
 };
+
 

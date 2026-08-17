@@ -1,18 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FiX, FiDownload } from 'react-icons/fi';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { formatIndianCurrency as formatCurrency } from '../utils/formatCurrency';
 
-import { downloadSinglePayslip } from '../services/api';
+import { downloadSinglePayslip, getBrandingSettings } from '../services/api';
 
 const PayrollPaySlip = ({ data, onClose, logoPath }) => {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [branding, setBranding] = useState(null);
+
+  useEffect(() => {
+    getBrandingSettings()
+      .then(res => {
+        if (res.data?.success && res.data?.branding) {
+          setBranding(res.data.branding);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   if (!data || !data.employee || !data.payroll) return null;
 
   const { employee, payroll } = data;
-  const companyName = "Manuscript Technomedia LLP";
+  const companyName = branding?.company_name || "Manuscript Technomedia LLP";
+  const backendBase = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+  const logoSrc = branding?.logo_data_url || (branding?.logo_path 
+    ? (branding.logo_path.startsWith('http') ? branding.logo_path : `${backendBase}${branding.logo_path}`) 
+    : `${window.location.origin}/favicon/web-app-manifest-192x192.png`);
+  const logoWidth = branding?.logo_width || 32;
+  const logoHeight = branding?.logo_height || 32;
+  const companyFontSize = branding?.company_name_font_size ? `${branding.company_name_font_size}px` : '20px';
+  const registeredOfficeAddress = branding?.registered_office_address || 'Manuscript Technomedia LLP, Reg. Office. No. 22, 3rd Cross, Vivekananda Nagar, Bangalore-33, Karnataka, India.';
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const monthName = monthNames[payroll.month - 1];
 
@@ -71,14 +90,17 @@ const PayrollPaySlip = ({ data, onClose, logoPath }) => {
           <div className="payslip-download-area payslip-card p-8 sm:p-12 border-[1.5px] border-slate-300 rounded-lg bg-white break-inside-avoid">
             
             {/* Company Header */}
-            <div className="payslip-company-header">
+            <div className="payslip-company-header flex items-center justify-center gap-3">
               <img 
-                src={`${window.location.origin}/favicon/web-app-manifest-192x192.png`} 
+                src={logoSrc} 
                 alt="Company Logo" 
                 crossOrigin="anonymous"
+                style={{ width: `${logoWidth}px`, height: `${logoHeight}px`, objectFit: 'contain' }}
                 className="payslip-logo"
               />
-              <div className="payslip-company-name">{companyName}</div>
+              <div className="payslip-company-name font-black text-slate-900 tracking-tight" style={{ fontSize: companyFontSize }}>
+                {companyName}
+              </div>
             </div>
             
             {/* Title Area */}
@@ -174,6 +196,15 @@ const PayrollPaySlip = ({ data, onClose, logoPath }) => {
               <p className="text-[11px] font-semibold text-slate-400 text-center">Generated on: {formatDate()}</p>
             </div>
 
+          </div>
+
+          {/* Registered Office Line (outside card) */}
+          <div className="px-8 py-4 bg-white">
+            <div className="border-t border-black/80 pt-2 text-center">
+              <p className="text-[11px] font-medium text-slate-900">
+                {registeredOfficeAddress}
+              </p>
+            </div>
           </div>
         </div>
       </div>

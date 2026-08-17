@@ -11,7 +11,8 @@ const {
   updateResignedEmployee,
   deleteResignedEmployeePermanently,
   restoreResignedEmployee,
-  getAllDepartments
+  getAllDepartments,
+  downloadEmployeeDetailsForm
 } = require('../controllers/employeeController');
 
 // All routes require authentication and admin role
@@ -29,6 +30,9 @@ router.get('/resigned', requirePermission('employees', 'can_view'), getResignedE
 router.put('/resigned/:id', requirePermission('employees', 'can_edit'), updateResignedEmployee);
 router.delete('/resigned/:id', requirePermission('employees', 'can_delete'), deleteResignedEmployeePermanently);
 router.post('/resigned/:id/restore', requirePermission('employees', 'can_create'), restoreResignedEmployee);
+
+// Download employee details form PDF
+router.get('/:id/download-form', requirePermission('employees', 'can_view'), downloadEmployeeDetailsForm);
 
 // Get single employee
 router.get('/:id', requirePermission('employees', 'can_view'), getEmployeeById);

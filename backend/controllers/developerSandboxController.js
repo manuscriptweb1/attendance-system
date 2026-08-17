@@ -187,9 +187,171 @@ const exportReport = async (req, res) => {
   }
 };
 
+const {
+  getBrandingSettings,
+  updateBrandingSettings,
+  resetBrandingLogo
+} = require('../utils/brandingSettingsHelper');
+const { generateSinglePayslipBuffer } = require('../utils/payslipGenerator');
+const { generateEmployeeFormBuffer } = require('../utils/employeeFormGenerator');
+
+/**
+ * Get Current PDF Branding Settings
+ */
+const getBranding = async (req, res) => {
+  try {
+    const branding = await getBrandingSettings();
+    return res.json({
+      success: true,
+      branding
+    });
+  } catch (err) {
+    console.error('Get branding error:', err);
+    return res.status(500).json({ success: false, message: 'Error retrieving branding settings' });
+  }
+};
+
+/**
+ * Update PDF Branding Settings
+ */
+const updateBranding = async (req, res) => {
+  try {
+    const {
+      company_name,
+      logo_base64,
+      logo_width,
+      logo_height,
+      company_name_font_size,
+      registered_office_address
+    } = req.body;
+
+    const updated = await updateBrandingSettings({
+      company_name,
+      logo_base64,
+      logo_width,
+      logo_height,
+      company_name_font_size,
+      registered_office_address
+    });
+
+    return res.json({
+      success: true,
+      message: 'Company branding settings updated successfully',
+      branding: updated
+    });
+  } catch (err) {
+    console.error('Update branding error:', err);
+    return res.status(500).json({ success: false, message: 'Error updating branding settings' });
+  }
+};
+
+/**
+ * Reset Branding Logo to Default
+ */
+const resetLogo = async (req, res) => {
+  try {
+    const updated = await resetBrandingLogo();
+    return res.json({
+      success: true,
+      message: 'Logo reset to default successfully',
+      branding: updated
+    });
+  } catch (err) {
+    console.error('Reset logo error:', err);
+    return res.status(500).json({ success: false, message: 'Error resetting logo' });
+  }
+};
+
+/**
+ * Download Sample Test PDF with Current Branding
+ */
+const downloadSamplePdf = async (req, res) => {
+  try {
+    const { type = 'payslip' } = req.query;
+    const branding = await getBrandingSettings();
+
+    if (type === 'employee_details') {
+      const sampleEmp = {
+        employee_id: 'SAMPLE-01',
+        name: 'SAMPLE EMPLOYEE',
+        job_role: 'SENIOR DEVELOPER',
+        department_name: 'ENGINEERING',
+        joining_date: new Date().toISOString(),
+        date_of_birth: '1995-05-15',
+        mobile: '+91 9876543210',
+        alternate_phone_number: '+91 9123456780',
+        email: 'sample.employee@company.com',
+        permanent_address: '123 Tech Park, 4th Block, Sample City, State, 560001',
+        bank_name: 'STATE BANK OF INDIA',
+        account_holder_name: 'SAMPLE EMPLOYEE',
+        account_number: '123456789012',
+        ifsc_code: 'SBIN0001234',
+        bank_address: 'Main Branch, Sample City',
+        pan_card_number: 'ABCDE1234F',
+        aadhar_card_number: '123456789012',
+        monthly_salary: 50000,
+        basic_salary: 25000,
+        hra: 10000,
+        special_allowance: 15000,
+        professional_tax: 200,
+        tds: 0,
+        staff_advance: 0
+      };
+
+      const buffer = await generateEmployeeFormBuffer(sampleEmp, { branding });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=sample_employee_details_${Date.now()}.pdf`);
+      return res.send(buffer);
+    } else {
+      // Default: Sample Payslip
+      const samplePayrollRecord = {
+        emp_code_real: 'SAMPLE-01',
+        employee_name: 'SAMPLE EMPLOYEE',
+        job_role: 'SENIOR DEVELOPER',
+        department_name: 'ENGINEERING',
+        working_days: 30,
+        paid_days: 30,
+        present_days: 28,
+        half_days: 0,
+        absent_days: 0,
+        lop_days: 0,
+        basic_salary: 25000,
+        hra: 10000,
+        special_allowance: 15000,
+        gross_earnings: 50000,
+        lop_amount: 0,
+        professional_tax: 200,
+        tds: 0,
+        staff_advance: 0,
+        loan_deduction: 0,
+        total_deductions: 200,
+        net_payable: 49800
+      };
+
+      const currentMonth = new Date().getMonth() + 1;
+      const currentYear = new Date().getFullYear();
+      const buffer = await generateSinglePayslipBuffer(samplePayrollRecord, currentMonth, currentYear, { branding });
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=sample_payslip_${Date.now()}.pdf`);
+      return res.send(buffer);
+    }
+  } catch (err) {
+    console.error('Download sample PDF error:', err);
+    if (!res.headersSent) {
+      return res.status(500).json({ success: false, message: 'Error generating sample PDF' });
+    }
+  }
+};
+
 module.exports = {
   verifyPin,
   checkSession,
   runSimulation,
-  exportReport
+  exportReport,
+  getBranding,
+  updateBranding,
+  resetLogo,
+  downloadSamplePdf
 };
+

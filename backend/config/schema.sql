@@ -1955,3 +1955,21 @@ CREATE TABLE IF NOT EXISTS resigned_employees (
 
 CREATE INDEX IF NOT EXISTS idx_resigned_emp_id ON resigned_employees(employee_id);
 CREATE INDEX IF NOT EXISTS idx_resigned_date ON resigned_employees(resigned_date);
+
+-- PDF Template & Company Branding Settings Table
+CREATE TABLE IF NOT EXISTS pdf_template_settings (
+    id SERIAL PRIMARY KEY,
+    company_name VARCHAR(200) NOT NULL DEFAULT 'Manuscript Technomedia LLP',
+    logo_path VARCHAR(500),
+    logo_width INTEGER NOT NULL DEFAULT 32,
+    logo_height INTEGER NOT NULL DEFAULT 32,
+    company_name_font_size NUMERIC(4,1) NOT NULL DEFAULT 17.0,
+    registered_office_address TEXT NOT NULL DEFAULT 'Manuscript Technomedia LLP, Reg. Office. No. 22, 3rd Cross, Vivekananda Nagar, Bangalore-33, Karnataka, India.',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO pdf_template_settings (id, company_name, logo_path, logo_width, logo_height, company_name_font_size, registered_office_address)
+SELECT 1, 'Manuscript Technomedia LLP', NULL, 32, 32, 17.0, 'Manuscript Technomedia LLP, Reg. Office. No. 22, 3rd Cross, Vivekananda Nagar, Bangalore-33, Karnataka, India.'
+WHERE NOT EXISTS (SELECT 1 FROM pdf_template_settings WHERE id = 1);
+

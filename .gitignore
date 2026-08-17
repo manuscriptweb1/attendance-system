@@ -10,3 +10,9 @@ frontend/node_modules/
 # Windows system files
 desktop.ini
 **/desktop.ini
+
+# Uploads directory
+backend/uploads/**
+!backend/uploads/branding/
+!backend/uploads/branding/.gitkeep
+

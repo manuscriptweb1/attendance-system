@@ -5,7 +5,11 @@ const {
   verifyPin,
   checkSession,
   runSimulation,
-  exportReport
+  exportReport,
+  getBranding,
+  updateBranding,
+  resetLogo,
+  downloadSamplePdf
 } = require('../controllers/developerSandboxController');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_sandbox_secret_key_2026';
@@ -46,5 +50,11 @@ router.get('/check-session', checkSession);
 // 3. Protected Simulation Endpoints
 router.post('/simulate', requireDeveloperSession, runSimulation);
 router.post('/export', requireDeveloperSession, exportReport);
+
+// 4. PDF Branding & Template Settings Endpoints
+router.get('/branding-settings', getBranding);
+router.post('/branding-settings', requireDeveloperSession, updateBranding);
+router.post('/branding-settings/reset-logo', requireDeveloperSession, resetLogo);
+router.get('/branding-settings/sample-pdf', requireDeveloperSession, downloadSamplePdf);
 
 module.exports = router;

@@ -63,6 +63,9 @@ export const getAllEmployees = () =>
 export const getEmployeeById = (id) => 
   api.get(`/employees/${id}`);
 
+export const downloadEmployeeDetailsForm = (id) =>
+  api.get(`/employees/${id}/download-form`, { responseType: 'blob' });
+
 export const addEmployee = (data) => 
   api.post('/employees', data);
 
@@ -428,6 +431,13 @@ export const verifyDeveloperPin = (pin) => api.post('/developer-testing/verify-p
 export const checkDeveloperSession = (token) => api.get('/developer-testing/check-session', { headers: { Authorization: `Bearer ${token}` } });
 export const runDeveloperSimulation = (data, token) => api.post('/developer-testing/simulate', data, { headers: { Authorization: `Bearer ${token}` } });
 export const exportDeveloperSimulationReport = (data, token) => api.post('/developer-testing/export', data, { headers: { Authorization: `Bearer ${token}` } });
+
+// PDF Template & Branding Settings APIs
+export const getBrandingSettings = () => api.get('/developer-testing/branding-settings');
+export const updateBrandingSettings = (data, token) => api.post('/developer-testing/branding-settings', data, { headers: { Authorization: `Bearer ${token}` } });
+export const resetBrandingLogo = (token) => api.post('/developer-testing/branding-settings/reset-logo', {}, { headers: { Authorization: `Bearer ${token}` } });
+export const downloadSampleBrandingPdf = (type = 'payslip', token) => api.get(`/developer-testing/branding-settings/sample-pdf?type=${type}`, { headers: { Authorization: `Bearer ${token}` }, responseType: 'blob' });
+
 
 
 

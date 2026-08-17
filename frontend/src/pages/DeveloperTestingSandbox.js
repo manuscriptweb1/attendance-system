@@ -2,14 +2,19 @@ import React, { useState, useEffect } from 'react';
 import {
   FiShield, FiRefreshCw, FiFileText, FiClock,
   FiDollarSign, FiCalendar, FiDownload, FiLock,
-  FiCpu, FiLayers, FiTrendingUp
+  FiCpu, FiLayers, FiTrendingUp, FiImage, FiUploadCloud,
+  FiRotateCcw, FiCheckCircle, FiSliders, FiEye, FiSettings, FiCheck
 } from 'react-icons/fi';
 import { Spinner } from '../components/Loader';
 import {
   verifyDeveloperPin,
   checkDeveloperSession,
   runDeveloperSimulation,
-  exportDeveloperSimulationReport
+  exportDeveloperSimulationReport,
+  getBrandingSettings,
+  updateBrandingSettings,
+  resetBrandingLogo,
+  downloadSampleBrandingPdf
 } from '../services/api';
 
 export default function DeveloperTestingSandbox() {
@@ -19,6 +24,27 @@ export default function DeveloperTestingSandbox() {
   const [pinError, setPinError] = useState('');
   const [verifyingPin, setVerifyingPin] = useState(false);
   const [devToken, setDevToken] = useState(sessionStorage.getItem('devToken') || '');
+
+  // Main Section Toggle: 'simulation' | 'branding'
+  const [mainSection, setMainSection] = useState('simulation');
+
+  // PDF Template & Branding Settings State
+  const [brandingData, setBrandingData] = useState({
+    company_name: 'Manuscript Technomedia LLP',
+    company_name_font_size: 17,
+    logo_width: 32,
+    logo_height: 32,
+    registered_office_address: 'Manuscript Technomedia LLP, Reg. Office. No. 22, 3rd Cross, Vivekananda Nagar, Bangalore-33, Karnataka, India.',
+    logo_path: null
+  });
+  const [logoFileBase64, setLogoFileBase64] = useState(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState(`${window.location.origin}/favicon/web-app-manifest-192x192.png`);
+  const [loadingBranding, setLoadingBranding] = useState(false);
+  const [savingBranding, setSavingBranding] = useState(false);
+  const [resettingLogo, setResettingLogo] = useState(false);
+  const [brandingStatusMsg, setBrandingStatusMsg] = useState({ text: '', type: '' });
+  const [previewDocType, setPreviewDocType] = useState('payslip');
+  const [downloadingSampleType, setDownloadingSampleType] = useState(null);
 
   // Simulation Controls
   const [month, setMonth] = useState(new Date().getMonth() + 1);
@@ -82,6 +108,150 @@ export default function DeveloperTestingSandbox() {
       setSelectedLoanId(String(simData.availableLoans[0].id));
     }
   }, [simData]);
+
+  const fetchBranding = async () => {
+    try {
+      setLoadingBranding(true);
+      const res = await getBrandingSettings();
+      if (res.data?.success && res.data?.branding) {
+        const b = res.data.branding;
+        setBrandingData({
+          company_name: b.company_name || 'Manuscript Technomedia LLP',
+          company_name_font_size: Number(b.company_name_font_size) || 17,
+          logo_width: Number(b.logo_width) || 32,
+          logo_height: Number(b.logo_height) || 32,
+          registered_office_address: b.registered_office_address || 'Manuscript Technomedia LLP, Reg. Office. No. 22, 3rd Cross, Vivekananda Nagar, Bangalore-33, Karnataka, India.',
+          logo_path: b.logo_path || null
+        });
+
+        if (b.logo_data_url) {
+          setLogoPreviewUrl(b.logo_data_url);
+        } else if (b.logo_path) {
+          const backendBase = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+          setLogoPreviewUrl(b.logo_path.startsWith('http') ? b.logo_path : `${backendBase}${b.logo_path}`);
+        } else {
+          setLogoPreviewUrl(`${window.location.origin}/favicon/web-app-manifest-192x192.png`);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load branding settings:', e);
+    } finally {
+      setLoadingBranding(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchBranding();
+    }
+  }, [isAuthenticated]);
+
+  const handleLogoFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setBrandingStatusMsg({ text: 'Please select a valid image file (PNG, JPG, SVG, WebP).', type: 'error' });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setBrandingStatusMsg({ text: 'Image file size must be less than 5MB.', type: 'error' });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+      setLogoFileBase64(dataUrl);
+      setLogoPreviewUrl(dataUrl);
+      setBrandingStatusMsg({ text: 'Logo image selected. Click "Save PDF Branding Settings" to apply.', type: 'info' });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveBranding = async (e) => {
+    e?.preventDefault();
+    try {
+      setSavingBranding(true);
+      setBrandingStatusMsg({ text: '', type: '' });
+      const payload = {
+        company_name: brandingData.company_name,
+        company_name_font_size: brandingData.company_name_font_size,
+        logo_width: brandingData.logo_width,
+        logo_height: brandingData.logo_height,
+        registered_office_address: brandingData.registered_office_address,
+        logo_base64: logoFileBase64 || undefined
+      };
+      const res = await updateBrandingSettings(payload, devToken);
+      if (res.data?.success) {
+        setBrandingStatusMsg({ text: 'Company branding & PDF template settings saved successfully!', type: 'success' });
+        setLogoFileBase64(null);
+        if (res.data?.branding) {
+          const b = res.data.branding;
+          setBrandingData({
+            company_name: b.company_name || 'Manuscript Technomedia LLP',
+            company_name_font_size: Number(b.company_name_font_size) || 17,
+            logo_width: Number(b.logo_width) || 32,
+            logo_height: Number(b.logo_height) || 32,
+            registered_office_address: b.registered_office_address || 'Manuscript Technomedia LLP, Reg. Office. No. 22, 3rd Cross, Vivekananda Nagar, Bangalore-33, Karnataka, India.',
+            logo_path: b.logo_path || null
+          });
+          if (b.logo_data_url) {
+            setLogoPreviewUrl(b.logo_data_url);
+          } else if (b.logo_path) {
+            const backendBase = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+            setLogoPreviewUrl(b.logo_path.startsWith('http') ? b.logo_path : `${backendBase}${b.logo_path}`);
+          }
+        }
+        await fetchBranding();
+      } else {
+        setBrandingStatusMsg({ text: res.data?.message || 'Failed to save settings.', type: 'error' });
+      }
+    } catch (err) {
+      setBrandingStatusMsg({ text: err.response?.data?.message || 'Error updating branding settings', type: 'error' });
+    } finally {
+      setSavingBranding(false);
+    }
+  };
+
+  const handleResetLogo = async () => {
+    try {
+      setResettingLogo(true);
+      setBrandingStatusMsg({ text: '', type: '' });
+      const res = await resetBrandingLogo(devToken);
+      if (res.data?.success) {
+        setLogoFileBase64(null);
+        setLogoPreviewUrl(`${window.location.origin}/favicon/web-app-manifest-192x192.png`);
+        setBrandingStatusMsg({ text: 'Logo has been reset to system default.', type: 'success' });
+        await fetchBranding();
+      }
+    } catch (err) {
+      setBrandingStatusMsg({ text: 'Error resetting logo.', type: 'error' });
+    } finally {
+      setResettingLogo(false);
+    }
+  };
+
+  const handleDownloadSamplePdf = async (type) => {
+    try {
+      setDownloadingSampleType(type);
+      const res = await downloadSampleBrandingPdf(type, devToken);
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `sample_${type === 'employee_details' ? 'employee_details' : 'payslip'}_${Date.now()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Failed to generate and download sample PDF.');
+    } finally {
+      setDownloadingSampleType(null);
+    }
+  };
 
   const handleSessionExpired = () => {
     setIsAuthenticated(false);
@@ -264,20 +434,54 @@ export default function DeveloperTestingSandbox() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 pt-6 space-y-6">
-        {/* Simulation Control Panel */}
-        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <h2 className="text-sm font-extrabold uppercase tracking-wider text-purple-400 flex items-center gap-2">
-              <FiLayers /> Simulation Parameters
-            </h2>
+        {/* Main Section Navigation Switcher */}
+        <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-900/80 p-2 rounded-2xl border border-slate-800 backdrop-blur-md">
+          <div className="flex items-center gap-2">
             <button
-              onClick={fetchSimulationData}
-              disabled={loadingSim}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md shadow-purple-600/20 disabled:opacity-50"
+              onClick={() => setMainSection('simulation')}
+              className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 ${
+                mainSection === 'simulation'
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30 font-extrabold'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
             >
-              {loadingSim ? <Spinner size={14} color="white" /> : <FiRefreshCw size={14} />} Re-Run Simulation
+              <FiCpu size={15} /> Payroll & System Simulation
+            </button>
+            <button
+              onClick={() => setMainSection('branding')}
+              className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 ${
+                mainSection === 'branding'
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30 font-extrabold'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <FiImage size={15} /> PDF Template & Office Branding
             </button>
           </div>
+          <div className="text-[11px] text-slate-400 font-medium px-2">
+            {mainSection === 'simulation' 
+              ? 'Multi-scenario payroll calculation & simulation engine' 
+              : 'Configure Office Name, Logo & PDF Header/Footer across all templates'}
+          </div>
+        </div>
+
+        {/* --- SIMULATION MODE --- */}
+        {mainSection === 'simulation' && (
+          <>
+            {/* Simulation Control Panel */}
+            <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <h2 className="text-sm font-extrabold uppercase tracking-wider text-purple-400 flex items-center gap-2">
+                  <FiLayers /> Simulation Parameters
+                </h2>
+                <button
+                  onClick={fetchSimulationData}
+                  disabled={loadingSim}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md shadow-purple-600/20 disabled:opacity-50"
+                >
+                  {loadingSim ? <Spinner size={14} color="white" /> : <FiRefreshCw size={14} />} Re-Run Simulation
+                </button>
+              </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
             {/* Month Selector */}
@@ -753,6 +957,350 @@ export default function DeveloperTestingSandbox() {
                   })}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+      </>
+    )}
+
+        {/* --- PDF TEMPLATE & OFFICE BRANDING MODE --- */}
+        {mainSection === 'branding' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left Column: Form Controls (5 cols) */}
+            <div className="lg:col-span-5 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h2 className="text-sm font-extrabold uppercase tracking-wider text-purple-400 flex items-center gap-2">
+                  <FiSliders size={16} /> PDF Template Branding
+                </h2>
+                <button
+                  type="button"
+                  onClick={fetchBranding}
+                  disabled={loadingBranding}
+                  className="text-slate-400 hover:text-slate-200 text-xs flex items-center gap-1 transition-colors"
+                  title="Reload settings"
+                >
+                  <FiRefreshCw size={13} className={loadingBranding ? 'animate-spin' : ''} /> Reload
+                </button>
+              </div>
+
+              {brandingStatusMsg.text && (
+                <div className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                  brandingStatusMsg.type === 'success'
+                    ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+                    : brandingStatusMsg.type === 'error'
+                    ? 'bg-red-500/10 border border-red-500/30 text-red-400'
+                    : 'bg-blue-500/10 border border-blue-500/30 text-blue-400'
+                }`}>
+                  {brandingStatusMsg.type === 'success' ? <FiCheckCircle size={15} /> : <FiSliders size={15} />}
+                  <span>{brandingStatusMsg.text}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveBranding} className="space-y-4 text-xs">
+                {/* Company Name */}
+                <div>
+                  <label className="block font-bold text-slate-300 uppercase text-[10px] tracking-wider mb-1.5">
+                    Company / Office Name
+                  </label>
+                  <input
+                    type="text"
+                    value={brandingData.company_name}
+                    onChange={(e) => setBrandingData(prev => ({ ...prev, company_name: e.target.value }))}
+                    placeholder="e.g. Manuscript Technomedia LLP"
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-semibold focus:outline-none focus:border-purple-500 transition-colors"
+                    required
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">Rendered at top header of Payslips and Employee Details forms.</p>
+                </div>
+
+                {/* Company Title Font Size */}
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="block font-bold text-slate-300 uppercase text-[10px] tracking-wider">
+                      Company Title Font Size (pt)
+                    </label>
+                    <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded font-mono font-bold text-[11px]">
+                      {brandingData.company_name_font_size} pt
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="12"
+                    max="26"
+                    step="1"
+                    value={brandingData.company_name_font_size}
+                    onChange={(e) => setBrandingData(prev => ({ ...prev, company_name_font_size: Number(e.target.value) }))}
+                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                    <span>12 pt (Small)</span>
+                    <span>17 pt (Default)</span>
+                    <span>26 pt (Large)</span>
+                  </div>
+                </div>
+
+                {/* Logo Upload & Preview */}
+                <div className="border border-slate-800 rounded-xl p-4 bg-slate-950/60 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-bold text-slate-300 uppercase text-[10px] tracking-wider">
+                      Office Logo Image
+                    </label>
+                    {brandingData.logo_path && (
+                      <button
+                        type="button"
+                        onClick={handleResetLogo}
+                        disabled={resettingLogo}
+                        className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 transition-colors"
+                      >
+                        <FiRotateCcw size={12} /> Reset to Default
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-xl border border-slate-700 bg-white p-2 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner">
+                      <img
+                        src={logoPreviewUrl}
+                        alt="Logo Preview"
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    </div>
+                    <div className="flex-1 space-y-1.5">
+                      <label className="inline-flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl cursor-pointer transition-colors text-xs border border-slate-700">
+                        <FiUploadCloud size={15} /> Choose New Logo Image
+                        <input
+                          type="file"
+                          accept="image/png, image/jpeg, image/jpg, image/svg+xml, image/webp"
+                          onChange={handleLogoFileChange}
+                          className="hidden"
+                        />
+                      </label>
+                      <p className="text-[10px] text-slate-500">Supports PNG, JPG, SVG, WebP (Max 5MB)</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Logo Dimensions (Width & Height) */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="block font-bold text-slate-300 uppercase text-[10px] tracking-wider">
+                        Logo Width (px)
+                      </label>
+                      <span className="px-2 py-0.5 bg-slate-800 text-purple-300 rounded font-mono font-bold text-[11px]">
+                        {brandingData.logo_width}px
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="16"
+                      max="100"
+                      step="2"
+                      value={brandingData.logo_width}
+                      onChange={(e) => setBrandingData(prev => ({ ...prev, logo_width: Number(e.target.value) }))}
+                      className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="block font-bold text-slate-300 uppercase text-[10px] tracking-wider">
+                        Logo Height (px)
+                      </label>
+                      <span className="px-2 py-0.5 bg-slate-800 text-purple-300 rounded font-mono font-bold text-[11px]">
+                        {brandingData.logo_height}px
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="16"
+                      max="100"
+                      step="2"
+                      value={brandingData.logo_height}
+                      onChange={(e) => setBrandingData(prev => ({ ...prev, logo_height: Number(e.target.value) }))}
+                      className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Registered Office Address Text */}
+                <div>
+                  <label className="block font-bold text-slate-300 uppercase text-[10px] tracking-wider mb-1.5">
+                    Registered Office Line (Footer)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={brandingData.registered_office_address}
+                    onChange={(e) => setBrandingData(prev => ({ ...prev, registered_office_address: e.target.value }))}
+                    placeholder="Manuscript Technomedia LLP, Reg. Office. No. 22, 3rd Cross, Vivekananda Nagar, Bangalore-33, Karnataka, India."
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-semibold text-xs focus:outline-none focus:border-purple-500 transition-colors"
+                    required
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">Printed centered at the bottom outside edge of each PDF page.</p>
+                </div>
+
+                {/* Save Button */}
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={savingBranding}
+                    className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 transition-all disabled:opacity-50"
+                  >
+                    {savingBranding ? <Spinner size={16} color="white" /> : <FiCheck size={16} />} Save PDF Branding Settings
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Right Column: Live Interactive A4 Preview Card (7 cols) */}
+            <div className="lg:col-span-7 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-extrabold uppercase tracking-wider text-purple-400 flex items-center gap-2">
+                    <FiEye size={16} /> Live Visual Preview
+                  </h2>
+                  <span className="px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 text-purple-300 font-bold rounded text-[10px]">
+                    Real-time
+                  </span>
+                </div>
+
+                {/* Switch Document Preview */}
+                <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDocType('payslip')}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${
+                      previewDocType === 'payslip'
+                        ? 'bg-purple-600 text-white'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Payslip Preview
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDocType('employee_details')}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${
+                      previewDocType === 'employee_details'
+                        ? 'bg-purple-600 text-white'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Employee Form Preview
+                  </button>
+                </div>
+              </div>
+
+              {/* Sample PDF Download Buttons */}
+              <div className="flex flex-wrap items-center gap-3 bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
+                  <FiDownload size={13} /> Test Download:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadSamplePdf('payslip')}
+                  disabled={downloadingSampleType !== null}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {downloadingSampleType === 'payslip' ? <Spinner size={12} color="white" /> : <FiFileText size={13} />}
+                  Sample Payslip PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadSamplePdf('employee_details')}
+                  disabled={downloadingSampleType !== null}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg border border-slate-700 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {downloadingSampleType === 'employee_details' ? <Spinner size={12} color="white" /> : <FiFileText size={13} />}
+                  Sample Employee Details PDF
+                </button>
+              </div>
+
+              {/* Simulated Paper Container */}
+              <div className="bg-slate-800/40 p-4 rounded-xl flex justify-center overflow-x-auto">
+                <div className="w-full max-w-[620px] bg-white rounded-lg shadow-2xl p-6 sm:p-8 text-slate-900 border border-slate-300 scale-[0.98] transition-all">
+                  {/* Inside Main Card Box */}
+                  <div className="border border-slate-300 rounded-md p-5 bg-white space-y-4">
+                    {/* Header */}
+                    <div className="flex items-center justify-center gap-2.5">
+                      <img
+                        src={logoPreviewUrl}
+                        alt="Logo"
+                        style={{
+                          width: `${brandingData.logo_width}px`,
+                          height: `${brandingData.logo_height}px`,
+                          objectFit: 'contain'
+                        }}
+                      />
+                      <div
+                        className="font-black text-slate-900 tracking-tight"
+                        style={{ fontSize: `${brandingData.company_name_font_size}px` }}
+                      >
+                        {brandingData.company_name || 'Manuscript Technomedia LLP'}
+                      </div>
+                    </div>
+
+                    {/* Document Title */}
+                    <div className="text-center">
+                      <h3 className="text-xs font-bold uppercase tracking-widest text-slate-900 m-0">
+                        {previewDocType === 'payslip' ? 'PAY SLIP' : 'EMPLOYEE DETAILS FORM'}
+                      </h3>
+                      {previewDocType === 'payslip' && (
+                        <p className="text-[10px] font-semibold text-slate-500 mt-1">
+                          For the month of {monthNames[month - 1]} {year}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="border-t border-slate-200 my-2"></div>
+
+                    {/* Mock Content Rows */}
+                    {previewDocType === 'payslip' ? (
+                      <div className="grid grid-cols-2 gap-4 text-[10px]">
+                        <div>
+                          <div className="font-bold text-slate-800 uppercase tracking-wider border-b border-slate-200 pb-0.5 mb-1.5">Employee Details</div>
+                          <div className="flex justify-between py-0.5 border-b border-slate-100"><span className="text-slate-500">Employee Code</span><span className="font-bold">SAMPLE-01</span></div>
+                          <div className="flex justify-between py-0.5 border-b border-slate-100"><span className="text-slate-500">Name</span><span className="font-bold">Sample Employee</span></div>
+                          <div className="flex justify-between py-0.5 border-b border-slate-100"><span className="text-slate-500">Designation</span><span className="font-bold">Software Engineer</span></div>
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-800 uppercase tracking-wider border-b border-slate-200 pb-0.5 mb-1.5">Attendance Details</div>
+                          <div className="flex justify-between py-0.5 border-b border-slate-100"><span className="text-slate-500">Working Days</span><span className="font-bold">30</span></div>
+                          <div className="flex justify-between py-0.5 border-b border-slate-100"><span className="text-slate-500">Paid Days</span><span className="font-bold">30</span></div>
+                          <div className="flex justify-between py-0.5 border-b border-slate-100"><span className="text-slate-500">Present Days</span><span className="font-bold">28</span></div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-4 text-[10px]">
+                        <div>
+                          <div className="font-bold text-slate-800 uppercase tracking-wider border-b border-slate-200 pb-0.5 mb-1.5">Employment Details</div>
+                          <div className="flex justify-between py-0.5 border-b border-slate-100"><span className="text-slate-500">Employee ID</span><span className="font-bold">SAMPLE-01</span></div>
+                          <div className="flex justify-between py-0.5 border-b border-slate-100"><span className="text-slate-500">Full Name</span><span className="font-bold">Sample Employee</span></div>
+                          <div className="flex justify-between py-0.5 border-b border-slate-100"><span className="text-slate-500">Role</span><span className="font-bold">Senior Developer</span></div>
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-800 uppercase tracking-wider border-b border-slate-200 pb-0.5 mb-1.5">Contact Details</div>
+                          <div className="flex justify-between py-0.5 border-b border-slate-100"><span className="text-slate-500">Mobile</span><span className="font-bold">+91 9876543210</span></div>
+                          <div className="flex justify-between py-0.5 border-b border-slate-100"><span className="text-slate-500">Email</span><span className="font-bold">sample@company.com</span></div>
+                          <div className="flex justify-between py-0.5 border-b border-slate-100"><span className="text-slate-500">City</span><span className="font-bold">Bangalore</span></div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Disclaimer Note */}
+                    <div className="text-center pt-2 border-t border-slate-200 text-[9px] text-slate-400 italic">
+                      Note: This is a computer-generated official document and does not require a signature.
+                    </div>
+                  </div>
+
+                  {/* Registered Office Line Below Box */}
+                  <div className="mt-4 pt-2 border-t border-black text-center">
+                    <p className="text-[9px] font-medium text-slate-900 leading-tight">
+                      {brandingData.registered_office_address || 'Manuscript Technomedia LLP, Reg. Office. No. 22, 3rd Cross, Vivekananda Nagar, Bangalore-33, Karnataka, India.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}

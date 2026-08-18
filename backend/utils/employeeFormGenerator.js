@@ -66,7 +66,16 @@ function drawDetailRow(doc, {
   doc.font(fontRegular).fontSize(fontSize);
   const labelHeight = doc.heightOfString(label, { width: labelWidth });
 
-  doc.font(boldValue ? fontBold : fontRegular).fontSize(fontSize);
+  // Dynamically shrink font size if text has no spaces (e.g. email) and exceeds valueWidth
+  let actualValueFontSize = fontSize;
+  doc.font(boldValue ? fontBold : fontRegular).fontSize(actualValueFontSize);
+  if (!safeValue.includes(' ') && !safeValue.includes('\n')) {
+    while (actualValueFontSize > 6.5 && doc.widthOfString(safeValue) > valueWidth) {
+      actualValueFontSize -= 0.25;
+      doc.fontSize(actualValueFontSize);
+    }
+  }
+
   const valueHeight = doc.heightOfString(safeValue, { width: valueWidth, align: 'right' });
 
   const textHeight = Math.max(labelHeight, valueHeight);
@@ -77,7 +86,7 @@ function drawDetailRow(doc, {
     align: 'left'
   });
 
-  doc.font(boldValue ? fontBold : fontRegular).fontSize(fontSize).fillColor('#0F172A').text(safeValue, valueX, y, {
+  doc.font(boldValue ? fontBold : fontRegular).fontSize(actualValueFontSize).fillColor('#0F172A').text(safeValue, valueX, y, {
     width: valueWidth,
     align: 'right'
   });
@@ -167,10 +176,10 @@ function renderEmploymentAndPersonalDetails(doc, emp, fonts, startY = 118) {
       label: row.label,
       value: row.value,
       labelX: 315,
-      valueX: 415,
+      valueX: 385,
       y: rightY,
-      labelWidth: 100,
-      valueWidth: 130,
+      labelWidth: 70,
+      valueWidth: 160,
       rowWidth: 230,
       fontSize: 8.5,
       boldValue: true,
@@ -231,10 +240,10 @@ function renderBankAndIdentityDetails(doc, emp, fonts, startY) {
       label: row.label,
       value: row.value,
       labelX: 315,
-      valueX: 415,
+      valueX: 385,
       y: rightY,
-      labelWidth: 100,
-      valueWidth: 130,
+      labelWidth: 70,
+      valueWidth: 160,
       rowWidth: 230,
       fontSize: 8.5,
       boldValue: true,

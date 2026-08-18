@@ -598,7 +598,7 @@ const ManageEmployees = () => {
                 <h3 className="text-[11px] font-bold text-admin-secondary uppercase tracking-widest mb-3 pb-1 border-b border-admin-border/50">Identity Details</h3>
                 <div className="grid grid-cols-2 gap-y-3 gap-x-4">
                   <div><p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">PAN</p><p className="text-sm font-medium font-mono text-admin-text">{selectedEmployee.pan_card_number || '—'}</p></div>
-                  <div><p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Aadhar</p><p className="text-sm font-medium font-mono text-admin-text">{selectedEmployee.aadhar_card_number || '—'}</p></div>
+                  <div><p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Aadhar</p><p className="text-sm font-medium font-mono text-admin-text">{selectedEmployee.aadhar_card_number && String(selectedEmployee.aadhar_card_number).replace(/\s/g, '').length >= 4 ? `XXXX XXXX ${String(selectedEmployee.aadhar_card_number).replace(/\s/g, '').slice(-4)}` : (selectedEmployee.aadhar_card_number || '—')}</p></div>
                 </div>
               </div>
 

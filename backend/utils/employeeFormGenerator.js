@@ -18,6 +18,15 @@ function formatINR(value) {
   })}`;
 }
 
+function maskAadharLast4(value) {
+  if (!value) return '-';
+  const clean = String(value).replace(/\s/g, '');
+  if (clean.length >= 4) {
+    return `XXXX XXXX ${clean.slice(-4)}`;
+  }
+  return String(value);
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return '-';
   const d = new Date(dateStr);
@@ -201,7 +210,7 @@ function renderBankAndIdentityDetails(doc, emp, fonts, startY) {
   let rightY = startY + 20;
   const idRows = [
     { label: 'PAN Card Number', value: emp.pan_card_number },
-    { label: 'Aadhaar Number', value: emp.aadhar_card_number }
+    { label: 'Aadhaar Number', value: maskAadharLast4(emp.aadhar_card_number) }
   ];
 
   idRows.forEach(row => {

@@ -36,6 +36,15 @@ const EmployeeDetailsFormModal = ({ employee, onClose }) => {
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
+  const maskAadharLast4 = (val) => {
+    if (!val) return '—';
+    const clean = String(val).replace(/\s/g, '');
+    if (clean.length >= 4) {
+      return `XXXX XXXX ${clean.slice(-4)}`;
+    }
+    return String(val);
+  };
+
   const getTodayFormatted = () => {
     const d = new Date();
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -242,7 +251,7 @@ const EmployeeDetailsFormModal = ({ employee, onClose }) => {
                     </tr>
                     <tr className="border-b border-slate-100">
                       <td className="py-1.5 text-slate-600 font-medium">Aadhaar Number</td>
-                      <td className="py-1.5 font-bold font-mono text-right text-slate-900">{employee.aadhar_card_number || '—'}</td>
+                      <td className="py-1.5 font-bold font-mono text-right text-slate-900">{maskAadharLast4(employee.aadhar_card_number)}</td>
                     </tr>
                   </tbody>
                 </table>

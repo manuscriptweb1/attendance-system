@@ -8,7 +8,7 @@ import { Spinner } from '../../components/Loader';
 import { getAllEmployees, getAllDepartments, addEmployee, updateEmployee, deleteEmployee, enableWFH, disableWFH, toggleEarlyCheckout } from '../../services/api';
 import { FiPlus, FiEdit, FiTrash2, FiSearch, FiHome, FiClock, FiEye, FiEyeOff, FiX, FiUsers, FiDownload } from 'react-icons/fi';
 import { sortEmployeeRows } from '../../utils/sorting';
-import { toDateInputValue } from '../../utils/dateUtils';
+import { toDateInputValue, formatDate } from '../../utils/dateUtils';
 
 const getMonthlySalaryValue = (employee) => {
   const value =
@@ -40,12 +40,6 @@ const formatCurrency = (value) => {
     currency: 'INR',
     maximumFractionDigits: 0
   }).format(num);
-};
-
-const formatDate = (dateStr) => {
-  if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
 const ManageEmployees = () => {

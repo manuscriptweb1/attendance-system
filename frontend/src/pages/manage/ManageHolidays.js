@@ -261,7 +261,7 @@ const ManageHolidays = () => {
                         <tr key={h.id} className="group border-b border-admin-border hover:bg-admin-elevated/[0.02] transition-colors">
                           <td className="px-6 py-5 whitespace-nowrap">
                             <span className="block text-sm font-bold text-admin-text">{formatDisplayDate(h.holiday_date)}</span>
-                            <span className="text-[10px] text-admin-secondary font-mono">{new Date(toDateInputValue(h.holiday_date)).toLocaleDateString('en-US', { weekday: 'long' })}</span>
+                            <span className="text-[10px] text-admin-secondary font-mono">{formatDate(h.holiday_date, { weekday: 'long' })}</span>
                           </td>
                           <td className="px-6 py-5 whitespace-nowrap">
                             <span className="text-sm font-extrabold text-admin-secondary group-hover:text-blue-400 transition-colors">{h.holiday_title}</span>

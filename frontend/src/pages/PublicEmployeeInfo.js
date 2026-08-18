@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { getPublicAttendanceMatrix, getPublicHolidayInfo } from '../services/api';
 import { FiCalendar, FiClock, FiAlertCircle } from 'react-icons/fi';
 import { getAttendanceStatusClass } from '../utils/attendanceStatusStyles';
+import { formatDate, toDateInputValue } from '../utils/dateUtils';
 
 const motivationMessages = [
   "Every day is a new chance to do your best. Keep going!",
@@ -270,14 +271,14 @@ const PublicEmployeeInfo = () => {
                               <tr key={i} className="hover:bg-slate-50 transition-colors">
                                 <td className="px-4 py-4 whitespace-nowrap">
                                   <div className="font-semibold text-[#0F172A]">
-                                    {new Date(h.holiday_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                    {formatDate(h.holiday_date)}
                                   </div>
                                 </td>
                                 <td className="px-4 py-4">
                                   <div className="font-medium text-[#0F172A]">{h.holiday_name}</div>
                                   {holidayData.mode === 'upcoming' && (
                                     (() => {
-                                      const isToday = new Date(h.holiday_date).toDateString() === new Date().toDateString();
+                                      const isToday = toDateInputValue(h.holiday_date) === toDateInputValue(new Date());
                                       return (
                                         <div className={`public-holiday-badge ${isToday ? 'today' : 'upcoming'}`}>
                                           {isToday ? 'Today Holiday' : 'Upcoming Holiday'}

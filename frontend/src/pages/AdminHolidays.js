@@ -7,8 +7,7 @@ import AdminToast from '../components/AdminToast';
 import ClearRangeDialog from '../components/ClearRangeDialog';
 import { Spinner } from '../components/Loader';
 import { FiUmbrella, FiPlus, FiEdit2, FiTrash2, FiCalendar, FiSun, FiMap, FiCheckCircle } from 'react-icons/fi';
-import { getAllHolidays, addHoliday, updateHoliday, deleteHoliday, toggleHolidayStatus, clearHolidayRange } from '../services/api';
-import { formatDate } from '../utils/formatTime';
+import { formatDate } from '../utils/dateUtils';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateDateString } from '../utils/dateValidation';
 
@@ -262,7 +261,7 @@ const AdminHolidays = () => {
                         <tr key={h.id} className="group border-b border-admin-border hover:bg-admin-elevated/[0.02] transition-colors">
                           <td className="px-6 py-5 whitespace-nowrap">
                             <span className="block text-sm font-bold text-admin-text">{formatDate(h.holiday_date)}</span>
-                            <span className="text-[10px] text-admin-secondary font-mono">{new Date(h.holiday_date).toLocaleDateString('en-US', { weekday: 'long' })}</span>
+                            <span className="text-[10px] text-admin-secondary font-mono">{formatDate(h.holiday_date, { weekday: 'long' })}</span>
                           </td>
                           <td className="px-6 py-5 whitespace-nowrap">
                             <span className="text-sm font-extrabold text-admin-secondary group-hover:text-blue-400 transition-colors">{h.holiday_title}</span>

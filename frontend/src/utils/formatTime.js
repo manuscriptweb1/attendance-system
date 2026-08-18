@@ -60,21 +60,32 @@ export const formatTime = (timestamp) => {
 
 // Format date
 export const formatDate = (date) => {
-  const normalized = normalizeTimestamp(date);
-  if (!normalized) return '-';
-  try {
-    const d = new Date(normalized);
-    if (isNaN(d.getTime())) return '-';
-
-    return d.toLocaleDateString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
-  } catch (err) {
-    return '-';
+  if (!date) return '-';
+  if (typeof date === 'string') {
+    const datePart = date.split('T')[0].split(' ')[0];
+    const parts = datePart.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+        const d = new Date(year, month, day);
+        return d.toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric'
+        });
+      }
+    }
   }
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '-';
+  return d.toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
 };
 
 // Convert 24-hour time format (HH:MM) to 12-hour format (hh:MM AM/PM)

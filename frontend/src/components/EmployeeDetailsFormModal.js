@@ -49,15 +49,6 @@ const EmployeeDetailsFormModal = ({ employee, onClose }) => {
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
-  const maskAadharLast4 = (val) => {
-    if (!val) return '—';
-    const clean = String(val).replace(/\s/g, '');
-    if (clean.length >= 4) {
-      return `XXXX XXXX ${clean.slice(-4)}`;
-    }
-    return String(val);
-  };
-
   const getTodayFormatted = () => {
     const d = new Date();
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });

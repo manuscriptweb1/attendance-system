@@ -97,6 +97,7 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 app.use('/uploads', express.static(uploadsDir));
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 // Routes
 app.use('/api/auth', authRoutes);

@@ -183,7 +183,7 @@ const EmployeeDetailsFormModal = ({ employee, onClose }) => {
                     </tr>
                     <tr className="border-b border-slate-100">
                       <td className="py-1.5 text-slate-600 font-medium">Email Address</td>
-                      <td className="py-1.5 font-bold text-right text-slate-900">{employee.email || '—'}</td>
+                      <td className="py-1.5 font-bold text-right text-slate-900">{employee.personal_email || '—'}</td>
                     </tr>
                     <tr className="border-b border-slate-100">
                       <td className="py-1.5 text-slate-600 font-medium align-top">Permanent Address</td>
@@ -305,14 +305,31 @@ const EmployeeDetailsFormModal = ({ employee, onClose }) => {
 
             </div>
 
-            {/* Footer Notes */}
-            <div className="border-t border-slate-300 pt-4 mt-2">
-              <p className="text-xs text-slate-500 text-center italic mb-1">
-                Note: This is a computer-generated employee details form and does not require a signature.
-              </p>
-              <p className="text-[11px] font-semibold text-slate-400 text-center">
-                Generated on: {getTodayFormatted()}
-              </p>
+            {/* Footer - Seal & Signature with Generated Date */}
+            <div className="border-t border-slate-300 pt-4 mt-2 flex flex-col sm:flex-row items-end justify-between gap-4">
+              <div className="pb-1 text-left w-full sm:w-auto">
+                <p className="text-[12px] font-bold text-slate-600">
+                  Generated on: {getTodayFormatted()}
+                </p>
+              </div>
+
+              <div className="flex flex-col items-center text-center">
+                <img 
+                  src={`${backendBase}/assets/payslip/company-seal-signature.png`}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = '/assets/payslip/company-seal-signature.png';
+                  }}
+                  alt="Company Seal & Signature" 
+                  className="w-32 h-auto object-contain mb-1.5"
+                />
+                <p className="text-[12px] font-bold text-slate-900 leading-tight">
+                  Authorized Signatory
+                </p>
+                <p className="text-[11px] font-normal text-slate-600 leading-tight">
+                  {companyName}
+                </p>
+              </div>
             </div>
 
           </div>

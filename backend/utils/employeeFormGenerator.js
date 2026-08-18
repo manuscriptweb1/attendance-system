@@ -3,7 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const {
   getCompanyLogoPath,
-  registerPayslipFonts
+  registerPayslipFonts,
+  getSignaturePath
 } = require('./payslipGenerator');
 const { getBrandingSettings } = require('./brandingSettingsHelper');
 
@@ -135,7 +136,7 @@ function renderEmploymentAndPersonalDetails(doc, emp, fonts, startY = 118) {
     { label: 'Date of Birth', value: formatDate(emp.date_of_birth) },
     { label: 'Mobile Number', value: emp.mobile },
     { label: 'Alternate Phone', value: emp.alternate_phone_number || '-' },
-    { label: 'Email Address', value: emp.email },
+    { label: 'Email Address', value: emp.personal_email || '-' },
     { label: 'Permanent Address', value: emp.permanent_address || '-' }
   ];
 
@@ -297,29 +298,54 @@ function renderSalaryStructure(doc, emp, fonts, startY) {
   return sectionEndY + 10;
 }
 
-function renderFormFooterNotes(doc, fonts, generatedDateStr, startY) {
-  const { fontBold, fontItalic } = fonts;
+function renderFormSignature(doc, fonts, generatedDateStr, startY, options = {}) {
+  const { fontRegular, fontBold } = fonts;
+  const signaturePath = getSignaturePath();
 
-  doc.fontSize(8.5).font(fontItalic).fillColor('#64748B').text(
-    'Note: This is a computer-generated employee details form and does not require a signature.',
-    40,
-    startY + 8,
-    { align: 'center' }
-  );
+  const signatureWidth = 120;
+  const renderedImageHeight = (signaturePath && fs.existsSync(signaturePath)) ? 92 : 0;
 
-  doc.fontSize(8).font(fontBold).fillColor('#94A3B8').text(
-    `Generated on: ${generatedDateStr}`,
-    40,
-    startY + 23,
-    { align: 'center' }
-  );
+  const signatureBlockWidth = 150;
+  const imageX = 410;
+  const textBlockX = 385;
+  const signatureY = startY + 8;
 
-  return startY + 40;
+  if (renderedImageHeight > 0) {
+    try {
+      doc.image(signaturePath, imageX, signatureY, { width: signatureWidth });
+    } catch (imgErr) {
+      console.warn('Could not embed signature PNG:', imgErr.message);
+    }
+  } else {
+    console.warn("Signature image not found at backend/assets/payslip/company-seal-signature.png");
+  }
+
+  const textY = signatureY + (renderedImageHeight > 0 ? renderedImageHeight + 6 : 10);
+  const companyName = options?.branding?.company_name || 'Manuscript Technomedia LLP';
+
+  doc.fontSize(8.5).font(fontBold).fillColor('#111827').text('Authorized Signatory', textBlockX, textY, {
+    width: signatureBlockWidth,
+    align: 'center'
+  });
+
+  doc.fontSize(8.5).font(fontRegular).fillColor('#334155').text(companyName, textBlockX, textY + 13, {
+    width: signatureBlockWidth,
+    align: 'center'
+  });
+
+  // Generated date at bottom-left
+  const dateY = signatureY + 98;
+  doc.fontSize(8).font(fontBold).fillColor('#475569').text(`Generated on: ${generatedDateStr}`, 50, dateY, {
+    width: 220,
+    align: 'left'
+  });
+
+  return dateY + 18;
 }
 
 function renderRegisteredOfficeFooter(doc, fonts, cardBottomY, branding = null) {
   const { fontRegular } = fonts;
-  const footerLineY = Math.max(775, cardBottomY + 25);
+  const footerLineY = Math.max(775, cardBottomY + 20);
 
   // Thin black horizontal line
   doc.moveTo(40, footerLineY)
@@ -349,10 +375,10 @@ function renderEmployeeFormPage(doc, employee, generatedDateStr, logoPath, fonts
   const personalEndY = renderEmploymentAndPersonalDetails(doc, employee, fonts, 118);
   const bankEndY = renderBankAndIdentityDetails(doc, employee, fonts, personalEndY);
   const salaryEndY = renderSalaryStructure(doc, employee, fonts, bankEndY);
-  const contentEndY = renderFormFooterNotes(doc, fonts, generatedDateStr, salaryEndY);
+  const contentEndY = renderFormSignature(doc, fonts, generatedDateStr, salaryEndY, { branding });
 
   // Main content card border
-  const cardHeight = Math.max(560, contentEndY - 35 + 10);
+  const cardHeight = Math.max(560, contentEndY - 35 + 8);
   doc.rect(40, 35, 515, cardHeight).strokeColor('#CBD5E1').lineWidth(1).stroke();
 
   const cardBottomY = 35 + cardHeight;

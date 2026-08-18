@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS employees (
     job_role VARCHAR(100) NOT NULL,
     mobile VARCHAR(15) NOT NULL,
     email VARCHAR(150) NOT NULL UNIQUE,
+    personal_email VARCHAR(150),
     password VARCHAR(255) NOT NULL,
     status VARCHAR(20) DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
     password_changed_at TIMESTAMP,
@@ -1816,7 +1817,8 @@ ADD COLUMN IF NOT EXISTS ifsc_code VARCHAR(20),
 ADD COLUMN IF NOT EXISTS pan_card_number VARCHAR(20),
 ADD COLUMN IF NOT EXISTS aadhar_card_number VARCHAR(20),
 ADD COLUMN IF NOT EXISTS permanent_address TEXT,
-ADD COLUMN IF NOT EXISTS alternate_phone_number VARCHAR(20);
+ADD COLUMN IF NOT EXISTS alternate_phone_number VARCHAR(20),
+ADD COLUMN IF NOT EXISTS personal_email VARCHAR(150);
 
 
 -- Employee Loans System Schema
@@ -1927,6 +1929,7 @@ CREATE TABLE IF NOT EXISTS resigned_employees (
     job_role VARCHAR(100) NOT NULL,
     mobile VARCHAR(15),
     email VARCHAR(150),
+    personal_email VARCHAR(150),
     password VARCHAR(255),
     status VARCHAR(20) DEFAULT 'Resigned',
     date_of_birth DATE,

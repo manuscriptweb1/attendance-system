@@ -64,7 +64,7 @@ const ManageEmployees = () => {
   const [sortBy,        setSortBy]        = useState('name_asc');
 
   const [formData, setFormData] = useState({ 
-    id:'', employee_id:'', name:'', department_id:'', job_role:'', mobile:'', email:'', password:'', status:'Active', date_of_birth:'', joining_date:'',
+    id:'', employee_id:'', name:'', department_id:'', job_role:'', mobile:'', email:'', personal_email:'', password:'', status:'Active', date_of_birth:'', joining_date:'',
     monthly_salary:'', basic_salary:'', hra:'', special_allowance:'', staff_advance:'', professional_tax:'', tds:'',
     bank_name:'', bank_address:'', account_holder_name:'', account_number:'', ifsc_code:'', pan_card_number:'', aadhar_card_number:'', permanent_address:'', alternate_phone_number:''
   });
@@ -126,6 +126,16 @@ const ManageEmployees = () => {
     }
     setFormErrors({});
 
+    if (formData.email && formData.personal_email && formData.email.trim().toLowerCase() === formData.personal_email.trim().toLowerCase()) {
+      setAlertDialog({
+        isOpen: true,
+        title: 'Validation Error',
+        message: 'Office email and Personal email cannot be the same. Please provide a different personal email.',
+        type: 'error'
+      });
+      return;
+    }
+
     try {
       const payload = { ...formData };
       payload.monthly_salary = cleanNumber(formData.monthly_salary);
@@ -147,7 +157,7 @@ const ManageEmployees = () => {
     // Format date_of_birth to YYYY-MM-DD for the date input if it exists
     const dob = emp.date_of_birth ? toDateInputValue(emp.date_of_birth) : '';
     const joinDate = emp.joining_date ? toDateInputValue(emp.joining_date) : '';
-    setFormData({ ...emp, password:'', date_of_birth: dob, joining_date: joinDate });
+    setFormData({ ...emp, personal_email: emp.personal_email || '', password:'', date_of_birth: dob, joining_date: joinDate });
     setEditMode(true);
     setShowModal(true);
   };
@@ -212,7 +222,8 @@ const ManageEmployees = () => {
       "Job Role / Designation": emp.designation || emp.job_role || "-",
       "Monthly Salary": emp.monthly_salary || emp.salary || 0,
       "Mobile Number": emp.mobile || emp.phone || "-",
-      "Email": emp.email || "-",
+      "Office Email": emp.email || "-",
+      "Personal Email": emp.personal_email || "-",
       "Status": emp.status || (emp.is_active ? "Active" : "Inactive"),
       "Joining Date": emp.joining_date ? formatDate(emp.joining_date) : "-",
       "WFH Permission": emp.wfh_enabled || emp.is_wfh ? "Yes" : "No",
@@ -266,16 +277,17 @@ const ManageEmployees = () => {
   const closeModal = () => { 
     setShowModal(false); setEditMode(false); setShowPassword(false); 
     setFormData({ 
-      id:'', employee_id:'', name:'', department_id:'', job_role:'', mobile:'', email:'', password:'', status:'Active', date_of_birth:'', joining_date:'',
+      id:'', employee_id:'', name:'', department_id:'', job_role:'', mobile:'', email:'', personal_email:'', password:'', status:'Active', date_of_birth:'', joining_date:'',
       monthly_salary:'', basic_salary:'', hra:'', special_allowance:'', staff_advance:'', professional_tax:'', tds:'',
       bank_name:'', bank_address:'', account_holder_name:'', account_number:'', ifsc_code:'', pan_card_number:'', aadhar_card_number:'', permanent_address:'', alternate_phone_number:''
     }); 
   };
 
   const filteredEmployeesRaw = employees.filter(emp =>
-    emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.employee_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.email.toLowerCase().includes(searchTerm.toLowerCase())
+    (emp.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (emp.employee_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (emp.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (emp.personal_email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
   
   const filteredEmployees = sortEmployeeRows(filteredEmployeesRaw, sortBy);
@@ -421,7 +433,8 @@ const ManageEmployees = () => {
                   { label:'Date of Birth', name:'date_of_birth', type:'date', max: toDateInputValue(new Date()) },
                   { label:'Job Role',    name:'job_role',    type:'text' },
                   { label:'Mobile',      name:'mobile',      type:'tel'  },
-                  { label:'Email',       name:'email',       type:'email'},
+                  { label:'Office Email', name:'email',      type:'email'},
+                  { label:'Personal Email', name:'personal_email', type:'email', required: false },
                   { label:'Joining Date', name:'joining_date', type:'date', max: toDateInputValue(new Date()), required: false },
                 ].map(({ label, name, type, disabled, required = true, ...rest }) => (
                   <div key={name}>
@@ -593,6 +606,7 @@ const ManageEmployees = () => {
               <div>
                 <h3 className="text-[11px] font-bold text-admin-secondary uppercase tracking-widest mb-3 pb-1 border-b border-admin-border/50">Address & Contact</h3>
                 <div className="grid grid-cols-1 gap-y-3">
+                  <div><p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Personal Email</p><p className="text-sm font-medium text-admin-text truncate">{selectedEmployee.personal_email || '—'}</p></div>
                   <div><p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Alternate Phone</p><p className="text-sm font-medium text-admin-text">{selectedEmployee.alternate_phone_number || '—'}</p></div>
                   <div><p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Permanent Address</p><p className="text-sm font-medium text-admin-text whitespace-pre-wrap">{selectedEmployee.permanent_address || '—'}</p></div>
                 </div>

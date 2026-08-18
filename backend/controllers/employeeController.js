@@ -95,6 +95,7 @@ const addEmployee = async (req, res) => {
       job_role, 
       mobile, 
       email, 
+      personal_email,
       password,
       date_of_birth,
       joining_date,
@@ -148,6 +149,13 @@ const addEmployee = async (req, res) => {
       return res.status(400).json({ 
         success: false, 
         message: 'All fields are required' 
+      });
+    }
+
+    if (personal_email && email && personal_email.trim().toLowerCase() === email.trim().toLowerCase()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Office email and Personal email cannot be the same. Please provide a different personal email.'
       });
     }
 
@@ -211,12 +219,12 @@ const addEmployee = async (req, res) => {
     // Insert employee
     const result = await pool.query(
       `INSERT INTO employees 
-       (employee_id, name, department_id, job_role, mobile, email, password, status, date_of_birth, joining_date,
+       (employee_id, name, department_id, job_role, mobile, email, personal_email, password, status, date_of_birth, joining_date,
        monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds,
        bank_name, bank_address, account_holder_name, account_number, ifsc_code, pan_card_number, aadhar_card_number, permanent_address, alternate_phone_number) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27) 
        RETURNING *`,
-      [employee_id, name, department_id, job_role, mobile, email, hashedPassword, status, date_of_birth, joining_date || null,
+      [employee_id, name, department_id, job_role, mobile, email, personal_email || null, hashedPassword, status, date_of_birth, joining_date || null,
        monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds,
        bank_name || null, bank_address || null, account_holder_name || null, formatted_account, formatted_ifsc, formatted_pan, formatted_aadhar, permanent_address || null, formatted_alt_phone]
     );
@@ -234,7 +242,7 @@ const addEmployee = async (req, res) => {
       moduleName: MODULE_NAMES.EMPLOYEE,
       description: `Created employee ${employee_id} - ${name}`,
       newData: { 
-        employee_id, name, job_role, email, mobile, department_id, date_of_birth, joining_date,
+        employee_id, name, job_role, email, personal_email, mobile, department_id, date_of_birth, joining_date,
         ...(bank_name && { bank_name }),
         ...(maskedAccount && { account_number: maskedAccount }),
         ...(maskedPan && { pan_card_number: maskedPan }),
@@ -269,6 +277,7 @@ const updateEmployee = async (req, res) => {
       job_role, 
       mobile, 
       email, 
+      personal_email,
       status,
       password,
       date_of_birth,
@@ -315,6 +324,13 @@ const updateEmployee = async (req, res) => {
           message: 'Monthly salary must equal Basic Salary + HRA + Special Allowance'
         });
       }
+    }
+
+    if (personal_email && email && personal_email.trim().toLowerCase() === email.trim().toLowerCase()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Office email and Personal email cannot be the same. Please provide a different personal email.'
+      });
     }
 
     if (!date_of_birth) {
@@ -397,7 +413,21 @@ const updateEmployee = async (req, res) => {
       const hashedPassword = await bcrypt.hash(password, 10);
       query = `UPDATE employees 
                SET name = $1, department_id = $2, job_role = $3, 
-                   mobile = $4, email = $5, status = $6, password = $7, 
+                   mobile = $4, email = $5, personal_email = $6, status = $7, password = $8, 
+                   date_of_birth = $9, joining_date = $10, monthly_salary = $11, basic_salary = $12, hra = $13, 
+                   special_allowance = $14, staff_advance = $15, professional_tax = $16, tds = $17,
+                   bank_name = $18, bank_address = $19, account_holder_name = $20, account_number = $21,
+                   ifsc_code = $22, pan_card_number = $23, aadhar_card_number = $24, permanent_address = $25,
+                   alternate_phone_number = $26, updated_at = CURRENT_TIMESTAMP 
+               WHERE id = $27 
+               RETURNING *`;
+      values = [name, department_id, job_role, mobile, email, personal_email || null, status, hashedPassword, date_of_birth, joining_date || null,
+                monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds,
+                bank_name || null, bank_address || null, account_holder_name || null, formatted_account, formatted_ifsc, formatted_pan, formatted_aadhar, permanent_address || null, formatted_alt_phone, id];
+    } else {
+      query = `UPDATE employees 
+               SET name = $1, department_id = $2, job_role = $3, 
+                   mobile = $4, email = $5, personal_email = $6, status = $7, 
                    date_of_birth = $8, joining_date = $9, monthly_salary = $10, basic_salary = $11, hra = $12, 
                    special_allowance = $13, staff_advance = $14, professional_tax = $15, tds = $16,
                    bank_name = $17, bank_address = $18, account_holder_name = $19, account_number = $20,
@@ -405,21 +435,7 @@ const updateEmployee = async (req, res) => {
                    alternate_phone_number = $25, updated_at = CURRENT_TIMESTAMP 
                WHERE id = $26 
                RETURNING *`;
-      values = [name, department_id, job_role, mobile, email, status, hashedPassword, date_of_birth, joining_date || null,
-                monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds,
-                bank_name || null, bank_address || null, account_holder_name || null, formatted_account, formatted_ifsc, formatted_pan, formatted_aadhar, permanent_address || null, formatted_alt_phone, id];
-    } else {
-      query = `UPDATE employees 
-               SET name = $1, department_id = $2, job_role = $3, 
-                   mobile = $4, email = $5, status = $6, 
-                   date_of_birth = $7, joining_date = $8, monthly_salary = $9, basic_salary = $10, hra = $11, 
-                   special_allowance = $12, staff_advance = $13, professional_tax = $14, tds = $15,
-                   bank_name = $16, bank_address = $17, account_holder_name = $18, account_number = $19,
-                   ifsc_code = $20, pan_card_number = $21, aadhar_card_number = $22, permanent_address = $23,
-                   alternate_phone_number = $24, updated_at = CURRENT_TIMESTAMP 
-               WHERE id = $25 
-               RETURNING *`;
-      values = [name, department_id, job_role, mobile, email, status, date_of_birth, joining_date || null,
+      values = [name, department_id, job_role, mobile, email, personal_email || null, status, date_of_birth, joining_date || null,
                 monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds,
                 bank_name || null, bank_address || null, account_holder_name || null, formatted_account, formatted_ifsc, formatted_pan, formatted_aadhar, permanent_address || null, formatted_alt_phone, id];
     }
@@ -534,18 +550,18 @@ const deleteEmployee = async (req, res) => {
     // Insert into resigned_employees table
     await pool.query(
       `INSERT INTO resigned_employees (
-        original_id, employee_id, name, department_id, job_role, mobile, email, password, status,
+        original_id, employee_id, name, department_id, job_role, mobile, email, personal_email, password, status,
         date_of_birth, joining_date, resigned_date, monthly_salary, basic_salary, hra, special_allowance,
         staff_advance, professional_tax, tds, bank_name, bank_address, account_holder_name, account_number,
         ifsc_code, pan_card_number, aadhar_card_number, permanent_address, alternate_phone_number, created_at
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, 'Resigned',
-        $9, $10, CURRENT_DATE, $11, $12, $13, $14,
-        $15, $16, $17, $18, $19, $20, $21,
-        $22, $23, $24, $25, $26, $27
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, 'Resigned',
+        $10, $11, CURRENT_DATE, $12, $13, $14, $15,
+        $16, $17, $18, $19, $20, $21, $22,
+        $23, $24, $25, $26, $27, $28
       )`,
       [
-        emp.id, emp.employee_id, emp.name, emp.department_id, emp.job_role, emp.mobile, emp.email, emp.password,
+        emp.id, emp.employee_id, emp.name, emp.department_id, emp.job_role, emp.mobile, emp.email, emp.personal_email || null, emp.password,
         emp.date_of_birth, emp.joining_date, emp.monthly_salary || 0, emp.basic_salary || 0, emp.hra || 0, emp.special_allowance || 0,
         emp.staff_advance || 0, emp.professional_tax || 0, emp.tds || 0, emp.bank_name || null, emp.bank_address || null, emp.account_holder_name || null, emp.account_number || null,
         emp.ifsc_code || null, emp.pan_card_number || null, emp.aadhar_card_number || null, emp.permanent_address || null, emp.alternate_phone_number || null, emp.created_at || new Date()
@@ -731,18 +747,18 @@ const restoreResignedEmployee = async (req, res) => {
     // Insert back into employees
     const restored = await pool.query(
       `INSERT INTO employees (
-        employee_id, name, department_id, job_role, mobile, email, password, status,
+        employee_id, name, department_id, job_role, mobile, email, personal_email, password, status,
         date_of_birth, joining_date, monthly_salary, basic_salary, hra, special_allowance,
         staff_advance, professional_tax, tds, bank_name, bank_address, account_holder_name, account_number,
         ifsc_code, pan_card_number, aadhar_card_number, permanent_address, alternate_phone_number
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, 'Active',
-        $8, $9, $10, $11, $12, $13,
-        $14, $15, $16, $17, $18, $19, $20,
-        $21, $22, $23, $24, $25
+        $1, $2, $3, $4, $5, $6, $7, $8, 'Active',
+        $9, $10, $11, $12, $13, $14,
+        $15, $16, $17, $18, $19, $20, $21,
+        $22, $23, $24, $25, $26
       ) RETURNING *`,
       [
-        emp.employee_id, emp.name, emp.department_id, emp.job_role, emp.mobile, emp.email, emp.password,
+        emp.employee_id, emp.name, emp.department_id, emp.job_role, emp.mobile, emp.email, emp.personal_email || null, emp.password,
         emp.date_of_birth, emp.joining_date, emp.monthly_salary || 0, emp.basic_salary || 0, emp.hra || 0, emp.special_allowance || 0,
         emp.staff_advance || 0, emp.professional_tax || 0, emp.tds || 0, emp.bank_name, emp.bank_address, emp.account_holder_name, emp.account_number,
         emp.ifsc_code, emp.pan_card_number, emp.aadhar_card_number, emp.permanent_address, emp.alternate_phone_number

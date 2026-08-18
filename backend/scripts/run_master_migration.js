@@ -158,6 +158,7 @@ async function runMasterMigration() {
         job_role VARCHAR(100) NOT NULL,
         mobile VARCHAR(15),
         email VARCHAR(150),
+        personal_email VARCHAR(150),
         password VARCHAR(255),
         status VARCHAR(20) DEFAULT 'Resigned',
         date_of_birth DATE,
@@ -185,6 +186,17 @@ async function runMasterMigration() {
       );
     `);
     console.log('✅ resigned_employees table checked/added.');
+
+    // 2h. Ensure personal_email exists on employees and resigned_employees
+    console.log('📌 Ensuring personal_email column on employees & resigned_employees...');
+    await dbClient.query(`
+      ALTER TABLE employees 
+      ADD COLUMN IF NOT EXISTS personal_email VARCHAR(150);
+
+      ALTER TABLE resigned_employees 
+      ADD COLUMN IF NOT EXISTS personal_email VARCHAR(150);
+    `);
+    console.log('✅ personal_email column checked/added.');
 
     // 2f. Verification of database tables count & names
     const tablesRes = await dbClient.query(`

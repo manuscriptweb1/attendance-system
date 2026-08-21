@@ -34,6 +34,7 @@ const AdminManagement = lazy(() => import('./pages/AdminManagement'));
 const AdminHolidays = lazy(() => import('./pages/AdminHolidays'));
 const AdminManualAttendance = lazy(() => import('./pages/AdminManualAttendance'));
 const AdminAbsentReasons = lazy(() => import('./pages/AdminAbsentReasons'));
+const AdminPaidLeave = lazy(() => import('./pages/AdminPaidLeave'));
 const AdminOTPSettings = lazy(() => import('./pages/AdminOTPSettings'));
 const AdminSecurityLogs = lazy(() => import('./pages/AdminSecurityLogs'));
 const AdminTrustedDevices = lazy(() => import('./pages/AdminTrustedDevices'));
@@ -45,6 +46,7 @@ const AdminReports = lazy(() => import('./pages/AdminReports'));
 const AdminDatabaseMonitor = lazy(() => import('./pages/AdminDatabaseMonitor'));
 const AdminAccessDenied = lazy(() => import('./pages/AdminAccessDenied'));
 const DeveloperTestingSandbox = lazy(() => import('./pages/DeveloperTestingSandbox'));
+const AdminOfferLetters = lazy(() => import('./pages/AdminOfferLetters'));
 
 // Employee Pages
 const EmployeeDashboard = lazy(() => import('./pages/EmployeeDashboard'));
@@ -54,7 +56,7 @@ const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 
 // Protected Route Component with custom logout warning dialog
 const ProtectedRoute = ({ children, requiredRole, requiredPageKey }) => {
-  const { isAuthenticated, user, loading, logout, hasPageAccess, isAdmin, isEmployee } = useAuth();
+  const { isAuthenticated, loading, logout, hasPageAccess, isAdmin, isEmployee } = useAuth();
   const navigate = useNavigate();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
@@ -236,6 +238,10 @@ function App() {
                 element={<ProtectedRoute requiredRole="admin" requiredPageKey="employees"><AdminEmployees /></ProtectedRoute>}
               />
               <Route
+                path="/admin/offer-letters"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="offer_letters"><AdminOfferLetters /></ProtectedRoute>}
+              />
+              <Route
                 path="/admin/departments"
                 element={<ProtectedRoute requiredRole="admin" requiredPageKey="departments"><AdminDepartments /></ProtectedRoute>}
               />
@@ -266,6 +272,10 @@ function App() {
               <Route
                 path="/admin/absent-reasons"
                 element={<ProtectedRoute requiredRole="admin" requiredPageKey="absent_reasons"><AdminAbsentReasons /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/paid-leaves"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="absent_reasons"><AdminPaidLeave /></ProtectedRoute>}
               />
               <Route
                 path="/admin/otp-settings"

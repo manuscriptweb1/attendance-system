@@ -489,7 +489,11 @@ const AdminManualAttendance = () => {
                         {emp.total_hours && emp.total_hours > 0 ? `${emp.total_hours} hrs` : '-'}
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
-                        {emp.attendance_status ? <StatusBadge status={emp.attendance_status} dark /> : <span className="text-xs text-slate-500 font-medium px-2.5 py-1 bg-white/5 rounded-full border border-admin-border">No Record</span>}
+                        <div className="flex items-center gap-1.5">
+                          {emp.attendance_status ? <StatusBadge status={emp.attendance_status} dark /> : <span className="text-xs text-slate-500 font-medium px-2.5 py-1 bg-white/5 rounded-full border border-admin-border">No Record</span>}
+                          {emp.validation_method === 'Manual' && <span className="text-[10px] font-bold text-purple-500 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">Manual</span>}
+                          {emp.validation_method === 'Paid Leave' && <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">Paid Leave</span>}
+                        </div>
                       </td>
                       <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">
                         {emp.absent_reason || '-'}

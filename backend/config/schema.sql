@@ -118,6 +118,118 @@ CREATE TABLE IF NOT EXISTS holidays (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create Paid Leaves Table
+CREATE TABLE IF NOT EXISTS paid_leaves (
+    id SERIAL PRIMARY KEY,
+    employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
+    leave_date DATE NOT NULL,
+    office_start_time TIME NOT NULL,
+    office_end_time TIME NOT NULL,
+    total_hours DECIMAL(4, 2) DEFAULT 8.00,
+    reason_category VARCHAR(100) NOT NULL,
+    reason_notes TEXT,
+    created_by INTEGER REFERENCES admins(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(employee_id, leave_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_paid_leaves_date ON paid_leaves(leave_date);
+CREATE INDEX IF NOT EXISTS idx_paid_leaves_emp_date ON paid_leaves(employee_id, leave_date);
+
+-- Create Offer Letter Settings Table
+CREATE TABLE IF NOT EXISTS offer_letter_settings (
+    id SERIAL PRIMARY KEY,
+    company_name VARCHAR(200) NOT NULL DEFAULT 'Manuscript Technomedia LLP',
+    header_address TEXT DEFAULT 'Reg. New No 40, 22, 3rd Cross Rd, Jaibharath Nagar, Maruthi Sevanagar, Bangalore-33, Karnataka, India',
+    header_phone VARCHAR(50) DEFAULT '+91-9686980760',
+    header_email VARCHAR(100) DEFAULT 'contact@mstechnomedia.com',
+    header_website VARCHAR(100) DEFAULT 'https://mstechnomedia.com',
+    footer_line_1 TEXT DEFAULT 'Manuscript Technomedia LLP',
+    footer_line_2 TEXT DEFAULT 'Reg. New No 40, 22, 3rd Cross Rd, Jaibharath Nagar, Vivekananda Nagar, Maruthi Sevanagar, Bangalore-33, Karnataka, India.',
+    footer_line_3 TEXT DEFAULT 'https://mstechnomedia.com | contact@mstechnomedia.com | +91-9686980760 | GST: 29ACBFM2283L1ZV',
+    default_signatory_name VARCHAR(150) DEFAULT 'Dr. Mueen Ahmed KK',
+    default_signatory_designation VARCHAR(150) DEFAULT 'Designated Partner',
+    default_signatory_email VARCHAR(150) DEFAULT 'contact@mstechnomedia.com',
+    default_probation_period VARCHAR(150) DEFAULT '3 months, extendable at the company''s discretion.',
+    default_work_location VARCHAR(150) DEFAULT 'Office Premises',
+    default_work_hours VARCHAR(100) DEFAULT '9:30 AM – 6:30 PM, Monday–Saturday',
+    default_annual_paid_leaves INTEGER DEFAULT 12,
+    default_variable_percentage NUMERIC(5, 2) DEFAULT 5.00,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create Role & Responsibility Templates Table (Default/Master Templates)
+CREATE TABLE IF NOT EXISTS role_responsibility_templates (
+    id SERIAL PRIMARY KEY,
+    job_role VARCHAR(150) NOT NULL UNIQUE,
+    categories JSONB NOT NULL DEFAULT '[]',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create Offer Letters Table (Individual Candidate Snapshot & Custom Responsibilities)
+CREATE TABLE IF NOT EXISTS offer_letters (
+    id SERIAL PRIMARY KEY,
+    offer_number VARCHAR(50) UNIQUE NOT NULL,
+    employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE SET NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'Draft' CHECK (status IN ('Draft', 'Generated')),
+    offer_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    interview_date DATE,
+    joining_date DATE NOT NULL,
+    acceptance_deadline_date DATE,
+    
+    salutation VARCHAR(20) NOT NULL,
+    employee_name_snapshot VARCHAR(150) NOT NULL,
+    employee_id_snapshot VARCHAR(50) NOT NULL,
+    employee_email_snapshot VARCHAR(150),
+    employee_phone_snapshot VARCHAR(20),
+    employee_address_snapshot TEXT,
+
+    job_title_snapshot VARCHAR(150) NOT NULL,
+    department_snapshot VARCHAR(100),
+    reporting_to VARCHAR(150) DEFAULT 'Dr. Mueen Ahmed KK, [Managing Director]',
+    work_location VARCHAR(150) DEFAULT 'Office Premises',
+    employment_type VARCHAR(50) DEFAULT 'Full-time',
+    work_hours VARCHAR(100) DEFAULT '9:30 AM – 6:30 PM, Monday–Saturday',
+    probation_period VARCHAR(150) DEFAULT '3 months, extendable at the company''s discretion.',
+
+    -- Saved Responsibilities & Bullet Points JSON Snapshot
+    responsibilities_snapshot JSONB NOT NULL DEFAULT '[]',
+
+    monthly_salary NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    annual_fixed_salary NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    variable_percentage NUMERIC(5, 2) DEFAULT 0,
+    variable_amount NUMERIC(12, 2) DEFAULT 0,
+    total_ctc NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    annual_paid_leaves INTEGER DEFAULT 12,
+    pf_applicable VARCHAR(50) DEFAULT 'Not Applicable',
+    esi_applicable VARCHAR(50) DEFAULT 'Not Applicable',
+    gratuity_applicable VARCHAR(50) DEFAULT 'Not Applicable',
+    other_allowances VARCHAR(50) DEFAULT 'Not Applicable',
+
+    company_name_snapshot VARCHAR(200),
+    header_address_snapshot TEXT,
+    header_phone_snapshot VARCHAR(50),
+    header_email_snapshot VARCHAR(100),
+    header_website_snapshot VARCHAR(100),
+    footer_line_1_snapshot TEXT,
+    footer_line_2_snapshot TEXT,
+    signatory_name VARCHAR(150) DEFAULT 'Dr. Mueen Ahmed KK',
+    signatory_designation VARCHAR(150) DEFAULT 'Designated Partner',
+    signatory_email VARCHAR(150) DEFAULT 'contact@mstechnomedia.com',
+
+    created_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    generated_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_offer_letters_emp_id ON offer_letters(employee_id);
+CREATE INDEX IF NOT EXISTS idx_offer_letters_status ON offer_letters(status);
+CREATE INDEX IF NOT EXISTS idx_offer_letters_offer_num ON offer_letters(offer_number);
+
 -- Create Settings Table
 CREATE TABLE IF NOT EXISTS settings (
     id SERIAL PRIMARY KEY,

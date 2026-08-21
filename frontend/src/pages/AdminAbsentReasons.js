@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
 import AlertDialog from '../components/AlertDialog';
@@ -9,7 +10,7 @@ import { getAbsentEmployees, updateAbsentReason, clearAbsentReason, getAllDepart
 import ClearRangeDialog from '../components/ClearRangeDialog';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateDateString } from '../utils/dateValidation';
-import { FiEdit, FiSearch, FiCalendar, FiFilter, FiSave, FiX, FiLayers, FiTrash2 } from 'react-icons/fi';
+import { FiEdit, FiSearch, FiCalendar, FiFilter, FiSave, FiX, FiLayers, FiTrash2, FiCheckCircle, FiUserX } from 'react-icons/fi';
 import { sortEmployeeRows } from '../utils/sorting';
 
 import { toDateInputValue } from '../utils/dateUtils';
@@ -19,6 +20,7 @@ const getLocalYMD = () => {
 };
 
 const AdminAbsentReasons = () => {
+  const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const [date, setDate] = useState(getLocalYMD());
   const [departmentId, setDepartmentId] = useState('');
@@ -174,9 +176,12 @@ const AdminAbsentReasons = () => {
       <div className="flex-1 overflow-y-auto min-w-0 dark-scroll">
         <div className="px-5 py-6 lg:px-8 lg:py-8">
           
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pt-14 lg:pt-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 pt-14 lg:pt-0">
             <div>
-              <h1 className="text-xl font-bold text-admin-heading">Absent Reason Management</h1>
+              <h1 className="text-xl font-bold text-admin-heading flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                Leave & Attendance Exceptions
+              </h1>
               <p className="text-sm text-slate-400 mt-0.5">Record and track reasons for employee absences</p>
             </div>
             <div className="flex items-center">
@@ -186,6 +191,22 @@ const AdminAbsentReasons = () => {
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Navigation Tabs between Absent Reasons & Paid Leave */}
+          <div className="flex items-center gap-2 p-1.5 bg-admin-surface border border-admin-border rounded-2xl w-fit mb-6 shadow-sm">
+            <button
+              onClick={() => navigate('/admin/absent-reasons')}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all bg-admin-accent text-white shadow-md shadow-blue-500/20"
+            >
+              <FiUserX size={16} /> Absent Reasons
+            </button>
+            <button
+              onClick={() => navigate('/admin/paid-leaves')}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all text-admin-secondary hover:text-admin-text hover:bg-admin-elevated"
+            >
+              <FiCheckCircle size={16} /> Paid Leave
+            </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

@@ -5,7 +5,7 @@ import { getSettings, executeBotCommand, downloadAllPayslips, downloadSinglePays
 import { FiX, FiSend, FiCpu, FiExternalLink, FiRotateCcw } from 'react-icons/fi';
 import './AdminAssistantBot.css';
 
-const LOGO_PATH = '/favicon/favicon-96x96.png';
+const LOGO_PATH = `${process.env.PUBLIC_URL || ''}/favicon/favicon-96x96.png`;
 
 const getGeneralHelpText = (caps) => {
   const data = caps;

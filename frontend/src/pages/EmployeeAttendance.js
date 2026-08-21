@@ -270,6 +270,9 @@ const EmployeeAttendance = () => {
                               {record.validation_method === 'Manual' && (
                                 <span className="text-[10px] font-bold text-purple-600 bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-full">Manual</span>
                               )}
+                              {record.validation_method === 'Paid Leave' && (
+                                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-full">Paid Leave</span>
+                              )}
                               {d.holiday && (
                                 <div className="relative group">
                                   <FiInfo size={13} className="text-[#4F6CE1] cursor-help" />
@@ -282,7 +285,7 @@ const EmployeeAttendance = () => {
                             </div>
                           </td>
                           <td className="text-[#64748B] font-semibold">
-                            {d.type === 'absent' || record.attendance_status === 'Absent' ? (record.absent_reason || '—') : '—'}
+                            {d.type === 'absent' || record.attendance_status === 'Absent' || record.validation_method === 'Paid Leave' ? (record.absent_reason || '—') : '—'}
                           </td>
                           <td>
                             {record.is_wfh

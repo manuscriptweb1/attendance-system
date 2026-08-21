@@ -6,13 +6,13 @@ import {
   FiHome, FiUsers, FiCalendar, FiLogOut, FiUser, FiClock,
   FiSettings, FiShield, FiMenu, FiX, FiLock, FiKey,
   FiAlertCircle, FiUmbrella, FiChevronRight, FiChevronDown, FiSmartphone, FiActivity, FiLayers, FiGrid,
-  FiDollarSign, FiTrendingUp, FiPieChart, FiClipboard, FiUserX, FiSun, FiMoon
+  FiDollarSign, FiTrendingUp, FiPieChart, FiClipboard, FiUserX, FiSun, FiMoon, FiFileText
 } from 'react-icons/fi';
 
 const adminSections = [
   { label: 'Overview',         items: [{ path: '/admin/dashboard', icon: FiHome, label: 'Dashboard', pageKey: 'dashboard' }] },
-  { label: 'People',           items: [{ path: '/admin/employees', icon: FiUsers, label: 'Employees', pageKey: 'employees' }, { path: '/admin/departments', icon: FiLayers, label: 'Departments', pageKey: 'departments' }, { path: '/admin/management', icon: FiShield, label: 'Admin Management', pageKey: 'admin_management' }] },
-  { label: 'Time & Attendance',items: [{ path: '/admin/attendance', icon: FiCalendar, label: 'Attendance', pageKey: 'attendance' }, { path: '/admin/permissions', icon: FiClock, label: 'Permissions', pageKey: 'permissions' }, { path: '/admin/manual-attendance', icon: FiClipboard, label: 'Manual Attendance', pageKey: 'manual_attendance' }, { path: '/admin/absent-reasons', icon: FiUserX, label: 'Absent Reasons', pageKey: 'absent_reasons' }, { path: '/admin/holidays', icon: FiUmbrella, label: 'Holidays', pageKey: 'holidays' }] },
+  { label: 'People',           items: [{ path: '/admin/employees', icon: FiUsers, label: 'Employees', pageKey: 'employees' }, { path: '/admin/offer-letters', icon: FiFileText, label: 'Offer Letters', pageKey: 'offer_letters' }, { path: '/admin/departments', icon: FiLayers, label: 'Departments', pageKey: 'departments' }, { path: '/admin/management', icon: FiShield, label: 'Admin Management', pageKey: 'admin_management' }] },
+  { label: 'Time & Attendance',items: [{ path: '/admin/attendance', icon: FiCalendar, label: 'Attendance', pageKey: 'attendance' }, { path: '/admin/permissions', icon: FiClock, label: 'Permissions', pageKey: 'permissions' }, { path: '/admin/manual-attendance', icon: FiClipboard, label: 'Manual Attendance', pageKey: 'manual_attendance' }, { path: '/admin/absent-reasons', icon: FiUserX, label: 'Leaves & Exceptions', pageKey: 'absent_reasons' }, { path: '/admin/holidays', icon: FiUmbrella, label: 'Holidays', pageKey: 'holidays' }] },
   { label: 'HR & Finance',     items: [{ path: '/admin/payroll', icon: FiDollarSign, label: 'Payroll', pageKey: 'payroll' }, { path: '/admin/expenses', icon: FiTrendingUp, label: 'Expenses', pageKey: 'expenses' }, { path: '/admin/reports', icon: FiPieChart, label: 'Reports', pageKey: 'reports' }] },
   { label: 'System',           items: [{ path: '/admin/settings', icon: FiSettings, label: 'Settings', pageKey: 'settings' }, { path: '/admin/manage', icon: FiGrid, label: 'Manage', pageKey: 'manage' }, { path: '/admin/trusted-devices', icon: FiSmartphone, label: 'Trusted Devices', pageKey: 'trusted_devices' }, { path: '/admin/activity-logs', icon: FiActivity, label: 'Activity Logs', pageKey: 'activity_logs' }, { path: '/admin/otp-settings', icon: FiKey, label: 'OTP Settings', pageKey: 'otp_settings' }, { path: '/admin/security-logs', icon: FiAlertCircle, label: 'Security Logs', pageKey: 'security_logs' }] },
 ];
@@ -78,7 +78,10 @@ const Sidebar = () => {
   // Auto-expand section if current pathname belongs to that section
   useEffect(() => {
     adminSections.forEach(section => {
-      const hasActive = section.items.some(item => location.pathname === item.path);
+      const hasActive = section.items.some(item => 
+        location.pathname === item.path || 
+        (item.path === '/admin/absent-reasons' && location.pathname === '/admin/paid-leaves')
+      );
       if (hasActive) {
         setOpenSections(prev => ({ ...prev, [section.label]: true }));
       }
@@ -122,7 +125,15 @@ const Sidebar = () => {
           {/* Logo */}
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 px-5'} h-16 border-b border-admin-border flex-shrink-0`}>
             <div className="flex items-center justify-center flex-shrink-0">
-              <img src="/favicon/favicon-96x96.png" alt="MTM Attendance" className="brand-logo" />
+              <img
+                src={`${process.env.PUBLIC_URL || ''}/favicon/favicon-96x96.png`}
+                alt="MTM Attendance"
+                className="w-8 h-8 rounded-lg object-contain"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = '/favicon/apple-touch-icon.png';
+                }}
+              />
             </div>
             {!isCollapsed && (
               <div className="min-w-0">
@@ -193,7 +204,10 @@ const Sidebar = () => {
                         <AdminNavItem
                           key={item.path}
                           {...item}
-                          isActive={location.pathname === item.path}
+                          isActive={
+                            location.pathname === item.path ||
+                            (item.path === '/admin/absent-reasons' && location.pathname === '/admin/paid-leaves')
+                          }
                           onClick={() => setIsMobileMenuOpen(false)}
                           isCollapsed={isCollapsed}
                         />

@@ -33,6 +33,8 @@ const payrollEmailRoutes = require('./routes/payrollEmailRoutes');
 const emailRoutes = require('./routes/emailRoutes');
 const loanRoutes = require('./routes/loanRoutes');
 const developerSandboxRoutes = require('./routes/developerSandboxRoutes');
+const offerLetterRoutes = require('./routes/offerLetterRoutes');
+const paidLeaveRoutes = require('./routes/paidLeaveRoutes');
 
 // Import cron jobs
 const { createDailyAbsentRecords } = require('./jobs/createDailyAbsentRecords');
@@ -128,6 +130,8 @@ app.use('/api/payroll-email', payrollEmailRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/loans', loanRoutes);
 app.use('/api/developer-testing', developerSandboxRoutes);
+app.use('/api/offer-letters', offerLetterRoutes);
+app.use('/api/paid-leaves', paidLeaveRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {

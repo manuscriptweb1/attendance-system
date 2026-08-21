@@ -360,6 +360,11 @@ export const updateAbsentReason = (id, data) => api.put(`/absent-reasons/${id}`,
 export const clearAbsentReason = (id) => api.delete(`/absent-reasons/${id}/clear`);
 export const clearAbsentReasonRange = (data) => api.put('/absent-reasons/clear-range', data);
 
+// --- Paid Leaves ---
+export const getPaidLeaveEmployees = (params) => api.get('/paid-leaves', { params });
+export const markPaidLeave = (data) => api.post('/paid-leaves/mark', data);
+export const clearPaidLeave = (id, data) => api.delete(`/paid-leaves/${id}`, { data });
+
 export default api;
 
 // Admin Activity APIs
@@ -437,6 +442,26 @@ export const getBrandingSettings = () => api.get('/developer-testing/branding-se
 export const updateBrandingSettings = (data, token) => api.post('/developer-testing/branding-settings', data, { headers: { Authorization: `Bearer ${token}` } });
 export const resetBrandingLogo = (token) => api.post('/developer-testing/branding-settings/reset-logo', {}, { headers: { Authorization: `Bearer ${token}` } });
 export const downloadSampleBrandingPdf = (type = 'payslip', token) => api.get(`/developer-testing/branding-settings/sample-pdf?type=${type}`, { headers: { Authorization: `Bearer ${token}` }, responseType: 'blob' });
+
+// Offer Letter APIs
+export const getOfferLetters = (params) => api.get('/offer-letters', { params });
+export const getOfferLetterById = (id) => api.get(`/offer-letters/${id}`);
+export const createOfferLetter = (data) => api.post('/offer-letters', data);
+export const updateOfferLetter = (id, data) => api.put(`/offer-letters/${id}`, data);
+export const generateOfferLetter = (id) => api.post(`/offer-letters/${id}/generate`);
+export const deleteOfferLetter = (id) => api.delete(`/offer-letters/${id}`);
+export const downloadOfferLetterPdf = (id) => api.get(`/offer-letters/${id}/download`, { responseType: 'blob' });
+export const previewOfferLetterPdf = (id) => api.get(`/offer-letters/${id}/preview`, { responseType: 'blob' });
+
+// Dedicated Offer Letter Settings APIs
+export const getOfferLetterSettings = () => api.get('/offer-letters/settings');
+export const updateOfferLetterSettings = (data) => api.put('/offer-letters/settings', data);
+export const resetOfferLetterLogo = () => api.post('/offer-letters/settings/reset-logo');
+
+// Role Responsibility Templates APIs
+export const getRoleTemplates = () => api.get('/offer-letters/role-templates');
+export const saveRoleTemplate = (data) => api.post('/offer-letters/role-templates', data);
+export const deleteRoleTemplate = (id) => api.delete(`/offer-letters/role-templates/${id}`);
 
 
 

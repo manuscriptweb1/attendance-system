@@ -60,11 +60,26 @@ function registerOfferFonts(doc) {
 
   const calibriReg = resolveFont('calibri.ttf') || resolveFont('CALIBRI.TTF');
   const calibriBold = resolveFont('calibrib.ttf') || resolveFont('CALIBRIB.TTF');
-  const rupeeFontPath = resolveFont('segoeui.ttf') || resolveFont('arial.ttf') || resolveFont('calibri.ttf');
+  
+  // Prioritize bundled Unicode TTF fonts (NotoSans/Arial) for flawless ₹ symbol rendering on Linux/Production
+  const rupeeFontPath =
+    resolveFont('NotoSans-Regular.ttf') ||
+    resolveFont('Arial-Regular.ttf') ||
+    resolveFont('arial.ttf') ||
+    resolveFont('segoeui.ttf') ||
+    resolveFont('calibri.ttf');
+
+  const rupeeBoldFontPath =
+    resolveFont('NotoSans-Bold.ttf') ||
+    resolveFont('Arial-Bold.ttf') ||
+    resolveFont('arialbd.ttf') ||
+    resolveFont('segoeuib.ttf') ||
+    resolveFont('calibrib.ttf');
 
   let fontFooterRegular = 'Helvetica';
   let fontFooterBold = 'Helvetica-Bold';
   let fontRupee = 'Helvetica';
+  let fontRupeeBold = 'Helvetica-Bold';
 
   if (rupeeFontPath && fs.existsSync(rupeeFontPath)) {
     try {
@@ -72,6 +87,15 @@ function registerOfferFonts(doc) {
       fontRupee = 'RupeeFont';
     } catch (e) {
       console.warn('Could not register Rupee font:', e.message);
+    }
+  }
+
+  if (rupeeBoldFontPath && fs.existsSync(rupeeBoldFontPath)) {
+    try {
+      doc.registerFont('RupeeFontBold', rupeeBoldFontPath);
+      fontRupeeBold = 'RupeeFontBold';
+    } catch (e) {
+      console.warn('Could not register Rupee Bold font:', e.message);
     }
   }
 
@@ -93,7 +117,7 @@ function registerOfferFonts(doc) {
     }
   }
 
-  return { fontRegular, fontBold, fontItalic, fontFooterRegular, fontFooterBold, fontRupee };
+  return { fontRegular, fontBold, fontItalic, fontFooterRegular, fontFooterBold, fontRupee, fontRupeeBold };
 }
 
 function formatINR(value) {
@@ -266,7 +290,7 @@ async function generateOfferLetterPDF(offerData, options = {}) {
   });
 
   const fonts = registerOfferFonts(doc);
-  const { fontRegular, fontBold, fontRupee } = fonts;
+  const { fontRegular, fontBold, fontItalic, fontRupee, fontRupeeBold } = fonts;
   const leftMargin = 54;
   const contentWidth = 487.28;
 
@@ -356,7 +380,7 @@ async function generateOfferLetterPDF(offerData, options = {}) {
           doc.font(fontRegular).fillColor('#111827').text(p, { continued: i < parts.length - 1 });
         }
         if (i < parts.length - 1) {
-          doc.font(fontRupee).fillColor('#111827').text('₹ ', { continued: true });
+          doc.font(fontRupee).fillColor('#111827').text('₹', { continued: true });
         }
       });
     } else {
@@ -371,6 +395,7 @@ async function generateOfferLetterPDF(offerData, options = {}) {
     doc.font(fontRegular).fontSize(11).fillColor('#1F2937');
     doc.text('•', leftMargin + 14, startY);
     const textFont = isBold ? fontBold : fontRegular;
+    const rupeeFontToUse = isBold ? fontRupeeBold : fontRupee;
     doc.font(textFont).text(label, leftMargin + 28, startY, { continued: true });
     if (valueText.includes('₹')) {
       const parts = valueText.split('₹');
@@ -379,7 +404,7 @@ async function generateOfferLetterPDF(offerData, options = {}) {
           doc.font(textFont).text(parts[i], { continued: (i < parts.length - 1) });
         }
         if (i < parts.length - 1) {
-          doc.font(fontRupee).text('₹', { continued: (parts[i + 1] ? true : false) });
+          doc.font(rupeeFontToUse).text('₹', { continued: true });
         }
       }
     } else {

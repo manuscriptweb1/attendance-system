@@ -306,6 +306,9 @@ async function runMasterMigration() {
       CREATE INDEX IF NOT EXISTS idx_offer_letters_status ON offer_letters(status);
       CREATE INDEX IF NOT EXISTS idx_offer_letters_offer_num ON offer_letters(offer_number);
 
+      -- Ensure salutation column exists on existing offer_letters table
+      ALTER TABLE offer_letters ADD COLUMN IF NOT EXISTS salutation VARCHAR(20);
+
       INSERT INTO admin_pages (page_key, page_name, route_path, sidebar_section, sort_order)
       VALUES ('offer_letters', 'Offer Letters', '/admin/offer-letters', 'People', 4)
       ON CONFLICT (page_key) DO NOTHING;

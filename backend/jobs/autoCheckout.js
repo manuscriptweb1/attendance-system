@@ -1,6 +1,6 @@
 const pool = require('../config/database');
 const { getSettingsFromDB } = require('../utils/settingsHelper');
-const { parseTime, getLocalTimeMinutes } = require('../utils/timeUtils');
+const { parseTime, getLocalTimeMinutes, getOfficeTimes, calculateCheckOutStatus, calculateWorkedMinutes } = require('../utils/timeUtils');
 const { autoCalculatePayroll } = require('./autoPayroll');
 
 // Helper function to get local date in YYYY-MM-DD format (IST)
@@ -44,8 +44,8 @@ const autoCheckoutEmployees = async (options = {}) => {
       return { success: false, message: 'Auto-checkout time not configured in settings' };
     }
     
-    const autoCheckoutTimeStr = settingsResult.rows[0].auto_checkout_time;
-    const autoCheckoutMins = parseTime(autoCheckoutTimeStr);
+    const rawAutoCheckoutTime = settingsResult.rows[0].auto_checkout_time;
+    const autoCheckoutMins = parseTime(rawAutoCheckoutTime);
 
     // Get current time in IST (minutes from midnight)
     const now = new Date();
@@ -59,9 +59,14 @@ const autoCheckoutEmployees = async (options = {}) => {
       };
     }
 
-    // Get half day threshold
+    // Format auto-checkout time as HH:MM:SS
+    const timeParts = String(rawAutoCheckoutTime).trim().split(':');
+    const autoCheckoutTimeStr = `${String(timeParts[0] || '18').padStart(2, '0')}:${String(timeParts[1] || '00').padStart(2, '0')}:${String(timeParts[2] || '00').padStart(2, '0')}`;
+
+    // Get working hours settings
     const settings = await getSettingsFromDB();
-    const halfDayThreshold = settings.workingHours.halfDayThreshold || 4;
+    const officeTimes = getOfficeTimes(settings);
+    const halfDayThreshold = officeTimes.halfDayThreshold || 4;
 
     // Fetch all active employees who checked in today but haven't checked out yet
     const result = await pool.query(
@@ -78,29 +83,58 @@ const autoCheckoutEmployees = async (options = {}) => {
 
     if (result.rows.length > 0) {
       for (const attendance of result.rows) {
-        const loginTime = new Date(attendance.login_time);
-        const logoutTime = new Date();
-        const workingHours = ((logoutTime - loginTime) / (1000 * 60 * 60)).toFixed(2);
+        // Construct exact ISO timestamp for auto-checkout on the attendance date
+        // Format: YYYY-MM-DDTHH:mm:ss in local time
+        const targetDate = attendance.attendance_date || today;
+        const autoCheckoutTimestamp = `${targetDate}T${autoCheckoutTimeStr}`;
 
+        // Calculate checkout status & early minutes
+        const outStatusObj = calculateCheckOutStatus(autoCheckoutTimestamp, officeTimes.endTime);
+        const checkoutStatus = outStatusObj.checkout_status === 'Late Check-Out' 
+          ? 'late' 
+          : (outStatusObj.checkout_status === 'Early Check-Out' ? 'early' : 'on_time');
+        const earlyMinutes = outStatusObj.early_minutes || 0;
+
+        // Calculate worked minutes & total hours
+        const totalMinutes = calculateWorkedMinutes(attendance.login_time, autoCheckoutTimestamp, officeTimes.startTime);
+        const totalHours = parseFloat((totalMinutes / 60).toFixed(2));
+        const workingHours = totalHours;
+
+        // Determine final attendance status
         let finalStatus = attendance.attendance_status;
-        if (parseFloat(workingHours) < halfDayThreshold) {
-          finalStatus = 'Half Day';
+        if (finalStatus !== 'Absent') {
+          if (totalHours < halfDayThreshold) {
+            finalStatus = 'Half Day';
+          }
         }
 
         await pool.query(
           `UPDATE attendance 
-           SET logout_time = CURRENT_TIMESTAMP,
-               total_working_hours = $1,
-               attendance_status = $2,
+           SET logout_time = $1,
+               total_working_hours = $2,
+               total_hours = $3,
+               total_minutes = $4,
+               checkout_status = $5,
+               early_minutes = $6,
+               attendance_status = $7,
                address_logout = 'Auto checkout by system',
                is_auto_checkout = TRUE,
                updated_at = CURRENT_TIMESTAMP
-           WHERE id = $3`,
-          [workingHours, finalStatus, attendance.id]
+           WHERE id = $8`,
+          [
+            autoCheckoutTimestamp,
+            workingHours,
+            totalHours,
+            totalMinutes,
+            checkoutStatus,
+            earlyMinutes,
+            finalStatus,
+            attendance.id
+          ]
         );
 
         checkedOutCount++;
-        console.log(`✅ Auto-checkout: ${attendance.name} (${attendance.employee_id}) - ${workingHours}h`);
+        console.log(`✅ Auto-checkout: ${attendance.name} (${attendance.employee_id}) - ${workingHours}h at ${autoCheckoutTimeStr}`);
       }
     }
 
@@ -121,7 +155,7 @@ const autoCheckoutEmployees = async (options = {}) => {
       success: true,
       checkedOut: checkedOutCount,
       payrollResult,
-      message: `${checkedOutCount} employee(s) auto-checked out and payroll synchronized successfully`
+      message: `${checkedOutCount} employee(s) auto-checked out at ${autoCheckoutTimeStr} and payroll synchronized successfully`
     };
 
   } catch (error) {

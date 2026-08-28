@@ -14,48 +14,45 @@ export const formatWorkingHours = (decimalHours) => {
   }
 };
 
-const normalizeTimestamp = (value) => {
-  if (!value) return null;
-
-  // If timestamp has no timezone, treat it safely as UTC
-  if (
-    typeof value === "string" &&
-    !value.endsWith("Z") &&
-    !value.includes("+") &&
-    !value.includes("T")
-  ) {
-    return `${value.replace(" ", "T")}Z`;
-  }
-
-  if (
-    typeof value === "string" &&
-    !value.endsWith("Z") &&
-    !value.includes("+")
-  ) {
-    return `${value}Z`;
-  }
-
-  return value;
-};
-
 // Format time from timestamp safely in Asia/Kolkata timezone
 export const formatTime = (timestamp) => {
-  const normalized = normalizeTimestamp(timestamp);
-  if (!normalized) return '-';
-  try {
-    const d = new Date(normalized);
-    if (isNaN(d.getTime())) return '-';
-    
-    // Explicitly use IST to prevent browser local timezone shifting
-    return d.toLocaleTimeString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-  } catch (err) {
-    return '-';
+  if (!timestamp) return '-';
+
+  if (typeof timestamp === 'string') {
+    const trimmed = timestamp.trim();
+    // Raw time string like '18:00' or '18:00:00'
+    if (/^\d{1,2}:\d{2}(?::\d{2})?$/.test(trimmed)) {
+      return format24To12Hour(trimmed);
+    }
+
+    // If it's an ISO UTC string ending with Z or with timezone offset (+/-)
+    if (trimmed.endsWith('Z') || /[+-]\d{2}(?::?\d{2})?$/.test(trimmed)) {
+      const d = new Date(trimmed);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+      }
+    }
+
+    // If it is 'YYYY-MM-DDTHH:mm:ss' or 'YYYY-MM-DD HH:mm:ss' without timezone, the time is already local IST
+    const timeMatch = trimmed.match(/[T ](\d{1,2}:\d{2})(?::\d{2})?/);
+    if (timeMatch) {
+      return format24To12Hour(timeMatch[1]);
+    }
   }
+
+  const d = new Date(timestamp);
+  if (isNaN(d.getTime())) return '-';
+  return d.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
 };
 
 // Format date

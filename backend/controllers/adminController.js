@@ -623,6 +623,14 @@ const getAdminTheme = async (req, res) => {
   try {
     const adminId = req.user.id;
 
+    // Return default theme for emergency env super admin without DB query
+    if (req.user?.emergency_admin || adminId === 'emergency-super-admin') {
+      return res.json({
+        success: true,
+        theme: 'dark'
+      });
+    }
+
     const result = await pool.query(
       'SELECT theme_preference FROM admins WHERE id = $1',
       [adminId]
@@ -658,6 +666,15 @@ const updateAdminTheme = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Invalid theme preference. Must be "dark" or "light"'
+      });
+    }
+
+    // Return success for emergency env super admin without DB query
+    if (req.user?.emergency_admin || adminId === 'emergency-super-admin') {
+      return res.json({
+        success: true,
+        theme: theme,
+        message: 'Theme preference updated successfully'
       });
     }
 

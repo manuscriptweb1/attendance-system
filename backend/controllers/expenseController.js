@@ -254,11 +254,12 @@ const addExpense = async (req, res) => {
     const expense_month = dateObj.getMonth() + 1;
     const expense_year = dateObj.getFullYear();
 
+    const numericAdminId = Number.isInteger(Number(req.user?.id)) ? Number(req.user.id) : null;
     const result = await pool.query(
       `INSERT INTO monthly_expenses 
        (expense_type_id, title, name, description, notes, amount, expense_date, expense_month, expense_year, payment_mode, payment_method, status, payment_status, paid_to, created_by)
        VALUES ($1, $2, $2, $3, $3, $4, $5, $6, $7, $8, $8, $9, $9, $10, $11) RETURNING *`,
-      [expense_type_id || null, name, notes, amount, expense_date, expense_month, expense_year, payment_method, payment_status, paid_to, req.user.id]
+      [expense_type_id || null, name, notes, amount, expense_date, expense_month, expense_year, payment_method, payment_status, paid_to, numericAdminId]
     );
 
     let typeName = 'General';

@@ -245,7 +245,7 @@ const createLoan = async (req, res) => {
         scheduleData.totalPaise, finalMonths, scheduleData.monthlyScheduledDeductionPaise,
         issueDate, startMonth, startYear,
         scheduleData.expectedCompletionMonth, scheduleData.expectedCompletionYear,
-        initialStatus, remarks || null, req.user?.id || null, mode
+        initialStatus, remarks || null, (Number.isInteger(Number(req.user?.id)) ? Number(req.user.id) : null), mode
       ]
     );
 
@@ -788,6 +788,7 @@ const reverseTransaction = async (req, res) => {
     }
 
     // 1. Mark transaction as Reversed
+    const numericReversalAdminId = Number.isInteger(Number(req.user?.id)) ? Number(req.user.id) : null;
     await client.query(
       `UPDATE loan_repayment_transactions
        SET status = 'Reversed',
@@ -795,7 +796,7 @@ const reverseTransaction = async (req, res) => {
            reversal_reason = $1,
            reversal_by = $2
        WHERE id = $3`,
-      [reversalReason.trim(), req.user?.id || null, transactionId]
+      [reversalReason.trim(), numericReversalAdminId, transactionId]
     );
 
     // 2. Update Employee Loan

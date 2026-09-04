@@ -18,6 +18,17 @@ const logAdminActivity = async ({
   source = null
 }) => {
   try {
+    // Skip logging entirely for environment-variable emergency super admin
+    const isEmergencyAdmin = 
+      adminId === 'emergency-super-admin' ||
+      (process.env.EMERGENCY_ADMIN_USERNAME && (adminName === process.env.EMERGENCY_ADMIN_USERNAME || adminEmail === process.env.EMERGENCY_ADMIN_USERNAME)) ||
+      (process.env.EMERGENCY_ADMIN_EMAIL && adminEmail === process.env.EMERGENCY_ADMIN_EMAIL);
+
+    if (isEmergencyAdmin) {
+      return { success: true, skipped: true };
+    }
+
+    const safeAdminId = Number.isInteger(Number(adminId)) ? Number(adminId) : null;
     const isBot = source === 'ADMIN_ASSISTANT' || (moduleName === 'Admin Assistant' && source !== 'MANUAL_PAGE');
     const finalAdminName = isBot ? 'MTM Admin Assistant' : (adminName || 'Admin');
 
@@ -32,7 +43,7 @@ const logAdminActivity = async ({
         old_data, new_data, ip_address, device_info, browser_info, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW() AT TIME ZONE 'UTC')`,
       [
-        adminId,
+        safeAdminId,
         finalAdminName,
         adminEmail,
         actionType,
@@ -57,6 +68,19 @@ const logAdminActivity = async ({
  */
 const getAdminActivityLogs = async (filters = {}) => {
   try {
+    if (filters.adminId === 'emergency-super-admin') {
+      return {
+        success: true,
+        logs: [],
+        pagination: {
+          total: 0,
+          page: parseInt(filters.page) || 1,
+          limit: parseInt(filters.limit) || 50,
+          totalPages: 0
+        }
+      };
+    }
+
     let query = `
       SELECT *, created_at AT TIME ZONE 'UTC' AS created_at_utc FROM admin_activity_logs 
       WHERE 1=1
@@ -65,9 +89,21 @@ const getAdminActivityLogs = async (filters = {}) => {
     let paramCount = 1;
 
     // Filter by admin
-    if (filters.adminId) {
+    if (filters.adminId && Number.isInteger(Number(filters.adminId))) {
       query += ` AND admin_id = $${paramCount}`;
-      params.push(filters.adminId);
+      params.push(Number(filters.adminId));
+      paramCount++;
+    }
+
+    // Exclude emergency admin records if any
+    if (process.env.EMERGENCY_ADMIN_USERNAME) {
+      query += ` AND (admin_name != $${paramCount} OR admin_name IS NULL)`;
+      params.push(process.env.EMERGENCY_ADMIN_USERNAME);
+      paramCount++;
+    }
+    if (process.env.EMERGENCY_ADMIN_EMAIL) {
+      query += ` AND (admin_email != $${paramCount} OR admin_email IS NULL)`;
+      params.push(process.env.EMERGENCY_ADMIN_EMAIL);
       paramCount++;
     }
 

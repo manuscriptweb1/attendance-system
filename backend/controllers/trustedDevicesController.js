@@ -136,6 +136,7 @@ const approveDevice = async (req, res) => {
     const device = deviceCheck.rows[0];
 
     // Update device status
+    const numericAdminId = Number.isInteger(Number(adminId)) ? Number(adminId) : null;
     const result = await pool.query(
       `UPDATE trusted_devices 
        SET approved_status = 'Approved',
@@ -146,7 +147,7 @@ const approveDevice = async (req, res) => {
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $2
        RETURNING *`,
-      [adminId, deviceId]
+      [numericAdminId, deviceId]
     );
 
     // Log audit
@@ -223,6 +224,7 @@ const rejectDevice = async (req, res) => {
     const device = deviceCheck.rows[0];
 
     // Update device status
+    const numericAdminId = Number.isInteger(Number(adminId)) ? Number(adminId) : null;
     const result = await pool.query(
       `UPDATE trusted_devices 
        SET approved_status = 'Rejected',
@@ -234,7 +236,7 @@ const rejectDevice = async (req, res) => {
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $3
        RETURNING *`,
-      [adminId, remarks || null, deviceId]
+      [numericAdminId, remarks || null, deviceId]
     );
 
     // Log audit

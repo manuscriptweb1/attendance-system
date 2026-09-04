@@ -193,6 +193,7 @@ const markPaidLeave = async (req, res) => {
     await client.query('BEGIN');
 
     // 1. Insert or Update `paid_leaves` table
+    const numericAdminId = Number.isInteger(Number(adminId)) ? Number(adminId) : null;
     const paidLeaveResult = await client.query(
       `INSERT INTO paid_leaves (
          employee_id, leave_date, office_start_time, office_end_time,
@@ -215,7 +216,7 @@ const markPaidLeave = async (req, res) => {
         totalWorkingHours,
         reason_category.trim(),
         reason_notes ? reason_notes.trim() : null,
-        adminId
+        numericAdminId
       ]
     );
 

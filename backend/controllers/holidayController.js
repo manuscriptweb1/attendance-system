@@ -122,11 +122,12 @@ const addHoliday = async (req, res) => {
     }
     
     // Insert holiday
+    const numericAdminId = Number.isInteger(Number(adminId)) ? Number(adminId) : null;
     const result = await pool.query(
       `INSERT INTO holidays (holiday_date, holiday_type, holiday_title, holiday_note, is_enabled, created_by)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [holiday_date, holiday_type, holiday_title, holiday_note || null, is_enabled !== undefined ? is_enabled : true, adminId]
+      [holiday_date, holiday_type, holiday_title, holiday_note || null, is_enabled !== undefined ? is_enabled : true, numericAdminId]
     );
 
     // Log activity

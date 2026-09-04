@@ -1656,6 +1656,7 @@ const toggleEarlyCheckout = async (req, res) => {
     );
 
     let result;
+    const numericAdminId = Number.isInteger(Number(adminId)) ? Number(adminId) : null;
     if (existingPermission.rows.length > 0) {
       // Update existing permission
       result = await pool.query(
@@ -1663,7 +1664,7 @@ const toggleEarlyCheckout = async (req, res) => {
          SET is_enabled = $1, enabled_by = $2, enabled_at = CURRENT_TIMESTAMP
          WHERE employee_id = $3
          RETURNING *`,
-        [enabled, adminId, employeeId]
+        [enabled, numericAdminId, employeeId]
       );
     } else {
       // Insert new permission
@@ -1671,7 +1672,7 @@ const toggleEarlyCheckout = async (req, res) => {
         `INSERT INTO early_checkout_permissions (employee_id, is_enabled, enabled_by)
          VALUES ($1, $2, $3)
          RETURNING *`,
-        [employeeId, enabled, adminId]
+        [employeeId, enabled, numericAdminId]
       );
     }
 

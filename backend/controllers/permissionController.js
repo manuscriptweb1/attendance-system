@@ -87,11 +87,12 @@ const createPermission = async (req, res) => {
     }
 
     // Insert into DB
+    const numericAdminId = Number.isInteger(Number(req.user?.id)) ? Number(req.user.id) : null;
     const result = await pool.query(
       `INSERT INTO employee_permissions 
        (employee_id, employee_name, department_name, permission_date, from_time, to_time, duration_minutes, reason, created_by_admin_id, created_by_admin_name)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-      [employee_id, employee_name, department_name, permission_date, from_time, to_time, duration_minutes, reason, req.user.id, req.user.username]
+      [employee_id, employee_name, department_name, permission_date, from_time, to_time, duration_minutes, reason, numericAdminId, req.user?.username || 'Admin']
     );
 
     const formatDuration = (mins) => {

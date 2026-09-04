@@ -6,6 +6,7 @@ import Loader from './components/Loader';
 import LogoutWarningDialog from './components/LogoutWarningDialog';
 import GlobalErrorDialog from './components/GlobalErrorDialog';
 import AdminAssistantBot from './components/AdminAssistantBot';
+import NetworkAndServerStatus from './components/NetworkAndServerStatus';
 
 // Public Pages
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -17,6 +18,9 @@ const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsAndConditionsPage = lazy(() => import('./pages/TermsAndConditionsPage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
 const PublicEmployeeInfo = lazy(() => import('./pages/PublicEmployeeInfo'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+const OfflinePage = lazy(() => import('./pages/OfflinePage'));
+const ServerDownPage = lazy(() => import('./pages/ServerDownPage'));
 
 // Auth Pages
 const AdminLogin = lazy(() => import('./pages/AdminLogin'));
@@ -171,6 +175,7 @@ function App() {
       <AdminThemeProvider>
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <ScrollToTop />
+          <NetworkAndServerStatus>
           <Suspense fallback={<Loader />}>
             <AdminAssistantBot />
             <GlobalErrorDialog />
@@ -184,7 +189,13 @@ function App() {
               <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
               <Route path="/terms-and-conditions" element={<TermsAndConditionsPage />} />
               <Route path="/support" element={<SupportPage />} />
+              <Route path="/public/employee-info" element={<PublicEmployeeInfo />} />
+              <Route path="/public/employee" element={<PublicEmployeeInfo />} />
               <Route path="/public/employee/:employeeId" element={<PublicEmployeeInfo />} />
+              <Route path="/404" element={<NotFoundPage />} />
+              <Route path="/offline" element={<OfflinePage />} />
+              <Route path="/server-down" element={<ServerDownPage />} />
+              <Route path="/server-error" element={<ServerDownPage />} />
 
               {/* Auth Pages */}
               <Route
@@ -353,9 +364,10 @@ function App() {
               />
 
               {/* 404 Route */}
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>
+          </NetworkAndServerStatus>
         </Router>
       </AdminThemeProvider>
     </AuthProvider>

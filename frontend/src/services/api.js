@@ -28,8 +28,19 @@ api.interceptors.request.use(
 
 // Handle response errors
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    return response;
+  },
   (error) => {
+    // Check if server is down (502, 503, 504, or network error while user is online)
+    const isServerUnreachable = 
+      (error.response && [502, 503, 504].includes(error.response.status)) ||
+      (!error.response && (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNABORTED') && navigator.onLine);
+
+    if (isServerUnreachable) {
+      window.dispatchEvent(new CustomEvent('showServerDown', { detail: { error } }));
+    }
+
     // Only process errors if the user is not on a login page
     const currentPath = window.location.pathname;
     const isLoginAttempt = error.config?.url?.includes('/login');

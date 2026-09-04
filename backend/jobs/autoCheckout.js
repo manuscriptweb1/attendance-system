@@ -16,12 +16,15 @@ const getLocalDateString = () => {
 
 // Track last payroll calculation run key to avoid redundant payroll recalculations in the same minute
 let lastAutoPayrollRunKey = null;
+// Track last date auto-checkout status was logged to prevent repetitive logs
+let lastLoggedCheckoutDate = null;
 
 /**
  * Reset auto-checkout cache (useful when settings change or manual triggers happen)
  */
 const resetAutoCheckoutLock = () => {
   lastAutoPayrollRunKey = null;
+  lastLoggedCheckoutDate = null;
   console.log('🔄 Auto-checkout execution cache reset.');
 };
 
@@ -143,12 +146,19 @@ const autoCheckoutEmployees = async (options = {}) => {
 
     let payrollResult = null;
     // Calculate payroll if employees were auto-checked out, or if payroll hasn't run for this configuration today
-    if (checkedOutCount > 0 || lastAutoPayrollRunKey !== runKey || force) {
+    if (checkedOutCount > 0) {
       console.log(`🔄 Triggering monthly payroll auto-calculation (Checked out: ${checkedOutCount})...`);
       payrollResult = await autoCalculatePayroll();
       lastAutoPayrollRunKey = runKey;
-    } else {
-      console.log(`ℹ️ Auto-checkout already complete and payroll updated for key: ${runKey}`);
+      lastLoggedCheckoutDate = today;
+    } else if (lastAutoPayrollRunKey !== runKey || force) {
+      payrollResult = await autoCalculatePayroll();
+      lastAutoPayrollRunKey = runKey;
+      lastLoggedCheckoutDate = today;
+    } else if (lastLoggedCheckoutDate !== today) {
+      // Log ONLY ONCE per day when checkout time arrives and all employees are already checked out
+      console.log(`ℹ️ Auto-checkout check for ${today}: All active employees are already checked out.`);
+      lastLoggedCheckoutDate = today;
     }
 
     return {

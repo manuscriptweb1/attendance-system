@@ -30,9 +30,6 @@ const pool = process.env.DATABASE_URL
       ...poolConfig
     });
 
-pool.on('connect', () => {
-  console.log('✅ Database connected successfully');
-});
 
 // Handle idle client errors gracefully without killing the server process
 pool.on('error', (err) => {

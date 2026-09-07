@@ -504,6 +504,76 @@ const updateEmployee = async (req, res) => {
       if (maskedAadhar) newMaskedData.aadhar_card_number = maskedAadhar;
     }
 
+    // Check if salary fields changed to auto-sync pending payroll months
+    const salaryChanged = (
+      parseFloat(oldEmp.monthly_salary || 0) !== parseFloat(monthly_salary || 0) ||
+      parseFloat(oldEmp.basic_salary || 0) !== parseFloat(basic_salary || 0) ||
+      parseFloat(oldEmp.hra || 0) !== parseFloat(hra || 0) ||
+      parseFloat(oldEmp.special_allowance || 0) !== parseFloat(special_allowance || 0) ||
+      parseFloat(oldEmp.staff_advance || 0) !== parseFloat(staff_advance || 0) ||
+      parseFloat(oldEmp.professional_tax || 0) !== parseFloat(professional_tax || 0) ||
+      parseFloat(oldEmp.tds || 0) !== parseFloat(tds || 0)
+    );
+
+    if (salaryChanged) {
+      try {
+        const pendingRecordsRes = await pool.query(
+          `SELECT * FROM payroll_records 
+           WHERE (employee_id::text = $1 OR employee_code::text = $2 OR employee_id::text = $2)
+             AND status = 'pending'`,
+          [String(id), String(oldEmp.employee_id)]
+        );
+
+        for (const pr of pendingRecordsRes.rows) {
+          const totalDays = parseFloat(pr.total_days) || 0;
+          const lopDays = parseFloat(pr.lop_days) || 0;
+          const halfDays = parseFloat(pr.half_days) || 0;
+          const loanDeduction = parseFloat(pr.loan_deduction) || 0;
+          
+          const newMonthly = parseFloat(monthly_salary) || 0;
+          const newBasic = parseFloat(basic_salary) || Number((newMonthly * 0.50).toFixed(2));
+          const newHra = parseFloat(hra) || Number((newMonthly * 0.20).toFixed(2));
+          const newSpecial = parseFloat(special_allowance) || Number((newMonthly - newBasic - newHra).toFixed(2));
+          const newStaffAdv = parseFloat(staff_advance) || 0;
+          const newPt = parseFloat(professional_tax) || 0;
+          const newTds = parseFloat(tds) || 0;
+
+          const newPerDaySalary = totalDays > 0 ? (newMonthly / totalDays) : 0;
+          const newHalfDayLoss = halfDays * 0.5 * newPerDaySalary;
+          const newLopAmount = lopDays * newPerDaySalary;
+          const newNetEarning = newMonthly - newLopAmount;
+          const newSalaryBeforeLoan = Math.max(0, newNetEarning - newStaffAdv - newPt - newTds);
+          const newNetPayable = Math.max(0, newSalaryBeforeLoan - loanDeduction);
+
+          await pool.query(
+            `UPDATE payroll_records SET
+              monthly_earning = $1,
+              basic_salary = $2,
+              hra = $3,
+              special_allowance = $4,
+              staff_advance = $5,
+              professional_tax = $6,
+              tds = $7,
+              per_day_salary = $8,
+              half_day_loss_amount = $9,
+              lop_amount = $10,
+              net_earning = $11,
+              net_payable = $12,
+              updated_at = CURRENT_TIMESTAMP
+             WHERE id = $13`,
+            [
+              newMonthly, newBasic, newHra, newSpecial,
+              newStaffAdv, newPt, newTds,
+              newPerDaySalary, newHalfDayLoss, newLopAmount,
+              newNetEarning, newNetPayable, pr.id
+            ]
+          );
+        }
+      } catch (payrollSyncErr) {
+        console.warn('Could not auto-sync pending payroll records on employee salary update:', payrollSyncErr.message);
+      }
+    }
+
     await logAdminActivity({
       adminId: req.user.id,
       adminName: req.user.username,

@@ -292,6 +292,18 @@ const updatePayrollRecord = async (req, res) => {
     const newPaidDays = parseFloat(paid_days) ?? parseFloat(currentRecord.paid_days);
     const newLopDays = parseFloat(lop_days) ?? parseFloat(currentRecord.lop_days);
     
+    // Auto-balance breakdown if sum does not equal monthly earning
+    let finalBasicSalary = newBasicSalary;
+    let finalHra = newHra;
+    let finalSpecialAllowance = newSpecialAllowance;
+
+    const breakdownSum = Number((finalBasicSalary + finalHra + finalSpecialAllowance).toFixed(2));
+    if (newMonthlyEarning > 0 && Math.abs(breakdownSum - newMonthlyEarning) > 0.01) {
+      finalBasicSalary = Number((newMonthlyEarning * 0.50).toFixed(2));
+      finalHra = Number((newMonthlyEarning * 0.20).toFixed(2));
+      finalSpecialAllowance = Number((newMonthlyEarning - finalBasicSalary - finalHra).toFixed(2));
+    }
+
     // Recalculate derived
     const newPerDaySalary = totalDays > 0 ? (newMonthlyEarning / totalDays) : 0;
     const newLopAmount = newLopDays * newPerDaySalary;
@@ -311,7 +323,7 @@ const updatePayrollRecord = async (req, res) => {
         per_day_salary = $16, lop_amount = $17, net_earning = $18, is_manual_edited = true
        WHERE id = $12`,
       [
-        newMonthlyEarning, newBasicSalary, newHra, newSpecialAllowance, 
+        newMonthlyEarning, finalBasicSalary, finalHra, finalSpecialAllowance, 
         newStaffAdvance, newProfessionalTax, newTds, newNetPayable,
         status, paidAt, paidBy, id,
         newWorkDays, newPaidDays, newLopDays, newPerDaySalary, newLopAmount, newNetEarning
@@ -498,10 +510,18 @@ const getPaySlipData = async (req, res) => {
 
     const r = result.rows[0];
 
-    const basic = parseFloat(r.basic_salary) || 0;
-    const hra = parseFloat(r.hra) || 0;
-    const special_allowance = parseFloat(r.special_allowance) || 0;
-    const gross_earnings = basic + hra + special_allowance;
+    const monthly = parseFloat(r.monthly_earning) || 0;
+    let basic = parseFloat(r.basic_salary) || 0;
+    let hra = parseFloat(r.hra) || 0;
+    let special_allowance = parseFloat(r.special_allowance) || 0;
+
+    const breakdownSum = Number((basic + hra + special_allowance).toFixed(2));
+    if (monthly > 0 && Math.abs(breakdownSum - monthly) > 0.01) {
+      basic = Number((monthly * 0.50).toFixed(2));
+      hra = Number((monthly * 0.20).toFixed(2));
+      special_allowance = Number((monthly - basic - hra).toFixed(2));
+    }
+    const gross_earnings = monthly > 0 ? monthly : (basic + hra + special_allowance);
 
     const lop_amount = parseFloat(r.lop_amount) || 0;
     const pt = parseFloat(r.professional_tax) || 0;

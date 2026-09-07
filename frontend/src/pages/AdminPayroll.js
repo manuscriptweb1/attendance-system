@@ -217,11 +217,16 @@ const AdminPayroll = () => {
 
   const handleStatusChange = async (id, newStatus) => {
     try {
+      const targetRecord = records.find(r => r.id === id);
       const updatedRecords = records.map(r => r.id === id ? { ...r, status: newStatus } : r);
       setRecords(updatedRecords);
 
       const res = await api.patch(`/payroll/${id}/status`, { status: newStatus });
-      if (!res.data.success) {
+      if (res.data.success) {
+        const empName = targetRecord?.employeeName || 'Employee';
+        const formattedStatus = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
+        setToastConfig({ message: `Status updated to ${formattedStatus} for ${empName}`, type: 'success' });
+      } else {
         fetchPayroll();
         setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to update status', type: 'error' });
       }
@@ -428,6 +433,22 @@ const AdminPayroll = () => {
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;
+    if (name === 'monthlyEarning') {
+      const monthlyVal = parseFloat(value) || 0;
+      if (monthlyVal >= 0) {
+        const autoBasic = Number((monthlyVal * 0.50).toFixed(2));
+        const autoHra = Number((monthlyVal * 0.20).toFixed(2));
+        const autoSpecial = Number((monthlyVal - autoBasic - autoHra).toFixed(2));
+        setEditingRow(prev => ({
+          ...prev,
+          monthlyEarning: value,
+          basicSalary: autoBasic,
+          hra: autoHra,
+          specialAllowance: autoSpecial
+        }));
+        return;
+      }
+    }
     setEditingRow(prev => ({ ...prev, [name]: value }));
   };
 

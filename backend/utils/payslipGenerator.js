@@ -257,10 +257,18 @@ function renderEmployeeAndAttendanceDetails(doc, r, fonts, startY = 135) {
 function renderEarningsAndDeductions(doc, r, fonts, startY) {
   const { fontBold } = fonts;
 
-  const basic = parseFloat(r.basic_salary) || 0;
-  const hra = parseFloat(r.hra) || 0;
-  const special = parseFloat(r.special_allowance) || 0;
-  const gross = basic + hra + special;
+  const monthly = parseFloat(r.monthly_earning) || 0;
+  let basic = parseFloat(r.basic_salary) || 0;
+  let hra = parseFloat(r.hra) || 0;
+  let special = parseFloat(r.special_allowance) || 0;
+
+  const breakdownSum = Number((basic + hra + special).toFixed(2));
+  if (monthly > 0 && Math.abs(breakdownSum - monthly) > 0.01) {
+    basic = Number((monthly * 0.50).toFixed(2));
+    hra = Number((monthly * 0.20).toFixed(2));
+    special = Number((monthly - basic - hra).toFixed(2));
+  }
+  const gross = monthly > 0 ? monthly : (basic + hra + special);
 
   const lop = parseFloat(r.lop_amount) || 0;
   const pt = parseFloat(r.professional_tax) || 0;

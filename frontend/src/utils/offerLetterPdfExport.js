@@ -8,20 +8,26 @@ import jsPDF from 'jspdf';
  * @param {HTMLElement|string} container - The DOM container holding .offer-letter-page elements
  * @param {string} filename - The target filename for the downloaded PDF
  */
-export const exportOfferLetterToPdf = async (container, filename = 'Offer_Letter.pdf') => {
+export const exportOfferLetterToPdf = async (container, filename = 'Letter.pdf') => {
   let element = container;
   if (typeof container === 'string') {
     element = document.querySelector(container);
   }
 
   if (!element) {
-    throw new Error('Offer letter element not found for PDF export.');
+    throw new Error('Document element not found for PDF export.');
   }
 
-  // Find all individual offer letter page cards
-  const pages = element.querySelectorAll('.offer-letter-page');
+  // Find all individual letter page cards
+  let pages = element.querySelectorAll('.offer-letter-page, .experience-letter-page');
   if (!pages || pages.length === 0) {
-    throw new Error('No .offer-letter-page elements found.');
+    if (element.classList && (element.classList.contains('offer-letter-page') || element.classList.contains('experience-letter-page'))) {
+      pages = [element];
+    } else if (element.firstElementChild) {
+      pages = [element.firstElementChild];
+    } else {
+      pages = [element];
+    }
   }
 
   // A4 dimensions in mm: 210mm x 297mm
@@ -36,10 +42,12 @@ export const exportOfferLetterToPdf = async (container, filename = 'Offer_Letter
     const canvas = await html2canvas(pageEl, {
       scale: 2,
       useCORS: true,
-      allowTaint: true,
+      allowTaint: false,
       logging: false,
       backgroundColor: '#ffffff',
-      windowWidth: pageEl.scrollWidth || 800
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: 1200
     });
 
     const imgData = canvas.toDataURL('image/jpeg', 0.98);

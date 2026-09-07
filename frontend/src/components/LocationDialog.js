@@ -1,5 +1,6 @@
 import React from 'react';
-import { FiMapPin, FiAlertCircle, FiX } from 'react-icons/fi';
+import { Link } from 'react-router-dom';
+import { FiMapPin, FiAlertCircle, FiX, FiExternalLink } from 'react-icons/fi';
 
 const TYPE_CONFIG = {
   permission: { iconBg: 'bg-blue-100', iconColor: 'text-blue-600', btn: 'bg-[#2563EB] hover:bg-blue-700', Icon: FiMapPin },
@@ -37,12 +38,20 @@ const LocationDialog = ({ isOpen, onClose, onAllow, title, message, type = 'perm
           {type === 'error' && (
             <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-4 py-3">
               <p className="text-xs font-semibold text-[#0F172A] mb-2">How to enable location:</p>
-              <ol className="text-xs text-[#475569] space-y-1 list-decimal list-inside">
+              <ol className="text-xs text-[#475569] space-y-1 list-decimal list-inside mb-2.5">
                 <li>Click the lock icon in the address bar</li>
                 <li>Find "Location" permission</li>
                 <li>Change it to "Allow"</li>
                 <li>Refresh the page</li>
               </ol>
+              <Link 
+                to="/location-unavailable" 
+                onClick={onClose}
+                className="inline-flex items-center gap-1 text-xs text-[#2563EB] font-semibold hover:underline"
+              >
+                <span>Open troubleshooting guide</span>
+                <FiExternalLink className="text-[11px]" />
+              </Link>
             </div>
           )}
         </div>

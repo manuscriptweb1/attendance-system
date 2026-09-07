@@ -32,18 +32,39 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    // Check if server is down (502, 503, 504, or network error while user is online)
+    const currentPath = window.location.pathname;
+    const isLoginAttempt = error.config?.url?.includes('/login');
+
+    // 1. Check if server is in Maintenance Mode (503 with maintenance indicator)
+    const isMaintenance = error.response?.status === 503 && (
+      error.response?.data?.maintenance === true || 
+      error.response?.data?.errorCode === 'MAINTENANCE_MODE' ||
+      (error.response?.data?.message && error.response.data.message.toLowerCase().includes('maintenance'))
+    );
+
+    if (isMaintenance) {
+      window.dispatchEvent(new CustomEvent('showMaintenanceMode', { detail: { error } }));
+    }
+
+    // 2. Check if server is down (502, 503 non-maintenance, 504, or network error while online)
     const isServerUnreachable = 
-      (error.response && [502, 503, 504].includes(error.response.status)) ||
-      (!error.response && (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNABORTED') && navigator.onLine);
+      !isMaintenance && (
+        (error.response && [502, 503, 504].includes(error.response.status)) ||
+        (!error.response && (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNABORTED') && navigator.onLine)
+      );
 
     if (isServerUnreachable) {
       window.dispatchEvent(new CustomEvent('showServerDown', { detail: { error } }));
     }
 
-    // Only process errors if the user is not on a login page
-    const currentPath = window.location.pathname;
-    const isLoginAttempt = error.config?.url?.includes('/login');
+    // 3. Check if session has expired on authenticated requests (not during login attempts)
+    const storedToken = sessionStorage.getItem('token') || localStorage.getItem('token');
+    const isAuthExpired = error.response?.status === 401 && !isLoginAttempt && Boolean(storedToken);
+    if (isAuthExpired) {
+      window.dispatchEvent(new CustomEvent('showSessionExpired', { detail: { error } }));
+    }
+
+    // Only process error messages if the user is not on a login page
     const isValidationConflict = error.response?.status === 409 && error.response?.data?.errorCode === 'DEPARTMENT_ALREADY_EXISTS';
     const isDepartmentInactive = error.response?.status === 400 && error.response?.data?.errorCode === 'DEPARTMENT_INACTIVE';
     const isManualAttendanceConflict = error.response?.data?.errorCode && ['DUPLICATE_ATTENDANCE', 'EARLY_CHECKIN', 'EARLY_CHECKOUT', 'INVALID_TIME'].includes(error.response?.data?.errorCode);
@@ -450,9 +471,21 @@ export const exportDeveloperSimulationReport = (data, token) => api.post('/devel
 
 // PDF Template & Branding Settings APIs
 export const getBrandingSettings = () => api.get('/developer-testing/branding-settings');
-export const updateBrandingSettings = (data, token) => api.post('/developer-testing/branding-settings', data, { headers: { Authorization: `Bearer ${token}` } });
-export const resetBrandingLogo = (token) => api.post('/developer-testing/branding-settings/reset-logo', {}, { headers: { Authorization: `Bearer ${token}` } });
-export const downloadSampleBrandingPdf = (type = 'payslip', token) => api.get(`/developer-testing/branding-settings/sample-pdf?type=${type}`, { headers: { Authorization: `Bearer ${token}` }, responseType: 'blob' });
+export const updateBrandingSettings = (data, token) => {
+  const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+  return api.post('/developer-testing/branding-settings', data, config);
+};
+export const resetBrandingLogo = (token) => {
+  const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+  return api.post('/developer-testing/branding-settings/reset-logo', {}, config);
+};
+export const downloadSampleBrandingPdf = (type = 'payslip', token) => {
+  const config = {
+    responseType: 'blob',
+    ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {})
+  };
+  return api.get(`/developer-testing/branding-settings/sample-pdf?type=${type}`, config);
+};
 
 // Offer Letter APIs
 export const getOfferLetters = (params) => api.get('/offer-letters', { params });
@@ -474,6 +507,23 @@ export const getRoleTemplates = () => api.get('/offer-letters/role-templates');
 export const saveRoleTemplate = (data) => api.post('/offer-letters/role-templates', data);
 export const deleteRoleTemplate = (id) => api.delete(`/offer-letters/role-templates/${id}`);
 
+// Experience Letter APIs
+export const getExperienceLetters = (params) => api.get('/experience-letters', { params });
+export const getExperienceLetterById = (id) => api.get(`/experience-letters/${id}`);
+export const createExperienceLetter = (data) => api.post('/experience-letters', data);
+export const updateExperienceLetter = (id, data) => api.put(`/experience-letters/${id}`, data);
+export const generateExperienceLetter = (id) => api.post(`/experience-letters/${id}/generate`);
+export const deleteExperienceLetter = (id) => api.delete(`/experience-letters/${id}`);
+export const downloadExperienceLetterPdf = (id) => api.get(`/experience-letters/${id}/download`, { responseType: 'blob' });
+export const previewExperienceLetterPdf = (id) => api.get(`/experience-letters/${id}/preview`, { responseType: 'blob' });
 
-
+// Relieving Letter APIs
+export const getRelievingLetters = (params) => api.get('/relieving-letters', { params });
+export const getRelievingLetterById = (id) => api.get(`/relieving-letters/${id}`);
+export const createRelievingLetter = (data) => api.post('/relieving-letters', data);
+export const updateRelievingLetter = (id, data) => api.put(`/relieving-letters/${id}`, data);
+export const generateRelievingLetter = (id) => api.post(`/relieving-letters/${id}/generate`);
+export const deleteRelievingLetter = (id) => api.delete(`/relieving-letters/${id}`);
+export const downloadRelievingLetterPdf = (id) => api.get(`/relieving-letters/${id}/download`, { responseType: 'blob' });
+export const previewRelievingLetterPdf = (id) => api.get(`/relieving-letters/${id}/preview`, { responseType: 'blob' });
 

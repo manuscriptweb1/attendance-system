@@ -34,6 +34,8 @@ const emailRoutes = require('./routes/emailRoutes');
 const loanRoutes = require('./routes/loanRoutes');
 const developerSandboxRoutes = require('./routes/developerSandboxRoutes');
 const offerLetterRoutes = require('./routes/offerLetterRoutes');
+const experienceLetterRoutes = require('./routes/experienceLetterRoutes');
+const relievingLetterRoutes = require('./routes/relievingLetterRoutes');
 const paidLeaveRoutes = require('./routes/paidLeaveRoutes');
 
 // Import cron jobs
@@ -131,6 +133,8 @@ app.use('/api/email', emailRoutes);
 app.use('/api/loans', loanRoutes);
 app.use('/api/developer-testing', developerSandboxRoutes);
 app.use('/api/offer-letters', offerLetterRoutes);
+app.use('/api/experience-letters', experienceLetterRoutes);
+app.use('/api/relieving-letters', relievingLetterRoutes);
 app.use('/api/paid-leaves', paidLeaveRoutes);
 
 // Health check

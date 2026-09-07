@@ -13,7 +13,21 @@ import {
   previewOfferLetterPdf,
   getOfferLetterSettings,
   getRoleTemplates,
-  getAllEmployees
+  getAllEmployees,
+  getExperienceLetters,
+  createExperienceLetter,
+  updateExperienceLetter,
+  generateExperienceLetter,
+  deleteExperienceLetter,
+  downloadExperienceLetterPdf,
+  previewExperienceLetterPdf,
+  getRelievingLetters,
+  createRelievingLetter,
+  updateRelievingLetter,
+  generateRelievingLetter,
+  deleteRelievingLetter,
+  downloadRelievingLetterPdf,
+  previewRelievingLetterPdf
 } from '../services/api';
 import {
   FiPlus,
@@ -27,11 +41,20 @@ import {
   FiSettings,
   FiCheckCircle,
   FiClock,
-  FiX
+  FiX,
+  FiAward,
+  FiCheckSquare
 } from 'react-icons/fi';
 import OfferLetterSettingsModal from '../components/OfferLetterSettingsModal';
 import OfferLetterPreviewModal from '../components/OfferLetterPreviewModal';
 import OfferLetterDocument from '../components/OfferLetterDocument';
+import ExperienceLetterDocument from '../components/ExperienceLetterDocument';
+import RelievingLetterDocument from '../components/RelievingLetterDocument';
+import LetterTypeSelectModal from '../components/LetterTypeSelectModal';
+import ExperienceLetterFormModal from '../components/ExperienceLetterFormModal';
+import ExperienceLetterPreviewModal from '../components/ExperienceLetterPreviewModal';
+import RelievingLetterFormModal from '../components/RelievingLetterFormModal';
+import RelievingLetterPreviewModal from '../components/RelievingLetterPreviewModal';
 import { exportOfferLetterToPdf } from '../utils/offerLetterPdfExport';
 
 const formatINR = (value) => {
@@ -60,20 +83,55 @@ const formatDate = (dateStr) => {
 };
 
 const AdminOfferLetters = () => {
-  // State
+  // Active Main Tab: 'offer' | 'experience' | 'relieving'
+  const [activeMainTab, setActiveMainTab] = useState('offer');
+
+  // Offer Letters State
   const [offerLetters, setOfferLetters] = useState([]);
+  const [selectedOfferIds, setSelectedOfferIds] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+
+  // Experience Letters State
+  const [experienceLetters, setExperienceLetters] = useState([]);
+  const [selectedExpIds, setSelectedExpIds] = useState([]);
+  const [searchTermExp, setSearchTermExp] = useState('');
+  const [statusFilterExp, setStatusFilterExp] = useState('All');
+
+  // Relieving Letters State
+  const [relievingLetters, setRelievingLetters] = useState([]);
+  const [selectedRelIds, setSelectedRelIds] = useState([]);
+  const [searchTermRel, setSearchTermRel] = useState('');
+  const [statusFilterRel, setStatusFilterRel] = useState('All');
+
+  // Shared Data
   const [activeEmployees, setActiveEmployees] = useState([]);
   const [roleTemplates, setRoleTemplates] = useState([]);
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
 
   // Modals state
+  const [showLetterTypeModal, setShowLetterTypeModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showFormModal, setShowFormModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewOfferData, setPreviewOfferData] = useState(null);
+
+  // Experience Letter Modals State
+  const [showExpFormModal, setShowExpFormModal] = useState(false);
+  const [showExpPreviewModal, setShowExpPreviewModal] = useState(false);
+  const [previewExpData, setPreviewExpData] = useState(null);
+  const [isEditingExp, setIsEditingExp] = useState(false);
+  const [editingExpId, setEditingExpId] = useState(null);
+  const [initialExpFormData, setInitialExpFormData] = useState(null);
+
+  // Relieving Letter Modals State
+  const [showRelFormModal, setShowRelFormModal] = useState(false);
+  const [showRelPreviewModal, setShowRelPreviewModal] = useState(false);
+  const [previewRelData, setPreviewRelData] = useState(null);
+  const [isEditingRel, setIsEditingRel] = useState(false);
+  const [editingRelId, setEditingRelId] = useState(null);
+  const [initialRelFormData, setInitialRelFormData] = useState(null);
 
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -89,16 +147,17 @@ const AdminOfferLetters = () => {
     type: 'success'
   });
 
-  // Checkbox selection state
-  const [selectedOfferIds, setSelectedOfferIds] = useState([]);
-
-  // Form State
+  // Offer Form State
   const [isEditing, setIsEditing] = useState(false);
   const [editingOfferId, setEditingOfferId] = useState(null);
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [activeFormTab, setActiveFormTab] = useState('form'); // 'form' | 'preview'
   const [exportOfferData, setExportOfferData] = useState(null);
+  const [exportExpData, setExportExpData] = useState(null);
+  const [exportRelData, setExportRelData] = useState(null);
   const rowExportRef = useRef(null);
+  const rowExpExportRef = useRef(null);
+  const rowRelExportRef = useRef(null);
 
   const initialFormState = {
     employee_id: '',
@@ -160,8 +219,10 @@ const AdminOfferLetters = () => {
   const loadAllData = async () => {
     setLoading(true);
     try {
-      const [offersRes, employeesRes, templatesRes, settingsRes] = await Promise.all([
+      const [offersRes, expRes, relRes, employeesRes, templatesRes, settingsRes] = await Promise.all([
         getOfferLetters(),
+        getExperienceLetters(),
+        getRelievingLetters(),
         getAllEmployees(),
         getRoleTemplates(),
         getOfferLetterSettings()
@@ -169,6 +230,18 @@ const AdminOfferLetters = () => {
 
       if (offersRes.data?.offerLetters) {
         setOfferLetters(offersRes.data.offerLetters);
+      }
+
+      if (expRes.data?.experienceLetters) {
+        setExperienceLetters(expRes.data.experienceLetters);
+      } else if (expRes.data?.letters) {
+        setExperienceLetters(expRes.data.letters);
+      }
+
+      if (relRes.data?.relievingLetters) {
+        setRelievingLetters(relRes.data.relievingLetters);
+      } else if (relRes.data?.letters) {
+        setRelievingLetters(relRes.data.letters);
       }
 
       if (employeesRes.data?.employees) {
@@ -187,11 +260,11 @@ const AdminOfferLetters = () => {
         setSettings(settingsRes.data.settings);
       }
     } catch (err) {
-      console.error('Failed to load offer letter data:', err);
+      console.error('Failed to load letter data:', err);
       setAlertDialog({
         isOpen: true,
         title: 'Error',
-        message: 'Failed to load offer letter records.',
+        message: 'Failed to load official letter records.',
         type: 'danger'
       });
     } finally {
@@ -213,10 +286,46 @@ const AdminOfferLetters = () => {
     return matchesStatus && matchesSearch;
   });
 
+  // Filtered Experience Letters
+  const filteredExperiences = experienceLetters.filter((exp) => {
+    const matchesStatus = statusFilterExp === 'All' || exp.status === statusFilterExp;
+    const q = searchTermExp.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      exp.letter_number?.toLowerCase().includes(q) ||
+      exp.employee_name_snapshot?.toLowerCase().includes(q) ||
+      exp.employee_id_snapshot?.toLowerCase().includes(q) ||
+      exp.job_title_snapshot?.toLowerCase().includes(q);
+
+    return matchesStatus && matchesSearch;
+  });
+
+  // Filtered Relieving Letters
+  const filteredRelievings = relievingLetters.filter((rel) => {
+    const matchesStatus = statusFilterRel === 'All' || rel.status === statusFilterRel;
+    const q = searchTermRel.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      rel.letter_number?.toLowerCase().includes(q) ||
+      rel.employee_name_snapshot?.toLowerCase().includes(q) ||
+      rel.employee_id_snapshot?.toLowerCase().includes(q) ||
+      rel.job_title_snapshot?.toLowerCase().includes(q);
+
+    return matchesStatus && matchesSearch;
+  });
+
   // Calculate Metrics
   const totalOffersCount = offerLetters.length;
   const generatedOffersCount = offerLetters.filter((o) => o.status === 'Generated').length;
   const draftOffersCount = offerLetters.filter((o) => o.status === 'Draft').length;
+
+  const totalExpCount = experienceLetters.length;
+  const generatedExpCount = experienceLetters.filter((e) => e.status === 'Generated').length;
+  const draftExpCount = experienceLetters.filter((e) => e.status === 'Draft').length;
+
+  const totalRelCount = relievingLetters.length;
+  const generatedRelCount = relievingLetters.filter((r) => r.status === 'Generated').length;
+  const draftRelCount = relievingLetters.filter((r) => r.status === 'Draft').length;
 
   // eslint-disable-next-line no-control-regex
   const cleanStr = (s) =>
@@ -229,13 +338,11 @@ const AdminOfferLetters = () => {
     const cleanR = cleanStr(roleName).toLowerCase();
     if (!cleanR) return null;
 
-    // 1. Exact case-insensitive match
     let tmpl = roleTemplates.find(
       (t) => cleanStr(t.job_role).toLowerCase() === cleanR
     );
     if (tmpl) return tmpl;
 
-    // 2. Whitespace-collapsed match
     tmpl = roleTemplates.find(
       (t) =>
         cleanStr(t.job_role).toLowerCase().replace(/\s+/g, '') ===
@@ -243,7 +350,6 @@ const AdminOfferLetters = () => {
     );
     if (tmpl) return tmpl;
 
-    // 3. Substring / partial match
     tmpl = roleTemplates.find((t) => {
       const tClean = cleanStr(t.job_role).toLowerCase();
       return cleanR.includes(tClean) || tClean.includes(cleanR);
@@ -252,7 +358,7 @@ const AdminOfferLetters = () => {
     return tmpl || null;
   };
 
-  // Handle Employee Selection and Auto-fill
+  // Handle Employee Selection and Auto-fill for Offer Letter
   const handleEmployeeChange = (employeeId) => {
     const selectedEmp = activeEmployees.find((e) => e.employee_id === employeeId);
     if (!selectedEmp) {
@@ -298,7 +404,26 @@ const AdminOfferLetters = () => {
     }));
   };
 
-  // Open Create Modal
+  // Main Add / Create Letter Flow
+  const handleCreateLetterClick = () => {
+    setShowLetterTypeModal(true);
+  };
+
+  const handleSelectLetterType = (type) => {
+    setShowLetterTypeModal(false);
+    if (type === 'offer') {
+      setActiveMainTab('offer');
+      handleOpenCreateModal();
+    } else if (type === 'experience') {
+      setActiveMainTab('experience');
+      handleOpenCreateExpModal();
+    } else if (type === 'relieving') {
+      setActiveMainTab('relieving');
+      handleOpenCreateRelModal();
+    }
+  };
+
+  // Open Offer Letter Create Modal
   const handleOpenCreateModal = () => {
     setIsEditing(false);
     setEditingOfferId(null);
@@ -315,7 +440,7 @@ const AdminOfferLetters = () => {
     setShowFormModal(true);
   };
 
-  // Open Edit Modal
+  // Open Offer Letter Edit Modal
   const handleOpenEditModal = (offer) => {
     setIsEditing(true);
     setEditingOfferId(offer.id);
@@ -364,6 +489,38 @@ const AdminOfferLetters = () => {
 
     setActiveFormTab('form');
     setShowFormModal(true);
+  };
+
+  // Open Experience Letter Create Modal
+  const handleOpenCreateExpModal = () => {
+    setIsEditingExp(false);
+    setEditingExpId(null);
+    setInitialExpFormData(null);
+    setShowExpFormModal(true);
+  };
+
+  // Open Experience Letter Edit Modal
+  const handleOpenEditExpModal = (exp) => {
+    setIsEditingExp(true);
+    setEditingExpId(exp.id);
+    setInitialExpFormData(exp);
+    setShowExpFormModal(true);
+  };
+
+  // Open Relieving Letter Create Modal
+  const handleOpenCreateRelModal = () => {
+    setIsEditingRel(false);
+    setEditingRelId(null);
+    setInitialRelFormData(null);
+    setShowRelFormModal(true);
+  };
+
+  // Open Relieving Letter Edit Modal
+  const handleOpenEditRelModal = (rel) => {
+    setIsEditingRel(true);
+    setEditingRelId(rel.id);
+    setInitialRelFormData(rel);
+    setShowRelFormModal(true);
   };
 
   // Form Responsibility category and bullet edits
@@ -478,7 +635,7 @@ const AdminOfferLetters = () => {
     }
   };
 
-  // Direct Status Transition to Generated
+  // Direct Status Transition to Generated for Offer Letter
   const handleMarkAsGenerated = async (offer) => {
     try {
       await generateOfferLetter(offer.id);
@@ -562,7 +719,7 @@ const AdminOfferLetters = () => {
     });
   };
 
-  // Checkbox Selection Helpers
+  // Checkbox Selection Helpers for Offer Letters
   const isAllSelected =
     filteredOffers.length > 0 &&
     filteredOffers.every((o) => selectedOfferIds.includes(o.id));
@@ -581,7 +738,285 @@ const AdminOfferLetters = () => {
     }
   };
 
-  // Download PDF (100% Identical to Preview via direct A4 export)
+  // --- EXPERIENCE LETTER HANDLERS ---
+  const handleSaveExperienceLetter = async (payload) => {
+    try {
+      if (isEditingExp && editingExpId) {
+        await updateExperienceLetter(editingExpId, payload);
+        setAlertDialog({
+          isOpen: true,
+          title: 'Success',
+          message:
+            payload.status === 'Generated'
+              ? 'Experience Letter updated and generated successfully!'
+              : 'Experience Letter draft updated successfully!',
+          type: 'success'
+        });
+      } else {
+        await createExperienceLetter(payload);
+        setAlertDialog({
+          isOpen: true,
+          title: 'Success',
+          message:
+            payload.status === 'Generated'
+              ? 'Experience Letter generated successfully!'
+              : 'Experience Letter draft saved successfully!',
+          type: 'success'
+        });
+      }
+      setShowExpFormModal(false);
+      loadAllData();
+    } catch (err) {
+      console.error('Save experience letter error:', err);
+      setAlertDialog({
+        isOpen: true,
+        title: 'Error',
+        message: err.response?.data?.message || err.message || 'Failed to save experience letter.',
+        type: 'danger'
+      });
+      throw err;
+    }
+  };
+
+  const handleMarkExpAsGenerated = async (exp) => {
+    try {
+      await generateExperienceLetter(exp.id);
+      setAlertDialog({
+        isOpen: true,
+        title: 'Success',
+        message: `Experience Letter ${exp.letter_number} finalized and generated!`,
+        type: 'success'
+      });
+      loadAllData();
+    } catch (err) {
+      setAlertDialog({
+        isOpen: true,
+        title: 'Error',
+        message: 'Failed to generate experience letter.',
+        type: 'danger'
+      });
+    }
+  };
+
+  const handleDeleteExperience = (exp) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Experience Letter',
+      message: `Are you sure you want to delete ${exp.letter_number} for ${exp.employee_name_snapshot}? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await deleteExperienceLetter(exp.id);
+          setSelectedExpIds((prev) => prev.filter((id) => id !== exp.id));
+          setAlertDialog({
+            isOpen: true,
+            title: 'Deleted',
+            message: 'Experience letter deleted successfully.',
+            type: 'success'
+          });
+          loadAllData();
+        } catch (err) {
+          setAlertDialog({
+            isOpen: true,
+            title: 'Error',
+            message: 'Failed to delete experience letter.',
+            type: 'danger'
+          });
+        }
+      },
+      type: 'danger'
+    });
+  };
+
+  const handleDeleteSelectedExperiences = () => {
+    if (selectedExpIds.length === 0) return;
+
+    const count = selectedExpIds.length;
+    setConfirmDialog({
+      isOpen: true,
+      title: `Delete ${count} Selected Experience Letter${count > 1 ? 's' : ''}`,
+      message: `Are you sure you want to delete ${count} selected experience letter${count > 1 ? 's' : ''}? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await Promise.all(selectedExpIds.map((id) => deleteExperienceLetter(id)));
+          setSelectedExpIds([]);
+          setAlertDialog({
+            isOpen: true,
+            title: 'Deleted',
+            message: `Successfully deleted ${count} experience letter${count > 1 ? 's' : ''}.`,
+            type: 'success'
+          });
+          loadAllData();
+        } catch (err) {
+          setAlertDialog({
+            isOpen: true,
+            title: 'Error',
+            message: 'Failed to delete selected experience letters.',
+            type: 'danger'
+          });
+        }
+      },
+      type: 'danger'
+    });
+  };
+
+  const isAllExpSelected =
+    filteredExperiences.length > 0 &&
+    filteredExperiences.every((e) => selectedExpIds.includes(e.id));
+
+  const handleToggleSelectExp = (id) => {
+    setSelectedExpIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAllExp = () => {
+    if (isAllExpSelected) {
+      setSelectedExpIds([]);
+    } else {
+      setSelectedExpIds(filteredExperiences.map((e) => e.id));
+    }
+  };
+
+  // --- RELIEVING LETTER HANDLERS ---
+  const handleSaveRelievingLetter = async (payload) => {
+    try {
+      if (isEditingRel && editingRelId) {
+        await updateRelievingLetter(editingRelId, payload);
+        setAlertDialog({
+          isOpen: true,
+          title: 'Success',
+          message:
+            payload.status === 'Generated'
+              ? 'Relieving Letter updated and generated successfully!'
+              : 'Relieving Letter draft updated successfully!',
+          type: 'success'
+        });
+      } else {
+        await createRelievingLetter(payload);
+        setAlertDialog({
+          isOpen: true,
+          title: 'Success',
+          message:
+            payload.status === 'Generated'
+              ? 'Relieving Letter generated successfully!'
+              : 'Relieving Letter draft saved successfully!',
+          type: 'success'
+        });
+      }
+      setShowRelFormModal(false);
+      loadAllData();
+    } catch (err) {
+      console.error('Save relieving letter error:', err);
+      setAlertDialog({
+        isOpen: true,
+        title: 'Error',
+        message: err.response?.data?.message || err.message || 'Failed to save relieving letter.',
+        type: 'danger'
+      });
+      throw err;
+    }
+  };
+
+  const handleMarkRelAsGenerated = async (rel) => {
+    try {
+      await generateRelievingLetter(rel.id);
+      setAlertDialog({
+        isOpen: true,
+        title: 'Success',
+        message: `Relieving Letter ${rel.letter_number} finalized and generated!`,
+        type: 'success'
+      });
+      loadAllData();
+    } catch (err) {
+      setAlertDialog({
+        isOpen: true,
+        title: 'Error',
+        message: 'Failed to generate relieving letter.',
+        type: 'danger'
+      });
+    }
+  };
+
+  const handleDeleteRelieving = (rel) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Relieving Letter',
+      message: `Are you sure you want to delete ${rel.letter_number} for ${rel.employee_name_snapshot}? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await deleteRelievingLetter(rel.id);
+          setSelectedRelIds((prev) => prev.filter((id) => id !== rel.id));
+          setAlertDialog({
+            isOpen: true,
+            title: 'Deleted',
+            message: 'Relieving letter deleted successfully.',
+            type: 'success'
+          });
+          loadAllData();
+        } catch (err) {
+          setAlertDialog({
+            isOpen: true,
+            title: 'Error',
+            message: 'Failed to delete relieving letter.',
+            type: 'danger'
+          });
+        }
+      },
+      type: 'danger'
+    });
+  };
+
+  const handleDeleteSelectedRelievings = () => {
+    if (selectedRelIds.length === 0) return;
+
+    const count = selectedRelIds.length;
+    setConfirmDialog({
+      isOpen: true,
+      title: `Delete ${count} Selected Relieving Letter${count > 1 ? 's' : ''}`,
+      message: `Are you sure you want to delete ${count} selected relieving letter${count > 1 ? 's' : ''}? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await Promise.all(selectedRelIds.map((id) => deleteRelievingLetter(id)));
+          setSelectedRelIds([]);
+          setAlertDialog({
+            isOpen: true,
+            title: 'Deleted',
+            message: `Successfully deleted ${count} relieving letter${count > 1 ? 's' : ''}.`,
+            type: 'success'
+          });
+          loadAllData();
+        } catch (err) {
+          setAlertDialog({
+            isOpen: true,
+            title: 'Error',
+            message: 'Failed to delete selected relieving letters.',
+            type: 'danger'
+          });
+        }
+      },
+      type: 'danger'
+    });
+  };
+
+  const isAllRelSelected =
+    filteredRelievings.length > 0 &&
+    filteredRelievings.every((r) => selectedRelIds.includes(r.id));
+
+  const handleToggleSelectRel = (id) => {
+    setSelectedRelIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAllRel = () => {
+    if (isAllRelSelected) {
+      setSelectedRelIds([]);
+    } else {
+      setSelectedRelIds(filteredRelievings.map((r) => r.id));
+    }
+  };
+
+  // Download PDF for Offer Letter
   const handleDownloadPDF = async (offer) => {
     const safeName = (offer.employee_name_snapshot || offer.employee_name || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
     const safeOfferNum = (offer.offer_number || 'OFF').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -589,7 +1024,6 @@ const AdminOfferLetters = () => {
 
     try {
       setExportOfferData(offer);
-      // Wait for React to render hidden container
       await new Promise((resolve) => setTimeout(resolve, 200));
       if (rowExportRef.current) {
         await exportOfferLetterToPdf(rowExportRef.current, filename);
@@ -600,7 +1034,6 @@ const AdminOfferLetters = () => {
       console.warn('Direct PDF export error, fallback to server download:', exportErr);
     }
 
-    // Fallback to server download
     try {
       const response = await downloadOfferLetterPdf(offer.id);
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
@@ -624,7 +1057,89 @@ const AdminOfferLetters = () => {
     }
   };
 
-  // Print PDF
+  // Download PDF for Experience Letter
+  const handleDownloadExpPDF = async (exp) => {
+    const safeName = (exp.employee_name_snapshot || exp.employee_name || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeExpNum = (exp.letter_number || 'EXP').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `Experience_Letter_${safeName}_${safeExpNum}.pdf`;
+
+    try {
+      setExportExpData(exp);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      if (rowExpExportRef.current) {
+        await exportOfferLetterToPdf(rowExpExportRef.current, filename);
+        setExportExpData(null);
+        return;
+      }
+    } catch (exportErr) {
+      console.warn('Direct PDF export error for experience letter, fallback to server download:', exportErr);
+    }
+
+    try {
+      const response = await downloadExperienceLetterPdf(exp.id);
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download experience letter error:', err);
+      setAlertDialog({
+        isOpen: true,
+        title: 'Download Failed',
+        message: 'Failed to export Experience Letter PDF.',
+        type: 'danger'
+      });
+    } finally {
+      setExportExpData(null);
+    }
+  };
+
+  // Download PDF for Relieving Letter
+  const handleDownloadRelPDF = async (rel) => {
+    const safeName = (rel.employee_name_snapshot || rel.employee_name || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeRelNum = (rel.letter_number || 'REL').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `Relieving_Letter_${safeName}_${safeRelNum}.pdf`;
+
+    try {
+      setExportRelData(rel);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      if (rowRelExportRef.current) {
+        await exportOfferLetterToPdf(rowRelExportRef.current, filename);
+        setExportRelData(null);
+        return;
+      }
+    } catch (exportErr) {
+      console.warn('Direct PDF export error for relieving letter, fallback to server download:', exportErr);
+    }
+
+    try {
+      const response = await downloadRelievingLetterPdf(rel.id);
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download relieving letter error:', err);
+      setAlertDialog({
+        isOpen: true,
+        title: 'Download Failed',
+        message: 'Failed to export Relieving Letter PDF.',
+        type: 'danger'
+      });
+    } finally {
+      setExportRelData(null);
+    }
+  };
+
+  // Print PDF for Offer Letter
   const handlePrintOffer = async (offer) => {
     try {
       const response = await previewOfferLetterPdf(offer.id);
@@ -646,10 +1161,32 @@ const AdminOfferLetters = () => {
     }
   };
 
+  // Print for Experience Letter (Opens preview modal with print triggered)
+  const handlePrintExp = (exp) => {
+    setPreviewExpData(exp);
+    setShowExpPreviewModal(true);
+  };
+
+  // Print for Relieving Letter (Opens preview modal with print triggered)
+  const handlePrintRel = (rel) => {
+    setPreviewRelData(rel);
+    setShowRelPreviewModal(true);
+  };
+
   // Open Preview Modal
   const handleOpenPreview = (offer) => {
     setPreviewOfferData(offer);
     setShowPreviewModal(true);
+  };
+
+  const handleOpenExpPreview = (exp) => {
+    setPreviewExpData(exp);
+    setShowExpPreviewModal(true);
+  };
+
+  const handleOpenRelPreview = (rel) => {
+    setPreviewRelData(rel);
+    setShowRelPreviewModal(true);
   };
 
   return (
@@ -663,14 +1200,20 @@ const AdminOfferLetters = () => {
             <div>
               <div className="flex items-center gap-2">
                 <span className="p-2 rounded-xl bg-admin-accent/15 text-admin-accent font-bold">
-                  <FiFileText size={20} />
+                  {activeMainTab === 'offer' ? (
+                    <FiFileText size={20} />
+                  ) : activeMainTab === 'experience' ? (
+                    <FiAward size={20} />
+                  ) : (
+                    <FiCheckSquare size={20} />
+                  )}
                 </span>
                 <h1 className="text-xl sm:text-2xl font-black text-admin-text tracking-tight">
-                  Offer Letters
+                  Letters & Certificates
                 </h1>
               </div>
               <p className="text-xs sm:text-sm text-admin-secondary mt-1">
-                Dynamic 5-page offer letter generator with independent branding & historical snapshots
+                Official Letter Generation, Settings, and Historical Snapshots
               </p>
             </div>
 
@@ -678,31 +1221,115 @@ const AdminOfferLetters = () => {
               <button
                 onClick={() => setShowSettingsModal(true)}
                 className="px-3.5 py-2.5 rounded-xl bg-admin-surface hover:bg-admin-elevated border border-admin-border text-admin-text text-xs font-bold transition-all flex items-center gap-2 shadow-sm cursor-pointer"
-                title="Offer Letter Settings & Templates"
+                title="Letter Settings, Company Branding & Role Templates"
               >
                 <FiSettings size={15} className="text-admin-accent" />
-                <span>Settings</span>
+                <span>Letter Settings</span>
               </button>
 
               <button
-                onClick={handleOpenCreateModal}
+                onClick={handleCreateLetterClick}
                 className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-admin-accent to-admin-accent2 text-white text-xs font-extrabold transition-all shadow-lg shadow-admin-accent/25 hover:opacity-95 flex items-center gap-2 cursor-pointer"
               >
                 <FiPlus size={16} />
-                <span>Create Offer Letter</span>
+                <span>Create Letter</span>
               </button>
             </div>
+          </div>
+
+          {/* TAB SWITCHER: OFFER LETTERS vs EXPERIENCE LETTERS vs RELIEVING LETTERS */}
+          <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-admin-surface border border-admin-border shadow-sm w-fit">
+            <button
+              onClick={() => setActiveMainTab('offer')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeMainTab === 'offer'
+                  ? 'bg-admin-accent text-white shadow-md shadow-admin-accent/20'
+                  : 'text-admin-secondary hover:text-admin-text hover:bg-admin-elevated/60'
+              }`}
+            >
+              <FiFileText size={15} />
+              <span>Offer Letters</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                  activeMainTab === 'offer'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-admin-bg text-admin-muted'
+                }`}
+              >
+                {totalOffersCount}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveMainTab('experience')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeMainTab === 'experience'
+                  ? 'bg-admin-accent text-white shadow-md shadow-admin-accent/20'
+                  : 'text-admin-secondary hover:text-admin-text hover:bg-admin-elevated/60'
+              }`}
+            >
+              <FiAward size={15} />
+              <span>Experience Letters</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                  activeMainTab === 'experience'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-admin-bg text-admin-muted'
+                }`}
+              >
+                {totalExpCount}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveMainTab('relieving')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeMainTab === 'relieving'
+                  ? 'bg-admin-accent text-white shadow-md shadow-admin-accent/20'
+                  : 'text-admin-secondary hover:text-admin-text hover:bg-admin-elevated/60'
+              }`}
+            >
+              <FiCheckSquare size={15} />
+              <span>Relieving Letters</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                  activeMainTab === 'relieving'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-admin-bg text-admin-muted'
+                }`}
+              >
+                {totalRelCount}
+              </span>
+            </button>
           </div>
 
           {/* Stat Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-4 rounded-2xl bg-admin-surface border border-admin-border shadow-sm flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 font-bold">
-                <FiFileText size={22} />
+                {activeMainTab === 'offer' ? (
+                  <FiFileText size={22} />
+                ) : activeMainTab === 'experience' ? (
+                  <FiAward size={22} />
+                ) : (
+                  <FiCheckSquare size={22} />
+                )}
               </div>
               <div>
-                <p className="text-xs font-semibold text-admin-muted uppercase tracking-wider">Total Offers</p>
-                <p className="text-2xl font-black text-admin-text mt-0.5">{totalOffersCount}</p>
+                <p className="text-xs font-semibold text-admin-muted uppercase tracking-wider">
+                  {activeMainTab === 'offer'
+                    ? 'Total Offers'
+                    : activeMainTab === 'experience'
+                    ? 'Total Experience Letters'
+                    : 'Total Relieving Letters'}
+                </p>
+                <p className="text-2xl font-black text-admin-text mt-0.5">
+                  {activeMainTab === 'offer'
+                    ? totalOffersCount
+                    : activeMainTab === 'experience'
+                    ? totalExpCount
+                    : totalRelCount}
+                </p>
               </div>
             </div>
 
@@ -712,7 +1339,13 @@ const AdminOfferLetters = () => {
               </div>
               <div>
                 <p className="text-xs font-semibold text-admin-muted uppercase tracking-wider">Generated</p>
-                <p className="text-2xl font-black text-admin-text mt-0.5">{generatedOffersCount}</p>
+                <p className="text-2xl font-black text-admin-text mt-0.5">
+                  {activeMainTab === 'offer'
+                    ? generatedOffersCount
+                    : activeMainTab === 'experience'
+                    ? generatedExpCount
+                    : generatedRelCount}
+                </p>
               </div>
             </div>
 
@@ -722,7 +1355,13 @@ const AdminOfferLetters = () => {
               </div>
               <div>
                 <p className="text-xs font-semibold text-admin-muted uppercase tracking-wider">Drafts</p>
-                <p className="text-2xl font-black text-admin-text mt-0.5">{draftOffersCount}</p>
+                <p className="text-2xl font-black text-admin-text mt-0.5">
+                  {activeMainTab === 'offer'
+                    ? draftOffersCount
+                    : activeMainTab === 'experience'
+                    ? draftExpCount
+                    : draftRelCount}
+                </p>
               </div>
             </div>
           </div>
@@ -733,9 +1372,25 @@ const AdminOfferLetters = () => {
               <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-admin-muted" size={15} />
               <input
                 type="text"
-                placeholder="Search by candidate name, code, offer # or job title..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={
+                  activeMainTab === 'offer'
+                    ? 'Search offer letters by candidate name, code, offer # or job title...'
+                    : activeMainTab === 'experience'
+                    ? 'Search experience letters by employee name, ID, letter # or role...'
+                    : 'Search relieving letters by employee name, ID, letter # or role...'
+                }
+                value={
+                  activeMainTab === 'offer'
+                    ? searchTerm
+                    : activeMainTab === 'experience'
+                    ? searchTermExp
+                    : searchTermRel
+                }
+                onChange={(e) => {
+                  if (activeMainTab === 'offer') setSearchTerm(e.target.value);
+                  else if (activeMainTab === 'experience') setSearchTermExp(e.target.value);
+                  else setSearchTermRel(e.target.value);
+                }}
                 className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-admin-bg border border-admin-border text-admin-text placeholder:text-admin-muted focus:outline-none focus:border-admin-accent transition-colors"
               />
             </div>
@@ -746,9 +1401,17 @@ const AdminOfferLetters = () => {
                 {['All', 'Generated', 'Draft'].map((st) => (
                   <button
                     key={st}
-                    onClick={() => setStatusFilter(st)}
+                    onClick={() => {
+                      if (activeMainTab === 'offer') setStatusFilter(st);
+                      else if (activeMainTab === 'experience') setStatusFilterExp(st);
+                      else setStatusFilterRel(st);
+                    }}
                     className={`px-3 py-1 rounded-lg font-semibold transition-colors ${
-                      statusFilter === st
+                      (activeMainTab === 'offer'
+                        ? statusFilter
+                        : activeMainTab === 'experience'
+                        ? statusFilterExp
+                        : statusFilterRel) === st
                         ? 'bg-admin-accent text-white'
                         : 'text-admin-secondary hover:text-admin-text'
                     }`}
@@ -760,245 +1423,741 @@ const AdminOfferLetters = () => {
             </div>
           </div>
 
-          {/* Active Selection Banner (Visible when any checkbox is selected) */}
-          {selectedOfferIds.length > 0 && (
-            <div className="p-3 px-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between animate-fade-in shadow-sm">
-              <div className="flex items-center gap-2.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
-                <p className="text-xs font-bold text-rose-500 dark:text-rose-400">
-                  {selectedOfferIds.length} offer letter{selectedOfferIds.length > 1 ? 's' : ''} selected
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedOfferIds([])}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-admin-bg border border-admin-border text-admin-secondary hover:text-admin-text transition-colors"
-                >
-                  Clear Selection
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteSelectedOffers}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20 transition-all"
-                >
-                  <FiTrash2 size={13} />
-                  Delete Selected ({selectedOfferIds.length})
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Offers Table */}
-          <div className="bg-admin-surface border border-admin-border rounded-2xl shadow-sm overflow-hidden">
-            {loading ? (
-              <div className="p-16 flex flex-col items-center justify-center gap-3">
-                <Spinner />
-                <p className="text-xs font-medium text-admin-muted">Loading offer letters...</p>
-              </div>
-            ) : filteredOffers.length === 0 ? (
-              <div className="p-16 text-center space-y-3">
-                <div className="w-14 h-14 rounded-2xl bg-admin-elevated text-admin-muted mx-auto flex items-center justify-center">
-                  <FiFileText size={26} />
+          {/* TAB 1: OFFER LETTERS VIEW */}
+          {activeMainTab === 'offer' && (
+            <>
+              {/* Active Selection Banner for Offer Letters */}
+              {selectedOfferIds.length > 0 && (
+                <div className="p-3 px-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between animate-fade-in shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
+                    <p className="text-xs font-bold text-rose-500 dark:text-rose-400">
+                      {selectedOfferIds.length} offer letter{selectedOfferIds.length > 1 ? 's' : ''} selected
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedOfferIds([])}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-admin-bg border border-admin-border text-admin-secondary hover:text-admin-text transition-colors"
+                    >
+                      Clear Selection
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteSelectedOffers}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20 transition-all"
+                    >
+                      <FiTrash2 size={13} />
+                      Delete Selected ({selectedOfferIds.length})
+                    </button>
+                  </div>
                 </div>
-                <p className="text-sm font-bold text-admin-text">No Offer Letters Found</p>
-                <p className="text-xs text-admin-muted max-w-sm mx-auto">
-                  {searchTerm || statusFilter !== 'All'
-                    ? 'No records match your filters. Try clearing the search query.'
-                    : 'Get started by creating the first offer letter for an active employee.'}
-                </p>
-                {!searchTerm && statusFilter === 'All' && (
-                  <button
-                    onClick={handleOpenCreateModal}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-admin-accent text-white text-xs font-bold hover:opacity-90 shadow-md transition-all mt-2"
-                  >
-                    <FiPlus size={14} />
-                    Create First Offer Letter
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-admin-border bg-admin-bg/60 text-[11px] font-extrabold uppercase tracking-wider text-admin-secondary">
-                      <th className="py-3 px-4 w-10 text-center">
-                        <input
-                          type="checkbox"
-                          checked={isAllSelected}
-                          onChange={handleToggleSelectAll}
-                          className="w-4 h-4 rounded text-admin-accent focus:ring-admin-accent cursor-pointer accent-admin-accent"
-                          title="Select / Deselect All"
-                        />
-                      </th>
-                      <th className="py-3 px-4">Offer #</th>
-                      <th className="py-3 px-4">Candidate / Employee</th>
-                      <th className="py-3 px-4">Position & Dept</th>
-                      <th className="py-3 px-4">Offer Date</th>
-                      <th className="py-3 px-4">Joining Date</th>
-                      <th className="py-3 px-4">Monthly Salary</th>
-                      <th className="py-3 px-4">Status</th>
-                      <th className="py-3 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-admin-border text-xs">
-                    {filteredOffers.map((offer) => {
-                      const isGen = offer.status === 'Generated';
-                      const isSelected = selectedOfferIds.includes(offer.id);
-                      return (
-                        <tr
-                          key={offer.id}
-                          className={`transition-colors group ${
-                            isSelected
-                              ? 'bg-rose-500/10 dark:bg-rose-500/15'
-                              : 'hover:bg-admin-elevated/40'
-                          }`}
-                        >
-                          {/* Row Checkbox */}
-                          <td className="py-3.5 px-4 text-center">
+              )}
+
+              {/* Offer Letters Table */}
+              <div className="bg-admin-surface border border-admin-border rounded-2xl shadow-sm overflow-hidden">
+                {loading ? (
+                  <div className="p-16 flex flex-col items-center justify-center gap-3">
+                    <Spinner />
+                    <p className="text-xs font-medium text-admin-muted">Loading offer letters...</p>
+                  </div>
+                ) : filteredOffers.length === 0 ? (
+                  <div className="p-16 text-center space-y-3">
+                    <div className="w-14 h-14 rounded-2xl bg-admin-elevated text-admin-muted mx-auto flex items-center justify-center">
+                      <FiFileText size={26} />
+                    </div>
+                    <p className="text-sm font-bold text-admin-text">No Offer Letters Found</p>
+                    <p className="text-xs text-admin-muted max-w-sm mx-auto">
+                      {searchTerm || statusFilter !== 'All'
+                        ? 'No records match your filters. Try clearing the search query.'
+                        : 'Get started by creating the first offer letter for an active employee.'}
+                    </p>
+                    {!searchTerm && statusFilter === 'All' && (
+                      <button
+                        onClick={handleOpenCreateModal}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-admin-accent text-white text-xs font-bold hover:opacity-90 shadow-md transition-all mt-2"
+                      >
+                        <FiPlus size={14} />
+                        Create First Offer Letter
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-admin-border bg-admin-bg/60 text-[11px] font-extrabold uppercase tracking-wider text-admin-secondary">
+                          <th className="py-3 px-4 w-10 text-center">
                             <input
                               type="checkbox"
-                              checked={isSelected}
-                              onChange={() => handleToggleSelectOffer(offer.id)}
+                              checked={isAllSelected}
+                              onChange={handleToggleSelectAll}
                               className="w-4 h-4 rounded text-admin-accent focus:ring-admin-accent cursor-pointer accent-admin-accent"
+                              title="Select / Deselect All"
                             />
-                          </td>
-
-                          {/* Offer Number */}
-                          <td className="py-3.5 px-4 font-mono font-bold text-admin-accent">
-                            {offer.offer_number}
-                          </td>
-
-                          {/* Candidate Name & Code */}
-                          <td className="py-3.5 px-4">
-                            <div>
-                              <p className="font-bold text-admin-text leading-tight">
-                                {offer.employee_name_snapshot}
-                              </p>
-                              <p className="text-[11px] text-admin-muted font-mono mt-0.5">
-                                {offer.employee_id_snapshot}
-                              </p>
-                            </div>
-                          </td>
-
-                          {/* Job Title & Department */}
-                          <td className="py-3.5 px-4">
-                            <div>
-                              <p className="font-semibold text-admin-text leading-tight">
-                                {offer.job_title_snapshot}
-                              </p>
-                              <p className="text-[11px] text-admin-muted mt-0.5">
-                                {offer.department_snapshot || 'General'}
-                              </p>
-                            </div>
-                          </td>
-
-                          {/* Offer Date */}
-                          <td className="py-3.5 px-4 text-admin-secondary whitespace-nowrap">
-                            {formatDate(offer.offer_date)}
-                          </td>
-
-                          {/* Joining Date */}
-                          <td className="py-3.5 px-4 font-medium text-admin-text whitespace-nowrap">
-                            {formatDate(offer.joining_date)}
-                          </td>
-
-                          {/* Salary */}
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            <span className="font-bold text-admin-text">
-                              {formatINR(offer.monthly_salary)}
-                            </span>
-                            <span className="text-[10px] text-admin-muted ml-1">/ mo</span>
-                          </td>
-
-                          {/* Status Badge */}
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            <span
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                                isGen
-                                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                                  : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                          </th>
+                          <th className="py-3 px-4">Offer #</th>
+                          <th className="py-3 px-4">Candidate / Employee</th>
+                          <th className="py-3 px-4">Position & Dept</th>
+                          <th className="py-3 px-4">Offer Date</th>
+                          <th className="py-3 px-4">Joining Date</th>
+                          <th className="py-3 px-4">Monthly Salary</th>
+                          <th className="py-3 px-4">Status</th>
+                          <th className="py-3 px-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-admin-border text-xs">
+                        {filteredOffers.map((offer) => {
+                          const isGen = offer.status === 'Generated';
+                          const isSelected = selectedOfferIds.includes(offer.id);
+                          return (
+                            <tr
+                              key={offer.id}
+                              className={`transition-colors group ${
+                                isSelected
+                                  ? 'bg-rose-500/10 dark:bg-rose-500/15'
+                                  : 'hover:bg-admin-elevated/40'
                               }`}
                             >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  isGen ? 'bg-emerald-500' : 'bg-amber-500'
-                                }`}
-                              />
-                              {offer.status}
-                            </span>
-                          </td>
+                              {/* Row Checkbox */}
+                              <td className="py-3.5 px-4 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleToggleSelectOffer(offer.id)}
+                                  className="w-4 h-4 rounded text-admin-accent focus:ring-admin-accent cursor-pointer accent-admin-accent"
+                                />
+                              </td>
 
-                          {/* Actions */}
-                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {/* Preview */}
-                              <button
-                                onClick={() => handleOpenPreview(offer)}
-                                className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-text hover:bg-admin-elevated transition-colors"
-                                title="Interactive Preview"
-                              >
-                                <FiEye size={15} />
-                              </button>
+                              {/* Offer Number */}
+                              <td className="py-3.5 px-4 font-mono font-bold text-admin-accent">
+                                {offer.offer_number}
+                              </td>
 
-                              {/* Download PDF */}
-                              <button
-                                onClick={() => handleDownloadPDF(offer)}
-                                className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-text hover:bg-admin-elevated transition-colors"
-                                title="Download PDF"
-                              >
-                                <FiDownload size={15} />
-                              </button>
+                              {/* Candidate Name & Code */}
+                              <td className="py-3.5 px-4">
+                                <div>
+                                  <p className="font-bold text-admin-text leading-tight">
+                                    {offer.employee_name_snapshot}
+                                  </p>
+                                  <p className="text-[11px] text-admin-muted font-mono mt-0.5">
+                                    {offer.employee_id_snapshot}
+                                  </p>
+                                </div>
+                              </td>
 
-                              {/* Print */}
-                              <button
-                                onClick={() => handlePrintOffer(offer)}
-                                className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-text hover:bg-admin-elevated transition-colors"
-                                title="Print Offer Letter"
-                              >
-                                <FiPrinter size={15} />
-                              </button>
+                              {/* Job Title & Department */}
+                              <td className="py-3.5 px-4">
+                                <div>
+                                  <p className="font-semibold text-admin-text leading-tight">
+                                    {offer.job_title_snapshot}
+                                  </p>
+                                  <p className="text-[11px] text-admin-muted mt-0.5">
+                                    {offer.department_snapshot || 'General'}
+                                  </p>
+                                </div>
+                              </td>
 
-                              {/* Edit (if Draft) */}
-                              <button
-                                onClick={() => handleOpenEditModal(offer)}
-                                className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-accent hover:bg-admin-accent/10 transition-colors"
-                                title={isGen ? 'View / Edit Offer Details' : 'Edit Draft'}
-                              >
-                                <FiEdit size={15} />
-                              </button>
+                              {/* Offer Date */}
+                              <td className="py-3.5 px-4 text-admin-secondary whitespace-nowrap">
+                                {formatDate(offer.offer_date)}
+                              </td>
 
-                              {/* Quick Finalize / Generate if Draft */}
-                              {!isGen && (
-                                <button
-                                  onClick={() => handleMarkAsGenerated(offer)}
-                                  className="p-1.5 rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-colors"
-                                  title="Mark as Generated"
+                              {/* Joining Date */}
+                              <td className="py-3.5 px-4 font-medium text-admin-text whitespace-nowrap">
+                                {formatDate(offer.joining_date)}
+                              </td>
+
+                              {/* Salary */}
+                              <td className="py-3.5 px-4 whitespace-nowrap">
+                                <span className="font-bold text-admin-text">
+                                  {formatINR(offer.monthly_salary)}
+                                </span>
+                                <span className="text-[10px] text-admin-muted ml-1">/ mo</span>
+                              </td>
+
+                              {/* Status Badge */}
+                              <td className="py-3.5 px-4 whitespace-nowrap">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                                    isGen
+                                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                                  }`}
                                 >
-                                  <FiCheckCircle size={15} />
-                                </button>
-                              )}
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      isGen ? 'bg-emerald-500' : 'bg-amber-500'
+                                    }`}
+                                  />
+                                  {offer.status}
+                                </span>
+                              </td>
 
-                              {/* Delete (Only visible if this offer letter is selected by checkbox) */}
-                              {isSelected && (
-                                <button
-                                  onClick={() => handleDeleteOffer(offer)}
-                                  className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors animate-fade-in"
-                                  title="Delete Selected Offer"
-                                >
-                                  <FiTrash2 size={15} />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                              {/* Actions */}
+                              <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {/* Preview */}
+                                  <button
+                                    onClick={() => handleOpenPreview(offer)}
+                                    className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-text hover:bg-admin-elevated transition-colors"
+                                    title="Interactive Preview"
+                                  >
+                                    <FiEye size={15} />
+                                  </button>
+
+                                  {/* Download PDF */}
+                                  <button
+                                    onClick={() => handleDownloadPDF(offer)}
+                                    className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-text hover:bg-admin-elevated transition-colors"
+                                    title="Download PDF"
+                                  >
+                                    <FiDownload size={15} />
+                                  </button>
+
+                                  {/* Print */}
+                                  <button
+                                    onClick={() => handlePrintOffer(offer)}
+                                    className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-text hover:bg-admin-elevated transition-colors"
+                                    title="Print Offer Letter"
+                                  >
+                                    <FiPrinter size={15} />
+                                  </button>
+
+                                  {/* Edit (if Draft) */}
+                                  <button
+                                    onClick={() => handleOpenEditModal(offer)}
+                                    className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-accent hover:bg-admin-accent/10 transition-colors"
+                                    title={isGen ? 'View / Edit Offer Details' : 'Edit Draft'}
+                                  >
+                                    <FiEdit size={15} />
+                                  </button>
+
+                                  {/* Quick Finalize / Generate if Draft */}
+                                  {!isGen && (
+                                    <button
+                                      onClick={() => handleMarkAsGenerated(offer)}
+                                      className="p-1.5 rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                                      title="Mark as Generated"
+                                    >
+                                      <FiCheckCircle size={15} />
+                                    </button>
+                                  )}
+
+                                  {/* Delete (Only visible if this offer letter is selected by checkbox) */}
+                                  {isSelected && (
+                                    <button
+                                      onClick={() => handleDeleteOffer(offer)}
+                                      className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors animate-fade-in"
+                                      title="Delete Selected Offer"
+                                    >
+                                      <FiTrash2 size={15} />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
+
+          {/* TAB 2: EXPERIENCE LETTERS VIEW */}
+          {activeMainTab === 'experience' && (
+            <>
+              {/* Active Selection Banner for Experience Letters */}
+              {selectedExpIds.length > 0 && (
+                <div className="p-3 px-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between animate-fade-in shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
+                    <p className="text-xs font-bold text-rose-500 dark:text-rose-400">
+                      {selectedExpIds.length} experience letter{selectedExpIds.length > 1 ? 's' : ''} selected
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedExpIds([])}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-admin-bg border border-admin-border text-admin-secondary hover:text-admin-text transition-colors"
+                    >
+                      Clear Selection
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteSelectedExperiences}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20 transition-all"
+                    >
+                      <FiTrash2 size={13} />
+                      Delete Selected ({selectedExpIds.length})
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Experience Letters Table */}
+              <div className="bg-admin-surface border border-admin-border rounded-2xl shadow-sm overflow-hidden">
+                {loading ? (
+                  <div className="p-16 flex flex-col items-center justify-center gap-3">
+                    <Spinner />
+                    <p className="text-xs font-medium text-admin-muted">Loading experience letters...</p>
+                  </div>
+                ) : filteredExperiences.length === 0 ? (
+                  <div className="p-16 text-center space-y-3">
+                    <div className="w-14 h-14 rounded-2xl bg-admin-elevated text-admin-muted mx-auto flex items-center justify-center">
+                      <FiAward size={26} />
+                    </div>
+                    <p className="text-sm font-bold text-admin-text">No Experience Letters Found</p>
+                    <p className="text-xs text-admin-muted max-w-sm mx-auto">
+                      {searchTermExp || statusFilterExp !== 'All'
+                        ? 'No records match your filters. Try clearing the search query.'
+                        : 'Generate official experience certificates for employees with auto-filled salary in words and role work summary.'}
+                    </p>
+                    {!searchTermExp && statusFilterExp === 'All' && (
+                      <button
+                        onClick={handleOpenCreateExpModal}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-admin-accent text-white text-xs font-bold hover:opacity-90 shadow-md transition-all mt-2 cursor-pointer"
+                      >
+                        <FiPlus size={14} />
+                        Create First Experience Letter
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-admin-border bg-admin-bg/60 text-[11px] font-extrabold uppercase tracking-wider text-admin-secondary">
+                          <th className="py-3 px-4 w-10 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isAllExpSelected}
+                              onChange={handleToggleSelectAllExp}
+                              className="w-4 h-4 rounded text-admin-accent focus:ring-admin-accent cursor-pointer accent-admin-accent"
+                              title="Select / Deselect All"
+                            />
+                          </th>
+                          <th className="py-3 px-4">Letter #</th>
+                          <th className="py-3 px-4">Employee</th>
+                          <th className="py-3 px-4">Position & Dept</th>
+                          <th className="py-3 px-4">Issue Date</th>
+                          <th className="py-3 px-4">Tenure (Joining ➔ Relieving)</th>
+                          <th className="py-3 px-4">Monthly Salary</th>
+                          <th className="py-3 px-4">Status</th>
+                          <th className="py-3 px-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-admin-border text-xs">
+                        {filteredExperiences.map((exp) => {
+                          const isGen = exp.status === 'Generated';
+                          const isSelected = selectedExpIds.includes(exp.id);
+                          return (
+                            <tr
+                              key={exp.id}
+                              className={`transition-colors group ${
+                                isSelected
+                                  ? 'bg-rose-500/10 dark:bg-rose-500/15'
+                                  : 'hover:bg-admin-elevated/40'
+                              }`}
+                            >
+                              {/* Row Checkbox */}
+                              <td className="py-3.5 px-4 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleToggleSelectExp(exp.id)}
+                                  className="w-4 h-4 rounded text-admin-accent focus:ring-admin-accent cursor-pointer accent-admin-accent"
+                                />
+                              </td>
+
+                              {/* Letter Number */}
+                              <td className="py-3.5 px-4 font-mono font-bold text-admin-accent">
+                                {exp.letter_number}
+                              </td>
+
+                              {/* Employee Name & Code */}
+                              <td className="py-3.5 px-4">
+                                <div>
+                                  <p className="font-bold text-admin-text leading-tight">
+                                    {exp.employee_name_snapshot}
+                                  </p>
+                                  <p className="text-[11px] text-admin-muted font-mono mt-0.5">
+                                    {exp.employee_id_snapshot}
+                                  </p>
+                                </div>
+                              </td>
+
+                              {/* Job Title & Department */}
+                              <td className="py-3.5 px-4">
+                                <div>
+                                  <p className="font-semibold text-admin-text leading-tight">
+                                    {exp.job_title_snapshot}
+                                  </p>
+                                  <p className="text-[11px] text-admin-muted mt-0.5">
+                                    {exp.department_snapshot || 'General'}
+                                  </p>
+                                </div>
+                              </td>
+
+                              {/* Issue Date */}
+                              <td className="py-3.5 px-4 text-admin-secondary whitespace-nowrap">
+                                {formatDate(exp.issue_date)}
+                              </td>
+
+                              {/* Tenure */}
+                              <td className="py-3.5 px-4 font-medium text-admin-text whitespace-nowrap">
+                                <div className="text-[11px]">
+                                  <span>{formatDate(exp.joining_date)}</span>
+                                  <span className="text-admin-muted mx-1">➔</span>
+                                  <span className="font-bold text-admin-accent">{formatDate(exp.relieving_date)}</span>
+                                </div>
+                              </td>
+
+                              {/* Salary */}
+                              <td className="py-3.5 px-4 whitespace-nowrap">
+                                <span className="font-bold text-admin-text">
+                                  {formatINR(exp.monthly_salary)}
+                                </span>
+                                <span className="text-[10px] text-admin-muted ml-1">/ mo</span>
+                              </td>
+
+                              {/* Status Badge */}
+                              <td className="py-3.5 px-4 whitespace-nowrap">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                                    isGen
+                                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                                  }`}
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      isGen ? 'bg-emerald-500' : 'bg-amber-500'
+                                    }`}
+                                  />
+                                  {exp.status}
+                                </span>
+                              </td>
+
+                              {/* Actions */}
+                              <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {/* Preview */}
+                                  <button
+                                    onClick={() => handleOpenExpPreview(exp)}
+                                    className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-text hover:bg-admin-elevated transition-colors"
+                                    title="Interactive Preview"
+                                  >
+                                    <FiEye size={15} />
+                                  </button>
+
+                                  {/* Download PDF */}
+                                  <button
+                                    onClick={() => handleDownloadExpPDF(exp)}
+                                    className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-text hover:bg-admin-elevated transition-colors"
+                                    title="Download PDF"
+                                  >
+                                    <FiDownload size={15} />
+                                  </button>
+
+                                  {/* Print */}
+                                  <button
+                                    onClick={() => handlePrintExp(exp)}
+                                    className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-text hover:bg-admin-elevated transition-colors"
+                                    title="Print Experience Letter"
+                                  >
+                                    <FiPrinter size={15} />
+                                  </button>
+
+                                  {/* Edit (if Draft) */}
+                                  <button
+                                    onClick={() => handleOpenEditExpModal(exp)}
+                                    className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-accent hover:bg-admin-accent/10 transition-colors"
+                                    title={isGen ? 'View / Edit Experience Details' : 'Edit Draft'}
+                                  >
+                                    <FiEdit size={15} />
+                                  </button>
+
+                                  {/* Quick Finalize / Generate if Draft */}
+                                  {!isGen && (
+                                    <button
+                                      onClick={() => handleMarkExpAsGenerated(exp)}
+                                      className="p-1.5 rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                                      title="Mark as Generated"
+                                    >
+                                      <FiCheckCircle size={15} />
+                                    </button>
+                                  )}
+
+                                  {/* Delete (Only visible if this letter is selected by checkbox) */}
+                                  {isSelected && (
+                                    <button
+                                      onClick={() => handleDeleteExperience(exp)}
+                                      className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors animate-fade-in"
+                                      title="Delete Selected Experience Letter"
+                                    >
+                                      <FiTrash2 size={15} />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* TAB 3: RELIEVING LETTERS VIEW */}
+          {activeMainTab === 'relieving' && (
+            <>
+              {/* Active Selection Banner for Relieving Letters */}
+              {selectedRelIds.length > 0 && (
+                <div className="p-3 px-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between animate-fade-in shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
+                    <p className="text-xs font-bold text-rose-500 dark:text-rose-400">
+                      {selectedRelIds.length} relieving letter{selectedRelIds.length > 1 ? 's' : ''} selected
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRelIds([])}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-admin-bg border border-admin-border text-admin-secondary hover:text-admin-text transition-colors"
+                    >
+                      Clear Selection
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteSelectedRelievings}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20 transition-all"
+                    >
+                      <FiTrash2 size={13} />
+                      Delete Selected ({selectedRelIds.length})
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Relieving Letters Table */}
+              <div className="bg-admin-surface border border-admin-border rounded-2xl shadow-sm overflow-hidden">
+                {loading ? (
+                  <div className="p-16 flex flex-col items-center justify-center gap-3">
+                    <Spinner />
+                    <p className="text-xs font-medium text-admin-muted">Loading relieving letters...</p>
+                  </div>
+                ) : filteredRelievings.length === 0 ? (
+                  <div className="p-16 text-center space-y-3">
+                    <div className="w-14 h-14 rounded-2xl bg-admin-elevated text-admin-muted mx-auto flex items-center justify-center">
+                      <FiCheckSquare size={26} />
+                    </div>
+                    <p className="text-sm font-bold text-admin-text">No Relieving Letters Found</p>
+                    <p className="text-xs text-admin-muted max-w-sm mx-auto">
+                      {searchTermRel || statusFilterRel !== 'All'
+                        ? 'No records match your filters. Try clearing the search query.'
+                        : 'Generate official 1-page relieving certificates for employees with auto-populated tenure and resignation acceptance.'}
+                    </p>
+                    {!searchTermRel && statusFilterRel === 'All' && (
+                      <button
+                        onClick={handleOpenCreateRelModal}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-admin-accent text-white text-xs font-bold hover:opacity-90 shadow-md transition-all mt-2 cursor-pointer"
+                      >
+                        <FiPlus size={14} />
+                        Create First Relieving Letter
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-admin-border bg-admin-bg/60 text-[11px] font-extrabold uppercase tracking-wider text-admin-secondary">
+                          <th className="py-3 px-4 w-10 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isAllRelSelected}
+                              onChange={handleToggleSelectAllRel}
+                              className="w-4 h-4 rounded text-admin-accent focus:ring-admin-accent cursor-pointer accent-admin-accent"
+                              title="Select / Deselect All"
+                            />
+                          </th>
+                          <th className="py-3 px-4">Letter #</th>
+                          <th className="py-3 px-4">Employee</th>
+                          <th className="py-3 px-4">Position & Dept</th>
+                          <th className="py-3 px-4">Issue Date</th>
+                          <th className="py-3 px-4">Resignation Date</th>
+                          <th className="py-3 px-4">Relieving Date</th>
+                          <th className="py-3 px-4">Status</th>
+                          <th className="py-3 px-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-admin-border text-xs">
+                        {filteredRelievings.map((rel) => {
+                          const isGen = rel.status === 'Generated';
+                          const isSelected = selectedRelIds.includes(rel.id);
+                          return (
+                            <tr
+                              key={rel.id}
+                              className={`transition-colors group ${
+                                isSelected
+                                  ? 'bg-rose-500/10 dark:bg-rose-500/15'
+                                  : 'hover:bg-admin-elevated/40'
+                              }`}
+                            >
+                              {/* Row Checkbox */}
+                              <td className="py-3.5 px-4 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleToggleSelectRel(rel.id)}
+                                  className="w-4 h-4 rounded text-admin-accent focus:ring-admin-accent cursor-pointer accent-admin-accent"
+                                />
+                              </td>
+
+                              {/* Letter Number */}
+                              <td className="py-3.5 px-4 font-mono font-bold text-purple-400">
+                                {rel.letter_number}
+                              </td>
+
+                              {/* Employee Name & Code */}
+                              <td className="py-3.5 px-4">
+                                <div>
+                                  <p className="font-bold text-admin-text leading-tight">
+                                    {rel.employee_name_snapshot}
+                                  </p>
+                                  <p className="text-[11px] text-admin-muted font-mono mt-0.5">
+                                    {rel.employee_id_snapshot}
+                                  </p>
+                                </div>
+                              </td>
+
+                              {/* Job Title & Department */}
+                              <td className="py-3.5 px-4">
+                                <div>
+                                  <p className="font-semibold text-admin-text leading-tight">
+                                    {rel.job_title_snapshot}
+                                  </p>
+                                  <p className="text-[11px] text-admin-muted mt-0.5">
+                                    {rel.department_snapshot || 'General'}
+                                  </p>
+                                </div>
+                              </td>
+
+                              {/* Issue Date */}
+                              <td className="py-3.5 px-4 text-admin-secondary whitespace-nowrap">
+                                {formatDate(rel.issue_date)}
+                              </td>
+
+                              {/* Resignation Date */}
+                              <td className="py-3.5 px-4 text-admin-secondary whitespace-nowrap">
+                                {formatDate(rel.resignation_date)}
+                              </td>
+
+                              {/* Relieving Date */}
+                              <td className="py-3.5 px-4 font-bold text-admin-accent whitespace-nowrap">
+                                {formatDate(rel.relieving_date)}
+                              </td>
+
+                              {/* Status Badge */}
+                              <td className="py-3.5 px-4 whitespace-nowrap">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                                    isGen
+                                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                                  }`}
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      isGen ? 'bg-emerald-500' : 'bg-amber-500'
+                                    }`}
+                                  />
+                                  {rel.status}
+                                </span>
+                              </td>
+
+                              {/* Actions */}
+                              <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {/* Preview */}
+                                  <button
+                                    onClick={() => handleOpenRelPreview(rel)}
+                                    className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-text hover:bg-admin-elevated transition-colors"
+                                    title="Interactive Preview"
+                                  >
+                                    <FiEye size={15} />
+                                  </button>
+
+                                  {/* Download PDF */}
+                                  <button
+                                    onClick={() => handleDownloadRelPDF(rel)}
+                                    className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-text hover:bg-admin-elevated transition-colors"
+                                    title="Download PDF"
+                                  >
+                                    <FiDownload size={15} />
+                                  </button>
+
+                                  {/* Print */}
+                                  <button
+                                    onClick={() => handlePrintRel(rel)}
+                                    className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-text hover:bg-admin-elevated transition-colors"
+                                    title="Print Relieving Letter"
+                                  >
+                                    <FiPrinter size={15} />
+                                  </button>
+
+                                  {/* Edit (if Draft) */}
+                                  <button
+                                    onClick={() => handleOpenEditRelModal(rel)}
+                                    className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-accent hover:bg-admin-accent/10 transition-colors"
+                                    title={isGen ? 'View / Edit Relieving Details' : 'Edit Draft'}
+                                  >
+                                    <FiEdit size={15} />
+                                  </button>
+
+                                  {/* Quick Finalize / Generate if Draft */}
+                                  {!isGen && (
+                                    <button
+                                      onClick={() => handleMarkRelAsGenerated(rel)}
+                                      className="p-1.5 rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                                      title="Mark as Generated"
+                                    >
+                                      <FiCheckCircle size={15} />
+                                    </button>
+                                  )}
+
+                                  {/* Delete (Only visible if this letter is selected by checkbox) */}
+                                  {isSelected && (
+                                    <button
+                                      onClick={() => handleDeleteRelieving(rel)}
+                                      className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors animate-fade-in"
+                                      title="Delete Selected Relieving Letter"
+                                    >
+                                      <FiTrash2 size={15} />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </main>
 
@@ -1678,6 +2837,59 @@ const AdminOfferLetters = () => {
         </div>
       )}
 
+      {/* LETTER TYPE SELECTION MODAL (OFFER VS EXPERIENCE) */}
+      <LetterTypeSelectModal
+        isOpen={showLetterTypeModal}
+        onClose={() => setShowLetterTypeModal(false)}
+        onSelectType={handleSelectLetterType}
+      />
+
+      {/* EXPERIENCE LETTER CREATE / EDIT FORM MODAL */}
+      <ExperienceLetterFormModal
+        isOpen={showExpFormModal}
+        onClose={() => setShowExpFormModal(false)}
+        initialData={initialExpFormData}
+        isEditing={isEditingExp}
+        editingId={editingExpId}
+        activeEmployees={activeEmployees}
+        roleTemplates={roleTemplates}
+        settings={settings}
+        onSave={handleSaveExperienceLetter}
+      />
+
+      {/* EXPERIENCE LETTER PREVIEW MODAL */}
+      <ExperienceLetterPreviewModal
+        isOpen={showExpPreviewModal}
+        onClose={() => setShowExpPreviewModal(false)}
+        letterData={previewExpData}
+        experienceData={previewExpData}
+        settings={settings}
+        onDownload={() => previewExpData && handleDownloadExpPDF(previewExpData)}
+        onPrint={() => previewExpData && handlePrintExp(previewExpData)}
+      />
+
+      {/* RELIEVING LETTER CREATE / EDIT FORM MODAL */}
+      <RelievingLetterFormModal
+        isOpen={showRelFormModal}
+        onClose={() => setShowRelFormModal(false)}
+        initialData={initialRelFormData}
+        isEditing={isEditingRel}
+        editingId={editingRelId}
+        activeEmployees={activeEmployees}
+        settings={settings}
+        onSave={handleSaveRelievingLetter}
+      />
+
+      {/* RELIEVING LETTER PREVIEW MODAL */}
+      <RelievingLetterPreviewModal
+        isOpen={showRelPreviewModal}
+        onClose={() => setShowRelPreviewModal(false)}
+        letterData={previewRelData}
+        settings={settings}
+        onDownload={() => previewRelData && handleDownloadRelPDF(previewRelData)}
+        onPrint={() => previewRelData && handlePrintRel(previewRelData)}
+      />
+
       {/* SETTINGS MODAL */}
       <OfferLetterSettingsModal
         isOpen={showSettingsModal}
@@ -1688,7 +2900,7 @@ const AdminOfferLetters = () => {
         }}
       />
 
-      {/* INTERACTIVE PREVIEW MODAL */}
+      {/* INTERACTIVE PREVIEW MODAL FOR OFFER LETTERS */}
       <OfferLetterPreviewModal
         isOpen={showPreviewModal}
         onClose={() => setShowPreviewModal(false)}
@@ -1717,14 +2929,38 @@ const AdminOfferLetters = () => {
         type={alertDialog.type}
       />
 
-      {/* Hidden Container for 100% Identical Direct A4 PDF Export from Table */}
+      {/* Hidden Container for 100% Identical Direct A4 PDF Export from Table (Offer Letter) */}
       {exportOfferData && (
-        <div style={{ position: 'fixed', left: '-9999px', top: 0, width: '760px', zIndex: -100 }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '760px', opacity: 0, pointerEvents: 'none', zIndex: -9999 }}>
           <div ref={rowExportRef}>
             <OfferLetterDocument
               data={exportOfferData}
               settings={settings}
               pageNumber={null}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Hidden Container for 100% Identical Direct A4 PDF Export from Table (Experience Letter) */}
+      {exportExpData && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '760px', opacity: 0, pointerEvents: 'none', zIndex: -9999 }}>
+          <div ref={rowExpExportRef}>
+            <ExperienceLetterDocument
+              data={exportExpData}
+              settings={settings}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Hidden Container for 100% Identical Direct A4 PDF Export from Table (Relieving Letter) */}
+      {exportRelData && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '760px', opacity: 0, pointerEvents: 'none', zIndex: -9999 }}>
+          <div ref={rowRelExportRef}>
+            <RelievingLetterDocument
+              data={exportRelData}
+              settings={settings}
             />
           </div>
         </div>

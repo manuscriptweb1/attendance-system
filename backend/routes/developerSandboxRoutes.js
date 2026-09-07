@@ -41,6 +41,43 @@ function requireDeveloperSession(req, res, next) {
   }
 }
 
+/**
+ * Middleware: Verify Active Developer or Admin Session for Branding Endpoints
+ */
+function requireDeveloperOrAdminSession(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, message: 'Authentication required' });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  // 1. Try standard Admin JWT verification
+  try {
+    const adminSecret = process.env.JWT_SECRET || 'dev_sandbox_secret_key_2026';
+    const decoded = jwt.verify(token, adminSecret);
+    if (decoded && (decoded.isDeveloperSession || decoded.role === 'admin' || decoded.role === 'super admin' || decoded.role === 'superadmin' || decoded.is_super_admin || decoded.emergency_admin || decoded.id)) {
+      req.user = decoded;
+      return next();
+    }
+  } catch (err) {
+    // Proceed to try dev secret fallback
+  }
+
+  // 2. Try Developer Sandbox secret verification
+  try {
+    const decodedDev = jwt.verify(token, JWT_SECRET);
+    if (decodedDev && decodedDev.isDeveloperSession) {
+      req.developerSession = decodedDev;
+      return next();
+    }
+  } catch (err) {
+    return res.status(401).json({ success: false, message: 'Session expired or invalid' });
+  }
+
+  return res.status(401).json({ success: false, message: 'Session expired or invalid' });
+}
+
 // 1. PIN Verification (Unprotected - verifies PIN)
 router.post('/verify-pin', verifyPin);
 
@@ -51,10 +88,10 @@ router.get('/check-session', checkSession);
 router.post('/simulate', requireDeveloperSession, runSimulation);
 router.post('/export', requireDeveloperSession, exportReport);
 
-// 4. PDF Branding & Template Settings Endpoints
+// 4. PDF Branding & Template Settings Endpoints (Accessible by Admin and Dev Sandbox)
 router.get('/branding-settings', getBranding);
-router.post('/branding-settings', requireDeveloperSession, updateBranding);
-router.post('/branding-settings/reset-logo', requireDeveloperSession, resetLogo);
-router.get('/branding-settings/sample-pdf', requireDeveloperSession, downloadSamplePdf);
+router.post('/branding-settings', requireDeveloperOrAdminSession, updateBranding);
+router.post('/branding-settings/reset-logo', requireDeveloperOrAdminSession, resetLogo);
+router.get('/branding-settings/sample-pdf', requireDeveloperOrAdminSession, downloadSamplePdf);
 
 module.exports = router;

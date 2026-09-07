@@ -722,7 +722,7 @@ const getRoleTemplates = async (req, res) => {
 
 const saveRoleTemplate = async (req, res) => {
   try {
-    const { job_role, categories = [] } = req.body;
+    const { job_role, categories = [], experience_work_summary = '' } = req.body;
 
     if (!job_role || !job_role.trim()) {
       return res.status(400).json({
@@ -734,16 +734,18 @@ const saveRoleTemplate = async (req, res) => {
     const trimmedRole = job_role.trim();
 
     const result = await pool.query(`
-      INSERT INTO role_responsibility_templates (job_role, categories, updated_at)
-      VALUES ($1, $2, CURRENT_TIMESTAMP)
+      INSERT INTO role_responsibility_templates (job_role, categories, experience_work_summary, updated_at)
+      VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
       ON CONFLICT (job_role) DO UPDATE
-      SET categories = $2, updated_at = CURRENT_TIMESTAMP
+      SET categories = $2, 
+          experience_work_summary = COALESCE($3, role_responsibility_templates.experience_work_summary),
+          updated_at = CURRENT_TIMESTAMP
       RETURNING *
-    `, [trimmedRole, JSON.stringify(categories)]);
+    `, [trimmedRole, JSON.stringify(categories), experience_work_summary]);
 
     res.json({
       success: true,
-      message: 'Role responsibility template saved successfully',
+      message: 'Role template saved successfully',
       template: result.rows[0]
     });
   } catch (error) {

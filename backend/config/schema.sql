@@ -230,6 +230,66 @@ CREATE INDEX IF NOT EXISTS idx_offer_letters_emp_id ON offer_letters(employee_id
 CREATE INDEX IF NOT EXISTS idx_offer_letters_status ON offer_letters(status);
 CREATE INDEX IF NOT EXISTS idx_offer_letters_offer_num ON offer_letters(offer_number);
 
+-- Create Role Responsibility & Experience Templates Table
+CREATE TABLE IF NOT EXISTS role_responsibility_templates (
+    id SERIAL PRIMARY KEY,
+    job_role VARCHAR(150) UNIQUE NOT NULL,
+    categories JSONB NOT NULL DEFAULT '[]',
+    experience_work_summary TEXT,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create Experience Letters Table (Individual Employee Certificate Snapshot)
+CREATE TABLE IF NOT EXISTS experience_letters (
+    id SERIAL PRIMARY KEY,
+    letter_number VARCHAR(50) UNIQUE NOT NULL,
+    employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE SET NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'Draft' CHECK (status IN ('Draft', 'Generated')),
+    issue_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    joining_date DATE NOT NULL,
+    relieving_date DATE NOT NULL,
+
+    salutation VARCHAR(20) NOT NULL DEFAULT 'Mr.',
+    employee_name_snapshot VARCHAR(150) NOT NULL,
+    employee_id_snapshot VARCHAR(50) NOT NULL,
+    employee_email_snapshot VARCHAR(150),
+    employee_phone_snapshot VARCHAR(20),
+    employee_address_snapshot TEXT,
+
+    job_title_snapshot VARCHAR(150) NOT NULL,
+    department_snapshot VARCHAR(100),
+
+    monthly_salary NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    salary_in_words VARCHAR(255),
+
+    paragraph_1_snapshot TEXT,
+    paragraph_2_snapshot TEXT,
+    paragraph_3_snapshot TEXT,
+    paragraph_4_snapshot TEXT,
+    paragraph_5_snapshot TEXT,
+
+    company_name_snapshot VARCHAR(200),
+    header_address_snapshot TEXT,
+    header_phone_snapshot VARCHAR(50),
+    header_email_snapshot VARCHAR(100),
+    header_website_snapshot VARCHAR(100),
+    footer_line_1_snapshot TEXT,
+    footer_line_2_snapshot TEXT,
+    footer_line_3_snapshot TEXT,
+    signatory_name VARCHAR(150) DEFAULT 'Dr. Mueen Ahmed KK',
+    signatory_designation VARCHAR(150) DEFAULT 'Authorized Signatory',
+    signatory_email VARCHAR(150) DEFAULT 'connect@mstechnomedia.com',
+
+    created_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    generated_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_experience_letters_emp_id ON experience_letters(employee_id);
+CREATE INDEX IF NOT EXISTS idx_experience_letters_status ON experience_letters(status);
+CREATE INDEX IF NOT EXISTS idx_experience_letters_num ON experience_letters(letter_number);
+
 -- Create Settings Table
 CREATE TABLE IF NOT EXISTS settings (
     id SERIAL PRIMARY KEY,

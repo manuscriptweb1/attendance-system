@@ -21,6 +21,11 @@ const PublicEmployeeInfo = lazy(() => import('./pages/PublicEmployeeInfo'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const OfflinePage = lazy(() => import('./pages/OfflinePage'));
 const ServerDownPage = lazy(() => import('./pages/ServerDownPage'));
+const InternalErrorPage = lazy(() => import('./pages/InternalErrorPage'));
+const SessionExpiredPage = lazy(() => import('./pages/SessionExpiredPage'));
+const AccessDeniedPage = lazy(() => import('./pages/AccessDeniedPage'));
+const LocationUnavailablePage = lazy(() => import('./pages/LocationUnavailablePage'));
+const MaintenanceModePage = lazy(() => import('./pages/MaintenanceModePage'));
 
 // Auth Pages
 const AdminLogin = lazy(() => import('./pages/AdminLogin'));
@@ -48,7 +53,6 @@ const AdminExpenses = lazy(() => import('./pages/AdminExpenses'));
 const AdminPermissions = lazy(() => import('./pages/AdminPermissions'));
 const AdminReports = lazy(() => import('./pages/AdminReports'));
 const AdminDatabaseMonitor = lazy(() => import('./pages/AdminDatabaseMonitor'));
-const AdminAccessDenied = lazy(() => import('./pages/AdminAccessDenied'));
 const DeveloperTestingSandbox = lazy(() => import('./pages/DeveloperTestingSandbox'));
 const AdminOfferLetters = lazy(() => import('./pages/AdminOfferLetters'));
 
@@ -116,15 +120,15 @@ const ProtectedRoute = ({ children, requiredRole, requiredPageKey }) => {
   }
 
   if (requiredRole === 'admin' && !isAdmin) {
-    return <Navigate to="/employee/dashboard" replace />;
+    return <AccessDeniedPage message="You need administrator privileges to access this portal." />;
   }
 
   if (requiredRole === 'employee' && !isEmployee) {
-    return <Navigate to="/admin/dashboard" replace />;
+    return <AccessDeniedPage message="You need employee credentials to access this portal." />;
   }
 
   if (requiredRole === 'admin' && requiredPageKey && !hasPageAccess(requiredPageKey)) {
-    return <AdminAccessDenied pageKey={requiredPageKey} />;
+    return <AccessDeniedPage pageKey={requiredPageKey} />;
   }
 
   return (
@@ -192,10 +196,21 @@ function App() {
               <Route path="/public/employee-info" element={<PublicEmployeeInfo />} />
               <Route path="/public/employee" element={<PublicEmployeeInfo />} />
               <Route path="/public/employee/:employeeId" element={<PublicEmployeeInfo />} />
+              
+              {/* System Error & Status Pages */}
               <Route path="/404" element={<NotFoundPage />} />
               <Route path="/offline" element={<OfflinePage />} />
               <Route path="/server-down" element={<ServerDownPage />} />
               <Route path="/server-error" element={<ServerDownPage />} />
+              <Route path="/500" element={<InternalErrorPage />} />
+              <Route path="/internal-error" element={<InternalErrorPage />} />
+              <Route path="/session-expired" element={<SessionExpiredPage />} />
+              <Route path="/access-denied" element={<AccessDeniedPage />} />
+              <Route path="/403" element={<AccessDeniedPage />} />
+              <Route path="/location-unavailable" element={<LocationUnavailablePage />} />
+              <Route path="/gps-unavailable" element={<LocationUnavailablePage />} />
+              <Route path="/maintenance" element={<MaintenanceModePage />} />
+              <Route path="/maintenance-mode" element={<MaintenanceModePage />} />
 
               {/* Auth Pages */}
               <Route
@@ -236,7 +251,7 @@ function App() {
                 path="/admin/access-denied"
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <AdminAccessDenied />
+                    <AccessDeniedPage />
                   </ProtectedRoute>
                 }
               />

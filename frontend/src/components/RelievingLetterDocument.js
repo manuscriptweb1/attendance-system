@@ -106,9 +106,9 @@ const RelievingLetterDocument = ({ data, settings }) => {
         {/* Company Top Right Logo */}
         <OfferLetterTopRightLogo settings={settings} />
 
-        {/* Horizontal Gradient Band beneath Logo */}
+        {/* Horizontal Gradient Band beneath Logo (Aligned with content margins) */}
         <div
-          className="-mx-8 sm:-mx-12 h-3.5 mt-4 mb-2.5"
+          className="w-full h-3 mt-4 mb-3 rounded-sm"
           style={{
             background: 'linear-gradient(to right, #D89A95, #EEDBD9)'
           }}

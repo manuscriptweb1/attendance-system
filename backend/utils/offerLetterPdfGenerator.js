@@ -425,13 +425,12 @@ async function generateOfferLetterPDF(offerData, options = {}) {
   doc.addPage({ size: 'A4', margin: 0 });
   drawTopRightLogo(doc, logoPath, fonts, 55);
 
-  // Gradient horizontal band beneath logo at y = 120 (Full page width from edge to edge)
+  // Gradient horizontal band beneath logo at y = 120 (Aligned with content margins)
   let curY = 120;
-  const pageWidth = 595.28;
-  const gradientBand = doc.linearGradient(0, curY, pageWidth, curY);
+  const gradientBand = doc.linearGradient(leftMargin, curY, leftMargin + contentWidth, curY);
   gradientBand.stop(0, '#D89A95');
   gradientBand.stop(1, '#EEDBD9');
-  doc.rect(0, curY, pageWidth, 14).fill(gradientBand);
+  doc.rect(leftMargin, curY, contentWidth, 12).fill(gradientBand);
 
   // Date on right beneath gradient banner at y = 145
   curY = 145;

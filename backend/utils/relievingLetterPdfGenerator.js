@@ -284,12 +284,12 @@ async function generateRelievingLetterPDF(relData, options = {}) {
   // Top Right Logo
   drawTopRightLogo(doc, logoPath, fonts, 50);
 
-  // Gradient Band
+  // Gradient Band (Aligned with content margins)
   let curY = 115;
-  const gradientBand = doc.linearGradient(0, curY, pageWidth, curY);
+  const gradientBand = doc.linearGradient(leftMargin, curY, leftMargin + contentWidth, curY);
   gradientBand.stop(0, '#D89A95');
   gradientBand.stop(1, '#EEDBD9');
-  doc.rect(0, curY, pageWidth, 12).fill(gradientBand);
+  doc.rect(leftMargin, curY, contentWidth, 12).fill(gradientBand);
 
   // Date on right
   curY = 142;

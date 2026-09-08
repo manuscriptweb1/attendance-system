@@ -473,11 +473,12 @@ const downloadExperienceLetterPDF = async (req, res) => {
     const exp = result.rows[0];
     const settings = await getOfferLetterSettings();
     const { generateExperienceLetterPDF } = require('../utils/experienceLetterPdfGenerator');
-    const doc = await generateExperienceLetterPDF(exp, { settings });
+    const includeSignature = req.query.signature !== 'false' && req.query.signature !== false;
+    const doc = await generateExperienceLetterPDF(exp, { settings, includeSignature });
 
     const safeName = (exp.employee_name_snapshot || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_');
     const safeExpNum = (exp.letter_number || 'EXP').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const filename = `Experience_Letter_${safeName}_${safeExpNum}.pdf`;
+    const filename = `Experience_Letter_${safeName}_${safeExpNum}${includeSignature ? '_signed' : ''}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -511,7 +512,8 @@ const previewExperienceLetterPDF = async (req, res) => {
     const exp = result.rows[0];
     const settings = await getOfferLetterSettings();
     const { generateExperienceLetterPDF } = require('../utils/experienceLetterPdfGenerator');
-    const doc = await generateExperienceLetterPDF(exp, { settings });
+    const includeSignature = req.query.signature !== 'false' && req.query.signature !== false;
+    const doc = await generateExperienceLetterPDF(exp, { settings, includeSignature });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'inline');

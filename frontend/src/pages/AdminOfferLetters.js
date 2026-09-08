@@ -155,6 +155,12 @@ const AdminOfferLetters = () => {
   const [exportOfferData, setExportOfferData] = useState(null);
   const [exportExpData, setExportExpData] = useState(null);
   const [exportRelData, setExportRelData] = useState(null);
+  const [downloadChoiceModal, setDownloadChoiceModal] = useState({
+    isOpen: false,
+    type: null, // 'offer' | 'experience' | 'relieving'
+    row: null
+  });
+  const [letterDownloadLoading, setLetterDownloadLoading] = useState(null);
   const rowExportRef = useRef(null);
   const rowExpExportRef = useRef(null);
   const rowRelExportRef = useRef(null);
@@ -327,9 +333,9 @@ const AdminOfferLetters = () => {
   const generatedRelCount = relievingLetters.filter((r) => r.status === 'Generated').length;
   const draftRelCount = relievingLetters.filter((r) => r.status === 'Draft').length;
 
-  // eslint-disable-next-line no-control-regex
   const cleanStr = (s) =>
     (s || '')
+      // eslint-disable-next-line no-control-regex
       .replace(/[\r\n\t\x00-\x1F\x7F-\x9F\u200B-\u200D\uFEFF]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
@@ -1016,14 +1022,48 @@ const AdminOfferLetters = () => {
     }
   };
 
-  // Download PDF for Offer Letter
-  const handleDownloadPDF = async (offer) => {
-    const safeName = (offer.employee_name_snapshot || offer.employee_name || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const safeOfferNum = (offer.offer_number || 'OFF').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const filename = `Offer_Letter_${safeName}_${safeOfferNum}.pdf`;
+  // Open Download Option Modal
+  const handleOpenDownloadChoiceModal = (type, row) => {
+    setDownloadChoiceModal({
+      isOpen: true,
+      type,
+      row
+    });
+  };
+
+  // Execute Download from Modal
+  const handleExecuteLetterDownload = async (includeSignature) => {
+    const { type, row } = downloadChoiceModal;
+    if (!row) return;
+
+    const rowId = row.id;
+    const loadingKey = `${rowId}-${includeSignature ? 'with-signature' : 'without-signature'}`;
+    setLetterDownloadLoading(loadingKey);
 
     try {
-      setExportOfferData(offer);
+      if (type === 'offer') {
+        await handleDownloadPDF(row, includeSignature);
+      } else if (type === 'experience') {
+        await handleDownloadExpPDF(row, includeSignature);
+      } else if (type === 'relieving') {
+        await handleDownloadRelPDF(row, includeSignature);
+      }
+      setDownloadChoiceModal({ isOpen: false, type: null, row: null });
+    } catch (err) {
+      console.error('Execute letter download error:', err);
+    } finally {
+      setLetterDownloadLoading(null);
+    }
+  };
+
+  // Download PDF for Offer Letter
+  const handleDownloadPDF = async (offer, includeSignature = true) => {
+    const safeName = (offer.employee_name_snapshot || offer.employee_name || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeOfferNum = (offer.offer_number || 'OFF').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `Offer_Letter_${safeName}_${safeOfferNum}${includeSignature ? '_signed' : ''}.pdf`;
+
+    try {
+      setExportOfferData({ ...offer, includeSignature });
       await new Promise((resolve) => setTimeout(resolve, 200));
       if (rowExportRef.current) {
         await exportOfferLetterToPdf(rowExportRef.current, filename);
@@ -1035,7 +1075,7 @@ const AdminOfferLetters = () => {
     }
 
     try {
-      const response = await downloadOfferLetterPdf(offer.id);
+      const response = await downloadOfferLetterPdf(offer.id, includeSignature);
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
@@ -1058,13 +1098,13 @@ const AdminOfferLetters = () => {
   };
 
   // Download PDF for Experience Letter
-  const handleDownloadExpPDF = async (exp) => {
+  const handleDownloadExpPDF = async (exp, includeSignature = true) => {
     const safeName = (exp.employee_name_snapshot || exp.employee_name || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_');
     const safeExpNum = (exp.letter_number || 'EXP').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const filename = `Experience_Letter_${safeName}_${safeExpNum}.pdf`;
+    const filename = `Experience_Letter_${safeName}_${safeExpNum}${includeSignature ? '_signed' : ''}.pdf`;
 
     try {
-      setExportExpData(exp);
+      setExportExpData({ ...exp, includeSignature });
       await new Promise((resolve) => setTimeout(resolve, 300));
       if (rowExpExportRef.current) {
         await exportOfferLetterToPdf(rowExpExportRef.current, filename);
@@ -1076,7 +1116,7 @@ const AdminOfferLetters = () => {
     }
 
     try {
-      const response = await downloadExperienceLetterPdf(exp.id);
+      const response = await downloadExperienceLetterPdf(exp.id, includeSignature);
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
@@ -1099,13 +1139,13 @@ const AdminOfferLetters = () => {
   };
 
   // Download PDF for Relieving Letter
-  const handleDownloadRelPDF = async (rel) => {
+  const handleDownloadRelPDF = async (rel, includeSignature = true) => {
     const safeName = (rel.employee_name_snapshot || rel.employee_name || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_');
     const safeRelNum = (rel.letter_number || 'REL').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const filename = `Relieving_Letter_${safeName}_${safeRelNum}.pdf`;
+    const filename = `Relieving_Letter_${safeName}_${safeRelNum}${includeSignature ? '_signed' : ''}.pdf`;
 
     try {
-      setExportRelData(rel);
+      setExportRelData({ ...rel, includeSignature });
       await new Promise((resolve) => setTimeout(resolve, 300));
       if (rowRelExportRef.current) {
         await exportOfferLetterToPdf(rowRelExportRef.current, filename);
@@ -1117,7 +1157,7 @@ const AdminOfferLetters = () => {
     }
 
     try {
-      const response = await downloadRelievingLetterPdf(rel.id);
+      const response = await downloadRelievingLetterPdf(rel.id, includeSignature);
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
@@ -1140,9 +1180,9 @@ const AdminOfferLetters = () => {
   };
 
   // Print PDF for Offer Letter
-  const handlePrintOffer = async (offer) => {
+  const handlePrintOffer = async (offer, includeSignature = true) => {
     try {
-      const response = await previewOfferLetterPdf(offer.id);
+      const response = await previewOfferLetterPdf(offer.id, includeSignature);
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const printWindow = window.open(url);
@@ -1161,16 +1201,40 @@ const AdminOfferLetters = () => {
     }
   };
 
-  // Print for Experience Letter (Opens preview modal with print triggered)
-  const handlePrintExp = (exp) => {
-    setPreviewExpData(exp);
-    setShowExpPreviewModal(true);
+  // Print for Experience Letter
+  const handlePrintExp = async (exp, includeSignature = true) => {
+    try {
+      const response = await previewExperienceLetterPdf(exp.id, includeSignature);
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const printWindow = window.open(url);
+      if (printWindow) {
+        printWindow.focus();
+        printWindow.print();
+      }
+    } catch (err) {
+      console.warn('Fallback opening preview modal for print:', err);
+      setPreviewExpData(exp);
+      setShowExpPreviewModal(true);
+    }
   };
 
-  // Print for Relieving Letter (Opens preview modal with print triggered)
-  const handlePrintRel = (rel) => {
-    setPreviewRelData(rel);
-    setShowRelPreviewModal(true);
+  // Print for Relieving Letter
+  const handlePrintRel = async (rel, includeSignature = true) => {
+    try {
+      const response = await previewRelievingLetterPdf(rel.id, includeSignature);
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const printWindow = window.open(url);
+      if (printWindow) {
+        printWindow.focus();
+        printWindow.print();
+      }
+    } catch (err) {
+      console.warn('Fallback opening preview modal for print:', err);
+      setPreviewRelData(rel);
+      setShowRelPreviewModal(true);
+    }
   };
 
   // Open Preview Modal
@@ -1609,7 +1673,7 @@ const AdminOfferLetters = () => {
 
                                   {/* Download PDF */}
                                   <button
-                                    onClick={() => handleDownloadPDF(offer)}
+                                    onClick={() => handleOpenDownloadChoiceModal('offer', offer)}
                                     className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-text hover:bg-admin-elevated transition-colors"
                                     title="Download PDF"
                                   >
@@ -1858,7 +1922,7 @@ const AdminOfferLetters = () => {
 
                                   {/* Download PDF */}
                                   <button
-                                    onClick={() => handleDownloadExpPDF(exp)}
+                                    onClick={() => handleOpenDownloadChoiceModal('experience', exp)}
                                     className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-text hover:bg-admin-elevated transition-colors"
                                     title="Download PDF"
                                   >
@@ -2100,7 +2164,7 @@ const AdminOfferLetters = () => {
 
                                   {/* Download PDF */}
                                   <button
-                                    onClick={() => handleDownloadRelPDF(rel)}
+                                    onClick={() => handleOpenDownloadChoiceModal('relieving', rel)}
                                     className="p-1.5 rounded-lg text-admin-secondary hover:text-admin-text hover:bg-admin-elevated transition-colors"
                                     title="Download PDF"
                                   >
@@ -2864,8 +2928,8 @@ const AdminOfferLetters = () => {
         letterData={previewExpData}
         experienceData={previewExpData}
         settings={settings}
-        onDownload={() => previewExpData && handleDownloadExpPDF(previewExpData)}
-        onPrint={() => previewExpData && handlePrintExp(previewExpData)}
+        onDownload={(sig) => previewExpData && handleDownloadExpPDF(previewExpData, sig)}
+        onPrint={(sig) => previewExpData && handlePrintExp(previewExpData, sig)}
       />
 
       {/* RELIEVING LETTER CREATE / EDIT FORM MODAL */}
@@ -2886,8 +2950,8 @@ const AdminOfferLetters = () => {
         onClose={() => setShowRelPreviewModal(false)}
         letterData={previewRelData}
         settings={settings}
-        onDownload={() => previewRelData && handleDownloadRelPDF(previewRelData)}
-        onPrint={() => previewRelData && handlePrintRel(previewRelData)}
+        onDownload={(sig) => previewRelData && handleDownloadRelPDF(previewRelData, sig)}
+        onPrint={(sig) => previewRelData && handlePrintRel(previewRelData, sig)}
       />
 
       {/* SETTINGS MODAL */}
@@ -2906,9 +2970,90 @@ const AdminOfferLetters = () => {
         onClose={() => setShowPreviewModal(false)}
         offerData={previewOfferData}
         settings={settings}
-        onDownload={() => previewOfferData && handleDownloadPDF(previewOfferData)}
-        onPrint={() => previewOfferData && handlePrintOffer(previewOfferData)}
+        onDownload={(sig) => previewOfferData && handleDownloadPDF(previewOfferData, sig)}
+        onPrint={(sig) => previewOfferData && handlePrintOffer(previewOfferData, sig)}
       />
+
+      {/* SINGLE LETTER DOWNLOAD CHOICE MODAL (WITH VS WITHOUT SIGNATURE) */}
+      {downloadChoiceModal.isOpen && (
+        <div className="fixed inset-0 bg-admin-overlay backdrop-blur-sm flex items-center justify-center z-[110] p-4">
+          <div className="bg-admin-elevated border border-admin-border rounded-2xl p-6 shadow-clay-admin-modal w-full max-w-md animate-scale-in">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 shrink-0">
+                <FiFileText size={22} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-admin-heading">
+                  Download {downloadChoiceModal.type === 'offer' ? 'Offer Letter' : downloadChoiceModal.type === 'experience' ? 'Experience Letter' : 'Relieving Letter'}
+                </h3>
+                <p className="text-xs text-admin-muted">
+                  {downloadChoiceModal.row?.employee_name_snapshot || downloadChoiceModal.row?.employee_name} ({downloadChoiceModal.row?.offer_number || downloadChoiceModal.row?.letter_number || downloadChoiceModal.row?.employee_id_snapshot || ''})
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-admin-secondary mb-4 leading-relaxed">
+              Choose your PDF download option:
+            </p>
+            <div className="flex flex-col gap-2.5 mb-2">
+              <button
+                onClick={() => handleExecuteLetterDownload(true)}
+                disabled={!!letterDownloadLoading}
+                className="w-full px-4 py-3 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-md flex items-center justify-between disabled:opacity-50 cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <FiCheckCircle size={16} />
+                  <span>Download With Signature</span>
+                </div>
+                {letterDownloadLoading === `${downloadChoiceModal.row?.id}-with-signature` ? (
+                  <span className="animate-spin text-xs">⏳</span>
+                ) : (
+                  <FiDownload size={15} />
+                )}
+              </button>
+
+              <button
+                onClick={() => handleExecuteLetterDownload(false)}
+                disabled={!!letterDownloadLoading}
+                className="w-full px-4 py-3 text-xs font-bold rounded-xl bg-slate-700 hover:bg-slate-600 text-white transition-all flex items-center justify-between disabled:opacity-50 cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <FiFileText size={16} />
+                  <span>Download Without Signature</span>
+                </div>
+                {letterDownloadLoading === `${downloadChoiceModal.row?.id}-without-signature` ? (
+                  <span className="animate-spin text-xs">⏳</span>
+                ) : (
+                  <FiDownload size={15} />
+                )}
+              </button>
+
+              <button
+                onClick={() => {
+                  const row = downloadChoiceModal.row;
+                  const type = downloadChoiceModal.type;
+                  setDownloadChoiceModal({ isOpen: false, type: null, row: null });
+                  if (type === 'offer') handleOpenPreview(row);
+                  else if (type === 'experience') handleOpenExpPreview(row);
+                  else handleOpenRelPreview(row);
+                }}
+                disabled={!!letterDownloadLoading}
+                className="w-full px-4 py-2.5 text-xs font-semibold rounded-xl border border-admin-border text-admin-secondary hover:bg-admin-border/30 transition-all text-center mt-1 cursor-pointer"
+              >
+                View Live Preview
+              </button>
+            </div>
+            <div className="flex justify-end mt-4 pt-3 border-t border-admin-border/40">
+              <button
+                onClick={() => setDownloadChoiceModal({ isOpen: false, type: null, row: null })}
+                disabled={!!letterDownloadLoading}
+                className="px-4 py-2 text-xs font-semibold rounded-xl border border-admin-border text-admin-secondary hover:bg-admin-border/30 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CONFIRM DIALOG */}
       <ConfirmDialog
@@ -2937,6 +3082,7 @@ const AdminOfferLetters = () => {
               data={exportOfferData}
               settings={settings}
               pageNumber={null}
+              includeSignature={exportOfferData.includeSignature !== false}
             />
           </div>
         </div>
@@ -2949,6 +3095,7 @@ const AdminOfferLetters = () => {
             <ExperienceLetterDocument
               data={exportExpData}
               settings={settings}
+              includeSignature={exportExpData.includeSignature !== false}
             />
           </div>
         </div>
@@ -2961,6 +3108,7 @@ const AdminOfferLetters = () => {
             <RelievingLetterDocument
               data={exportRelData}
               settings={settings}
+              includeSignature={exportRelData.includeSignature !== false}
             />
           </div>
         </div>

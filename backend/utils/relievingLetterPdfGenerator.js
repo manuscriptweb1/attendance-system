@@ -1,7 +1,7 @@
 const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
-const { getOfferLetterSettings, resolveOfferLetterLogoPath } = require('./offerLetterSettingsHelper');
+const { getOfferLetterSettings, resolveOfferLetterLogoPath, getDesignatedPartnerSignaturePath } = require('./offerLetterSettingsHelper');
 const { getCompanyLogoPath } = require('./payslipGenerator');
 
 // Cache font paths
@@ -284,12 +284,12 @@ async function generateRelievingLetterPDF(relData, options = {}) {
   // Top Right Logo
   drawTopRightLogo(doc, logoPath, fonts, 50);
 
-  // Gradient Band (Aligned with content margins)
+  // Full-width gradient horizontal band beneath logo (Edge-to-edge from 0 to pageWidth)
   let curY = 115;
-  const gradientBand = doc.linearGradient(leftMargin, curY, leftMargin + contentWidth, curY);
+  const gradientBand = doc.linearGradient(0, curY, pageWidth, curY);
   gradientBand.stop(0, '#D89A95');
   gradientBand.stop(1, '#EEDBD9');
-  doc.rect(leftMargin, curY, contentWidth, 12).fill(gradientBand);
+  doc.rect(0, curY, pageWidth, 12).fill(gradientBand);
 
   // Date on right
   curY = 142;
@@ -346,14 +346,29 @@ async function generateRelievingLetterPDF(relData, options = {}) {
   doc.text(p2, leftMargin, curY, paragraphOptions);
   curY = doc.y + 24;
 
-  // Signatory Closing Block with 5 empty lines space for physical signature & company seal
+  // Signatory Closing Block
   doc.font(fontRegular).fontSize(12).fillColor('#000000').text('Yours Sincerely,', leftMargin, curY);
-  curY = doc.y + 75; // Exactly 5 empty lines space (~75pt) for signature and company seal
+  curY = doc.y + 6;
 
-  doc.font(fontRegular).fontSize(12).fillColor('#000000').text(signatoryName, leftMargin, curY);
+  const includeSignature = options.includeSignature !== false;
+  const signaturePath = getDesignatedPartnerSignaturePath();
+
+  if (includeSignature && signaturePath && fs.existsSync(signaturePath)) {
+    try {
+      doc.image(signaturePath, leftMargin, curY, { height: 75 });
+      curY += 80;
+    } catch (sigErr) {
+      console.warn('Could not draw signature in Relieving letter PDF:', sigErr.message);
+      curY += 80;
+    }
+  } else {
+    curY += 80;
+  }
+
+  doc.font(fontBold).fontSize(12).fillColor('#000000').text(signatoryName, leftMargin, curY);
   curY += 15;
-  doc.text(signatoryDesignation, leftMargin, curY);
-  curY += 15;
+  doc.font(fontRegular).fontSize(11.5).fillColor('#334155').text(signatoryDesignation, leftMargin, curY);
+  curY += 14;
   doc.text(companyName, leftMargin, curY);
 
   // Footer (3 Lines identical to Experience Letter)

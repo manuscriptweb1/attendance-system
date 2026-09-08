@@ -279,9 +279,33 @@ const resetOfferLetterLogo = async () => {
   return getOfferLetterSettings(true);
 };
 
+let cachedSignaturePath = undefined;
+const getDesignatedPartnerSignaturePath = () => {
+  if (cachedSignaturePath !== undefined) return cachedSignaturePath;
+  const possiblePaths = [
+    path.resolve(process.cwd(), "assets", "payslip", "mueen-sir-signature.png"),
+    path.resolve(process.cwd(), "backend", "assets", "payslip", "mueen-sir-signature.png"),
+    path.join(__dirname, "../assets/payslip/mueen-sir-signature.png"),
+    path.join(__dirname, "../../backend/assets/payslip/mueen-sir-signature.png"),
+    path.join(__dirname, "../../frontend/public/assets/payslip/mueen-sir-signature.png"),
+    path.resolve(process.cwd(), "frontend", "public", "assets", "payslip", "mueen-sir-signature.png")
+  ];
+
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      cachedSignaturePath = p;
+      return p;
+    }
+  }
+  console.warn("Signature image not found for Designated Partner signature");
+  cachedSignaturePath = null;
+  return null;
+};
+
 module.exports = {
   getOfferLetterSettings,
   updateOfferLetterSettings,
   resetOfferLetterLogo,
-  resolveOfferLetterLogoPath
+  resolveOfferLetterLogoPath,
+  getDesignatedPartnerSignaturePath
 };

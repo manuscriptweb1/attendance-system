@@ -13,6 +13,7 @@ const OfferLetterPreviewModal = ({
 }) => {
   const [activePage, setActivePage] = useState(null); // null = All Pages, 1-5 = single page
   const [zoom, setZoom] = useState(1);
+  const [includeSignature, setIncludeSignature] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const allPagesContainerRef = useRef(null);
 
@@ -22,7 +23,7 @@ const OfferLetterPreviewModal = ({
   const offerNumber = offerData.offer_number || 'OFF';
   const safeName = candidateName.replace(/[^a-zA-Z0-9_-]/g, '_');
   const safeOfferNum = offerNumber.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const filename = `Offer_Letter_${safeName}_${safeOfferNum}.pdf`;
+  const filename = `Offer_Letter_${safeName}_${safeOfferNum}${includeSignature ? '_signed' : ''}.pdf`;
 
   const handleDownloadDirect = async () => {
     try {
@@ -32,12 +33,12 @@ const OfferLetterPreviewModal = ({
       if (targetContainer) {
         await exportOfferLetterToPdf(targetContainer, filename);
       } else if (onDownload) {
-        await onDownload();
+        await onDownload(includeSignature);
       }
     } catch (err) {
       console.error('Direct PDF export failed, falling back to server download:', err);
       if (onDownload) {
-        await onDownload();
+        await onDownload(includeSignature);
       }
     } finally {
       setIsExporting(false);
@@ -46,7 +47,7 @@ const OfferLetterPreviewModal = ({
 
   const handlePrint = () => {
     if (onPrint) {
-      onPrint();
+      onPrint(includeSignature);
     } else {
       window.print();
     }
@@ -71,8 +72,32 @@ const OfferLetterPreviewModal = ({
             </div>
           </div>
 
-          {/* Page Filter & Zoom Controls */}
+          {/* Page Filter, Signature Mode & Zoom Controls */}
           <div className="flex items-center gap-2">
+            {/* Signature Toggle */}
+            <div className="flex items-center bg-admin-elevated border border-admin-border rounded-xl p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setIncludeSignature(true)}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition-colors flex items-center gap-1 ${
+                  includeSignature ? 'bg-blue-600 text-white shadow-sm' : 'text-admin-secondary hover:text-admin-text'
+                }`}
+                title="Include Designated Partner Digital Signature & Seal"
+              >
+                <span>With Signature</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIncludeSignature(false)}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition-colors flex items-center gap-1 ${
+                  !includeSignature ? 'bg-slate-700 text-white shadow-sm' : 'text-admin-secondary hover:text-admin-text'
+                }`}
+                title="Without Signature (Clean for Physical Signing)"
+              >
+                <span>Without Signature</span>
+              </button>
+            </div>
+
             <div className="flex items-center bg-admin-elevated border border-admin-border rounded-xl p-1 text-xs">
               <button
                 onClick={() => setActivePage(null)}
@@ -157,6 +182,7 @@ const OfferLetterPreviewModal = ({
               data={offerData}
               settings={settings}
               pageNumber={activePage}
+              includeSignature={includeSignature}
             />
           </div>
         </div>
@@ -168,6 +194,7 @@ const OfferLetterPreviewModal = ({
               data={offerData}
               settings={settings}
               pageNumber={null}
+              includeSignature={includeSignature}
             />
           </div>
         </div>

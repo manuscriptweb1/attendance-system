@@ -61,8 +61,10 @@ const formatDateWithOrdinal = (dateStr) => {
   return `${dayOrdinal} ${monthStr} ${yearStr}`;
 };
 
-const RelievingLetterDocument = ({ data, settings }) => {
+const RelievingLetterDocument = ({ data, settings, includeSignature = true }) => {
   if (!data) return null;
+
+  const shouldIncludeSignature = data.includeSignature !== undefined ? Boolean(data.includeSignature) : includeSignature;
 
   const companyName = data.company_name || data.company_name_snapshot || settings?.company_name || 'Manuscript TechnoMedia LLP';
   const employeeName = data.employee_name || data.employee_name_snapshot || 'Employee Name';
@@ -106,9 +108,9 @@ const RelievingLetterDocument = ({ data, settings }) => {
         {/* Company Top Right Logo */}
         <OfferLetterTopRightLogo settings={settings} />
 
-        {/* Horizontal Gradient Band beneath Logo (Aligned with content margins) */}
+        {/* Horizontal Gradient Band beneath Logo (Full bleed from edge to edge) */}
         <div
-          className="w-full h-3 mt-4 mb-3 rounded-sm"
+          className="-mx-8 sm:-mx-12 h-3 mt-4 mb-3"
           style={{
             background: 'linear-gradient(to right, #D89A95, #EEDBD9)'
           }}
@@ -151,9 +153,23 @@ const RelievingLetterDocument = ({ data, settings }) => {
           <p style={justifyStyle}>{p2}</p>
         </div>
 
-        {/* Signatory Closing Block with 5 empty lines space for physical signature & company seal */}
-        <div className="text-slate-900 text-[12pt] space-y-0.5 pt-6 mb-6">
-          <p className="text-slate-900 mb-20">Yours Sincerely,</p>
+        {/* Signatory Closing Block */}
+        <div className="text-slate-900 text-[12pt] space-y-0.5 pt-4 mb-6">
+          <p className="text-slate-900 mb-1">Yours Sincerely,</p>
+          {shouldIncludeSignature ? (
+            <div className="py-2">
+              <img
+                src="/assets/payslip/mueen-sir-signature.png?v=3"
+                alt="Designated Partner Signature & Company Seal"
+                className="h-[80px] max-w-[220px] object-contain object-left block"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            </div>
+          ) : (
+            <div className="h-[80px]"></div>
+          )}
           <p className="font-bold text-slate-950">{signatoryName}</p>
           <p className="text-slate-800">{signatoryDesignation}</p>
           <p className="text-slate-800">{companyName}</p>

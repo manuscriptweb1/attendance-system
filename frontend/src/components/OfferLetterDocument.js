@@ -100,8 +100,10 @@ const formatShortDate = (dateStr) => {
   return `${dd}-${mm}-${yyyy}`;
 };
 
-const OfferLetterDocument = ({ data, settings, pageNumber = null }) => {
+const OfferLetterDocument = ({ data, settings, pageNumber = null, includeSignature = true }) => {
   if (!data) return null;
+
+  const shouldIncludeSignature = data.includeSignature !== undefined ? Boolean(data.includeSignature) : includeSignature;
 
   const companyName = data.company_name || data.company_name_snapshot || settings?.company_name || 'Manuscript TechnoMedia LLP';
   const salutation = data.salutation || 'Mr.';
@@ -157,9 +159,9 @@ const OfferLetterDocument = ({ data, settings, pageNumber = null }) => {
       <div>
         <OfferLetterTopRightLogo settings={settings} />
 
-        {/* Horizontal Gradient Band beneath Logo at y = 120 (Aligned with content margins) */}
+        {/* Horizontal Gradient Band beneath Logo (Full bleed from edge to edge) */}
         <div
-          className="w-full h-3 mt-4 mb-3 rounded-sm"
+          className="-mx-8 sm:-mx-12 h-3 mt-4 mb-3"
           style={{
             background: 'linear-gradient(to right, #D89A95, #EEDBD9)'
           }}
@@ -382,23 +384,36 @@ const OfferLetterDocument = ({ data, settings, pageNumber = null }) => {
           </div>
 
           {/* Acceptance of Offer */}
-          <div className="pt-2.5 border-t border-slate-300 space-y-1.5">
-            <h3 className="font-bold text-slate-950 tracking-wide text-[12px]">Acceptance of Offer</h3>
-            <p className="leading-relaxed" style={justifyStyle}>
-              Please indicate your acceptance by signing and returning this letter along with the attached agreements by{' '}
-              <strong>{acceptanceDateFormatted}</strong>. This offer will expire if not accepted by the specified date.
-            </p>
-            <p className="leading-relaxed" style={justifyStyle}>
-              We are excited at the prospect of you joining <strong className="text-slate-950">{companyName}</strong> and contributing to our mission. If you have any questions, please contact us at {settings?.header_email || settings?.signatory_email || 'connect@mstechnomedia.com'}.
-            </p>
+          <div className="pt-2.5 border-t border-slate-300">
+            <h3 className="font-bold text-slate-950 tracking-wide text-[12px] mb-2">Acceptance of Offer</h3>
+            <div className="space-y-1.5">
+              <p className="leading-relaxed" style={justifyStyle}>
+                Please indicate your acceptance by signing and returning this letter along with the attached agreements by{' '}
+                <strong>{acceptanceDateFormatted}</strong>. This offer will expire if not accepted by the specified date.
+              </p>
+              <p className="leading-relaxed" style={justifyStyle}>
+                We are excited at the prospect of you joining <strong className="text-slate-950">{companyName}</strong> and contributing to our mission. If you have any questions, please contact us at {settings?.header_email || settings?.signatory_email || 'connect@mstechnomedia.com'}.
+              </p>
+            </div>
           </div>
 
-          {/* 6 lines of empty space for company seal and signature */}
-          <div className="h-[72px]"></div>
-
           {/* Sign-off Block */}
-          <div className="text-slate-800 text-[11.5px] space-y-0.5">
-            <p className="mb-1">Sincerely,</p>
+          <div className="text-slate-800 text-[11.5px] space-y-0.5 pt-3">
+            <p className="mb-0.5 font-medium">Sincerely,</p>
+            {shouldIncludeSignature ? (
+              <div className="py-1">
+                <img
+                  src="/assets/payslip/mueen-sir-signature.png?v=3"
+                  alt="Company Seal and Signature"
+                  className="h-[75px] max-w-[210px] object-contain object-left block"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="h-[75px]"></div>
+            )}
             <p className="font-bold text-slate-950">{signatoryName}</p>
             <p className="text-slate-700">{signatoryDesignation}</p>
             <p className="text-slate-700">{companyName}</p>

@@ -329,6 +329,9 @@ export const getPayrollRecords = (month, year) =>
 export const calculatePayroll = (month, year) => 
   api.post('/payroll/calculate', { month, year });
 export const updatePayrollRecord = (id, data) => api.put(`/payroll/${id}`, data);
+export const updatePayrollStatus = (id, status) => api.patch(`/payroll/${id}/status`, { status });
+export const updateBulkPayrollStatus = (employee_ids, status, month, year) => 
+  api.patch('/payroll/bulk-status', { employee_ids, status, month, year });
 export const exportPayroll = (month, year) => 
   api.get('/payroll/export', { params: { month, year }, responseType: 'blob' });
 export const downloadAllPayslips = (month, year, signature = false) => 
@@ -494,8 +497,10 @@ export const createOfferLetter = (data) => api.post('/offer-letters', data);
 export const updateOfferLetter = (id, data) => api.put(`/offer-letters/${id}`, data);
 export const generateOfferLetter = (id) => api.post(`/offer-letters/${id}/generate`);
 export const deleteOfferLetter = (id) => api.delete(`/offer-letters/${id}`);
-export const downloadOfferLetterPdf = (id) => api.get(`/offer-letters/${id}/download`, { responseType: 'blob' });
-export const previewOfferLetterPdf = (id) => api.get(`/offer-letters/${id}/preview`, { responseType: 'blob' });
+export const downloadOfferLetterPdf = (id, includeSignature = true) =>
+  api.get(`/offer-letters/${id}/download`, { params: { signature: includeSignature }, responseType: 'blob' });
+export const previewOfferLetterPdf = (id, includeSignature = true) =>
+  api.get(`/offer-letters/${id}/preview`, { params: { signature: includeSignature }, responseType: 'blob' });
 
 // Dedicated Offer Letter Settings APIs
 export const getOfferLetterSettings = () => api.get('/offer-letters/settings');
@@ -514,8 +519,10 @@ export const createExperienceLetter = (data) => api.post('/experience-letters', 
 export const updateExperienceLetter = (id, data) => api.put(`/experience-letters/${id}`, data);
 export const generateExperienceLetter = (id) => api.post(`/experience-letters/${id}/generate`);
 export const deleteExperienceLetter = (id) => api.delete(`/experience-letters/${id}`);
-export const downloadExperienceLetterPdf = (id) => api.get(`/experience-letters/${id}/download`, { responseType: 'blob' });
-export const previewExperienceLetterPdf = (id) => api.get(`/experience-letters/${id}/preview`, { responseType: 'blob' });
+export const downloadExperienceLetterPdf = (id, includeSignature = true) =>
+  api.get(`/experience-letters/${id}/download`, { params: { signature: includeSignature }, responseType: 'blob' });
+export const previewExperienceLetterPdf = (id, includeSignature = true) =>
+  api.get(`/experience-letters/${id}/preview`, { params: { signature: includeSignature }, responseType: 'blob' });
 
 // Relieving Letter APIs
 export const getRelievingLetters = (params) => api.get('/relieving-letters', { params });
@@ -524,6 +531,8 @@ export const createRelievingLetter = (data) => api.post('/relieving-letters', da
 export const updateRelievingLetter = (id, data) => api.put(`/relieving-letters/${id}`, data);
 export const generateRelievingLetter = (id) => api.post(`/relieving-letters/${id}/generate`);
 export const deleteRelievingLetter = (id) => api.delete(`/relieving-letters/${id}`);
-export const downloadRelievingLetterPdf = (id) => api.get(`/relieving-letters/${id}/download`, { responseType: 'blob' });
-export const previewRelievingLetterPdf = (id) => api.get(`/relieving-letters/${id}/preview`, { responseType: 'blob' });
+export const downloadRelievingLetterPdf = (id, includeSignature = true) =>
+  api.get(`/relieving-letters/${id}/download`, { params: { signature: includeSignature }, responseType: 'blob' });
+export const previewRelievingLetterPdf = (id, includeSignature = true) =>
+  api.get(`/relieving-letters/${id}/preview`, { params: { signature: includeSignature }, responseType: 'blob' });
 

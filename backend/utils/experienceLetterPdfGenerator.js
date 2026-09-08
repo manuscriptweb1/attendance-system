@@ -1,7 +1,7 @@
 const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
-const { getOfferLetterSettings, resolveOfferLetterLogoPath } = require('./offerLetterSettingsHelper');
+const { getOfferLetterSettings, resolveOfferLetterLogoPath, getDesignatedPartnerSignaturePath } = require('./offerLetterSettingsHelper');
 const { getCompanyLogoPath } = require('./payslipGenerator');
 
 // Cache font paths
@@ -280,12 +280,12 @@ async function generateExperienceLetterPDF(expData, options = {}) {
   // Top Right Logo
   drawTopRightLogo(doc, logoPath, fonts, 50);
 
-  // Gradient Band (Aligned with content margins)
+  // Full-width gradient horizontal band beneath logo (Edge-to-edge from 0 to pageWidth)
   let curY = 115;
-  const gradientBand = doc.linearGradient(leftMargin, curY, leftMargin + contentWidth, curY);
+  const gradientBand = doc.linearGradient(0, curY, pageWidth, curY);
   gradientBand.stop(0, '#D89A95');
   gradientBand.stop(1, '#EEDBD9');
-  doc.rect(leftMargin, curY, contentWidth, 12).fill(gradientBand);
+  doc.rect(0, curY, pageWidth, 12).fill(gradientBand);
 
   // Date on right
   curY = 138;
@@ -324,36 +324,52 @@ async function generateExperienceLetterPDF(expData, options = {}) {
   const paragraphOptions = {
     width: contentWidth,
     align: 'justify',
-    lineGap: 3.0
+    lineGap: 2.4
   };
 
   doc.font(fontRegular).fontSize(12).fillColor('#0F172A');
 
   doc.text(p1, leftMargin, curY, paragraphOptions);
-  curY = doc.y + 11;
+  curY = doc.y + 8;
 
   doc.text(p2, leftMargin, curY, paragraphOptions);
-  curY = doc.y + 11;
+  curY = doc.y + 8;
 
   doc.text(p3, leftMargin, curY, paragraphOptions);
-  curY = doc.y + 11;
+  curY = doc.y + 8;
 
   doc.text(p4, leftMargin, curY, paragraphOptions);
-  curY = doc.y + 11;
+  curY = doc.y + 8;
 
   doc.text(p5, leftMargin, curY, paragraphOptions);
-  curY = doc.y + 72;
+  curY = doc.y + 10;
 
-  // Signatory Block (with Sincerely, and no empty gap after Signatory Name)
+  // Signatory Block
   doc.font(fontRegular).fontSize(12).fillColor('#0F172A').text('Sincerely,', leftMargin, curY);
-  curY += 17;
+  curY = doc.y + 2;
+
+  const includeSignature = options.includeSignature !== false;
+  const signaturePath = getDesignatedPartnerSignaturePath();
+
+  if (includeSignature && signaturePath && fs.existsSync(signaturePath)) {
+    try {
+      doc.image(signaturePath, leftMargin, curY, { height: 72 });
+      curY += 76;
+    } catch (sigErr) {
+      console.warn('Could not draw signature in Experience letter PDF:', sigErr.message);
+      curY += 76;
+    }
+  } else {
+    curY += 76;
+  }
+
   doc.font(fontBold).fontSize(12).fillColor('#000000').text(signatoryName, leftMargin, curY);
-  curY += 14;
+  curY += 13;
   doc.font(fontRegular).fontSize(11.5).fillColor('#334155').text(signatoryDesignation, leftMargin, curY);
-  curY += 14;
+  curY += 13;
   doc.text(companyName, leftMargin, curY);
   if (signatoryEmail) {
-    curY += 14;
+    curY += 13;
     doc.text(`Email: ${signatoryEmail}`, leftMargin, curY);
   }
 

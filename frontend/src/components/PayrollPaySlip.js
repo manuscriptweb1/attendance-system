@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { FiX, FiDownload } from 'react-icons/fi';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 import { formatIndianCurrency as formatCurrency } from '../utils/formatCurrency';
 
 import { downloadSinglePayslip, getBrandingSettings } from '../services/api';

@@ -198,6 +198,100 @@ const updatePayrollStatus = async (req, res) => {
   }
 };
 
+const updateBulkPayrollStatus = async (req, res) => {
+  try {
+    const { employee_ids, ids, status, month, year } = req.body;
+
+    if (!['pending', 'hold', 'paid'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status. Must be pending, hold, or paid.' });
+    }
+
+    const paidAt = status === 'paid' ? new Date() : null;
+    const paidBy = status === 'paid' ? (req.user ? req.user.id : null) : null;
+
+    let targetIds = Array.isArray(employee_ids) ? employee_ids : (Array.isArray(ids) ? ids : []);
+    if (targetIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'No employees selected for status update' });
+    }
+
+    const strIds = targetIds.map(String);
+
+    let queryText = '';
+    let queryParams = [];
+
+    if (month && year) {
+      queryText = `
+        UPDATE payroll_records
+        SET status = $1, paid_at = $2, paid_by = $3, updated_at = CURRENT_TIMESTAMP
+        WHERE (
+          employee_id::text = ANY($4::text[])
+          OR employee_code::text = ANY($4::text[])
+          OR id::text = ANY($4::text[])
+        )
+        AND payroll_month = $5 AND payroll_year = $6
+        RETURNING *
+      `;
+      queryParams = [status, paidAt, paidBy, strIds, parseInt(month), parseInt(year)];
+    } else {
+      queryText = `
+        UPDATE payroll_records
+        SET status = $1, paid_at = $2, paid_by = $3, updated_at = CURRENT_TIMESTAMP
+        WHERE (
+          employee_id::text = ANY($4::text[])
+          OR employee_code::text = ANY($4::text[])
+          OR id::text = ANY($4::text[])
+        )
+        RETURNING *
+      `;
+      queryParams = [status, paidAt, paidBy, strIds];
+    }
+
+    const result = await pool.query(queryText, queryParams);
+
+    if (result.rows.length > 0) {
+      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const monthName = month ? (monthNames[parseInt(month) - 1] || month) : '';
+      const formattedStatus = status.charAt(0).toUpperCase() + status.slice(1);
+
+      await logAdminActivity({
+        adminId: req.user?.id,
+        adminName: req.user?.username || req.user?.name || 'Admin',
+        adminEmail: req.user?.email || '',
+        actionType: ADMIN_ACTION_TYPES.UPDATE_PAYROLL || 'Update Payroll',
+        moduleName: MODULE_NAMES.PAYROLL || 'Payroll',
+        description: `Bulk updated status to ${formattedStatus} for ${result.rows.length} employee(s)${monthName ? ` (${monthName} ${year})` : ''}.`,
+        ipAddress: req.ip
+      });
+
+      const updatedIds = result.rows.map(r => r.id);
+      const joinedResult = await pool.query(
+        `SELECT pr.*, e.name as employee_name
+         FROM payroll_records pr
+         JOIN employees e ON pr.employee_id::text = e.id::text OR pr.employee_code::text = e.employee_id::text
+         WHERE pr.id = ANY($1::int[])`,
+        [updatedIds]
+      );
+
+      return res.json({
+        success: true,
+        message: `Successfully updated status to ${formattedStatus} for ${result.rows.length} employee(s)`,
+        updatedCount: result.rows.length,
+        records: joinedResult.rows.map(mapRecordToCamelCase)
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `No matching records found to update`,
+      updatedCount: 0,
+      records: []
+    });
+  } catch (error) {
+    console.error('Update bulk payroll status error:', error);
+    res.status(500).json({ success: false, message: 'Server error updating bulk status' });
+  }
+};
+
 const exportPayroll = async (req, res) => {
   try {
     const { month, year } = req.query;
@@ -786,6 +880,7 @@ module.exports = {
   getPayrollRecords,
   calculatePayroll,
   updatePayrollStatus,
+  updateBulkPayrollStatus,
   exportPayroll,
   updatePayrollRecord,
   calculateSinglePayroll,

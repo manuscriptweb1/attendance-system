@@ -70,8 +70,10 @@ export const getPronouns = (salutation) => {
   };
 };
 
-const ExperienceLetterDocument = ({ data, settings }) => {
+const ExperienceLetterDocument = ({ data, settings, includeSignature = true }) => {
   if (!data) return null;
+
+  const shouldIncludeSignature = data.includeSignature !== undefined ? Boolean(data.includeSignature) : includeSignature;
 
   const companyName = data.company_name || data.company_name_snapshot || settings?.company_name || 'Manuscript TechnoMedia LLP';
   const salutation = data.salutation || 'Mr.';
@@ -127,9 +129,9 @@ const ExperienceLetterDocument = ({ data, settings }) => {
         {/* Company Top Right Logo */}
         <OfferLetterTopRightLogo settings={settings} />
 
-        {/* Horizontal Gradient Band beneath Logo (Aligned with content margins) */}
+        {/* Horizontal Gradient Band beneath Logo (Full bleed from edge to edge) */}
         <div
-          className="w-full h-3 mt-4 mb-3 rounded-sm"
+          className="-mx-8 sm:-mx-12 h-3 mt-4 mb-3"
           style={{
             background: 'linear-gradient(to right, #D89A95, #EEDBD9)'
           }}
@@ -176,9 +178,23 @@ const ExperienceLetterDocument = ({ data, settings }) => {
           <p style={justifyStyle}>{p5}</p>
         </div>
 
-        {/* Signatory Closing Block (with extra empty lines space above for signature & seal) */}
-        <div className="text-slate-800 text-[12pt] space-y-0.5 pt-20 mb-6">
-          <p className="text-slate-800 mb-2">Sincerely,</p>
+        {/* Signatory Closing Block */}
+        <div className="text-slate-800 text-[12pt] space-y-0.5 pt-3 mb-4">
+          <p className="text-slate-800 mb-1">Sincerely,</p>
+          {shouldIncludeSignature ? (
+            <div className="py-1">
+              <img
+                src="/assets/payslip/mueen-sir-signature.png?v=3"
+                alt="Designated Partner Signature & Company Seal"
+                className="h-[75px] max-w-[210px] object-contain object-left block"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            </div>
+          ) : (
+            <div className="h-[75px]"></div>
+          )}
           <p className="font-bold text-slate-950">{signatoryName}</p>
           <p className="text-slate-700">{signatoryDesignation}</p>
           <p className="text-slate-700">{companyName}</p>

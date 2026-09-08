@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
 import AlertDialog from '../components/AlertDialog';
@@ -13,14 +13,16 @@ import api, {
   sendAllPayslipEmails,
   getPayrollEmailLogs,
   downloadAllPayslips,
-  downloadSinglePayslip
+  downloadSinglePayslip,
+  updateBulkPayrollStatus
 } from '../services/api';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateMonthYear } from '../utils/dateValidation';
 import EmployeeLoansTab from '../components/loans/EmployeeLoansTab';
 import {
   FiDownload, FiRefreshCw, FiDollarSign, FiEdit2, FiFileText, FiX, FiTrash2,
-  FiMail, FiClock, FiCheckCircle, FiAlertCircle, FiUsers, FiLayers, FiCalendar
+  FiMail, FiClock, FiCheckCircle, FiAlertCircle, FiLayers, FiCalendar,
+  FiChevronDown, FiSliders
 } from 'react-icons/fi';
 import { sortEmployeeRows } from '../utils/sorting';
 import { formatIndianCurrency as formatCurrency } from '../utils/formatCurrency';
@@ -41,8 +43,10 @@ const AdminPayroll = () => {
 
   // Selection & Email state
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
+  const [showBulkMenu, setShowBulkMenu] = useState(false);
+  const [updatingBulkStatus, setUpdatingBulkStatus] = useState(false);
+  const bulkMenuRef = useRef(null);
   const [sendingEmail, setSendingEmail] = useState(false);
-  const [sendingEmailId, setSendingEmailId] = useState(null);
   const [emailLogs, setEmailLogs] = useState([]);
   const [emailLogsMap, setEmailLogsMap] = useState({});
   const [showEmailLogsModal, setShowEmailLogsModal] = useState(false);
@@ -138,6 +142,7 @@ const AdminPayroll = () => {
   useEffect(() => {
     // Clear selection when month/year changes
     setSelectedEmployeeIds([]);
+    setShowBulkMenu(false);
     fetchPayroll();
     fetchEmployeesList();
     fetchEmailLogsData(month, year);
@@ -147,6 +152,16 @@ const AdminPayroll = () => {
     }, 60000);
     return () => clearInterval(interval);
   }, [month, year]); // eslint-disable-line
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (bulkMenuRef.current && !bulkMenuRef.current.contains(event.target)) {
+        setShowBulkMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const currentMonthName = monthNames[month - 1] || month;
@@ -233,6 +248,50 @@ const AdminPayroll = () => {
     } catch (e) {
       fetchPayroll();
       setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(e), type: 'error' });
+    }
+  };
+
+  const handleBulkStatusChange = async (newStatus) => {
+    if (selectedEmployeeIds.length === 0) return;
+    try {
+      setUpdatingBulkStatus(true);
+      setShowBulkMenu(false);
+
+      // Optimistic update for immediate UI responsiveness
+      setRecords(prev => prev.map(r => {
+        const empKey = r.employeeId || r.employeeCode;
+        if (selectedEmployeeIds.includes(empKey) || selectedEmployeeIds.includes(r.id)) {
+          return { ...r, status: newStatus };
+        }
+        return r;
+      }));
+
+      const res = await updateBulkPayrollStatus(selectedEmployeeIds, newStatus, month, year);
+      if (res.data && res.data.success) {
+        const count = selectedEmployeeIds.length;
+        const formattedStatus = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
+        setToastConfig({
+          message: `Status marked as ${formattedStatus} for ${count} employee(s)`,
+          type: 'success'
+        });
+        if (res.data.records && res.data.records.length > 0) {
+          setRecords(prev => {
+            const updatedMap = new Map(res.data.records.map(rec => [rec.id, rec]));
+            return prev.map(r => updatedMap.get(r.id) || r);
+          });
+        }
+        // Automatically deselect all employees after performing action
+        setSelectedEmployeeIds([]);
+        setShowBulkMenu(false);
+      } else {
+        fetchPayroll(true);
+        setAlertDialog({ isOpen: true, title: 'Error', message: res.data?.message || 'Failed to update bulk status', type: 'error' });
+      }
+    } catch (e) {
+      fetchPayroll(true);
+      setAlertDialog({ isOpen: true, title: 'Error', message: getErrorMessage(e), type: 'error' });
+    } finally {
+      setUpdatingBulkStatus(false);
     }
   };
 
@@ -336,14 +395,6 @@ const AdminPayroll = () => {
     setConfirmEmailDialog({
       type: 'selected',
       message: `You are about to send payslip emails to ${selectedEmployeeIds.length} selected employee(s) for ${currentMonthName} ${year}.\n\nDo you want to continue?`
-    });
-  };
-
-  const handleInitiateAllEmails = () => {
-    if (records.length === 0) return;
-    setConfirmEmailDialog({
-      type: 'all',
-      message: `You are about to send payslip emails to ALL ${records.length} employee(s) for ${currentMonthName} ${year}.\n\nDo you want to continue?`
     });
   };
 
@@ -549,13 +600,13 @@ const AdminPayroll = () => {
           ) : (
             <>
               {/* Header */}
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6 animate-fadeInUp stagger-1">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6 animate-fadeInUp stagger-1 relative z-30">
                 <div className="shrink-0">
                   <h1 className="text-2xl lg:text-3xl font-extrabold text-admin-heading tracking-tight">Payroll Management</h1>
                   <p className="text-sm text-admin-muted mt-1.5 font-medium">Calculate and process monthly employee salaries.</p>
                 </div>
 
-                <div className="flex flex-nowrap items-center justify-start lg:justify-end gap-2.5 w-full lg:flex-1 min-w-0 overflow-x-auto dark-scroll pb-1">
+                <div className="flex flex-wrap lg:flex-nowrap items-center justify-start lg:justify-end gap-2.5 w-full lg:flex-1 min-w-0 relative">
                   <label className="flex items-center gap-2 bg-admin-surface border border-admin-border hover:bg-admin-border/30 text-admin-text px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shrink-0 whitespace-nowrap cursor-pointer">
                     <FiCalendar size={16} className="text-blue-400" />
                     <span className="text-admin-secondary">Month</span>
@@ -598,17 +649,7 @@ const AdminPayroll = () => {
                     </button>
                   )}
 
-                  {hasPermission('payroll', 'can_export') && selectedEmployeeIds.length > 0 && (
-                    <button
-                      onClick={handleInitiateSelectedEmails}
-                      disabled={sendingEmail}
-                      className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-lg shadow-purple-500/20 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 whitespace-nowrap"
-                      title="Send Payslips to Selected Employees"
-                    >
-                      {sendingEmail ? <FiRefreshCw size={16} className="animate-spin" /> : <FiMail size={16} />}
-                      <span>Send Selected Emails ({selectedEmployeeIds.length})</span>
-                    </button>
-                  )}
+                  {/* Header actions are now clean and static */}
 
                   {hasPermission('payroll', 'can_clear') && (
                     <button
@@ -650,15 +691,128 @@ const AdminPayroll = () => {
                 </div>
               </div>
 
-              {/* Stats Card */}
-              <div className="bg-admin-surface border border-admin-border rounded-2xl p-5 mb-6 shadow-clay-admin animate-fadeInUp stagger-2 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                    <FiDollarSign size={20} className="text-emerald-400" />
-                  </div>
-                  <span className="text-sm font-bold text-admin-secondary uppercase tracking-wider">Total Net Payable</span>
-                </div>
-                <span className="text-2xl font-extrabold text-admin-heading">{formatCurrency(totalNetPayable)}</span>
+              {/* Unified Stats & Bulk Selection Card */}
+              <div className={`bg-admin-surface border transition-all duration-200 rounded-2xl p-4 sm:p-5 mb-6 shadow-clay-admin animate-fadeInUp stagger-2 flex flex-wrap items-center justify-between gap-4 relative z-20 ${
+                selectedEmployeeIds.length > 0 ? 'border-purple-500/40 bg-purple-500/[0.02]' : 'border-admin-border'
+              }`}>
+                {selectedEmployeeIds.length > 0 ? (
+                  <>
+                    {/* LEFT SIDE: Bulk Selection Actions */}
+                    <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap" ref={bulkMenuRef}>
+                      {/* Selection Count Badge */}
+                      <div className="flex items-center gap-2 bg-purple-500/15 border border-purple-500/25 text-purple-400 px-3.5 py-1.5 rounded-xl text-xs font-bold tracking-tight shrink-0">
+                        <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                        <span>{selectedEmployeeIds.length} Selected</span>
+                      </div>
+
+                      <div className="h-5 w-px bg-admin-border/80 hidden sm:block" />
+
+                      {/* Action 1: Send Payslip Emails */}
+                      {hasPermission('payroll', 'can_export') && (
+                        <button
+                          onClick={handleInitiateSelectedEmails}
+                          disabled={sendingEmail || updatingBulkStatus}
+                          className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-md shadow-purple-500/25 active:scale-95 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                          title="Send Payslip Emails to Selected Employees"
+                        >
+                          {sendingEmail ? <FiRefreshCw size={13} className="animate-spin" /> : <FiMail size={13} />}
+                          <span>Send Emails ({selectedEmployeeIds.length})</span>
+                        </button>
+                      )}
+
+                      {/* Action 2: Mark as Paid */}
+                      {hasPermission('payroll', 'can_edit') && (
+                        <button
+                          onClick={() => handleBulkStatusChange('paid')}
+                          disabled={updatingBulkStatus || sendingEmail}
+                          className="flex items-center gap-2 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                          title="Mark Selected Employees as Paid"
+                        >
+                          {updatingBulkStatus ? <FiRefreshCw size={13} className="animate-spin" /> : <FiCheckCircle size={13} />}
+                          <span>Mark as Paid</span>
+                        </button>
+                      )}
+
+                      {/* Action 3: Status Dropdown (Pending / Hold) */}
+                      {hasPermission('payroll', 'can_edit') && (
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowBulkMenu(prev => !prev);
+                            }}
+                            disabled={updatingBulkStatus || sendingEmail}
+                            className="flex items-center gap-1.5 bg-admin-bg hover:bg-admin-border/40 text-admin-secondary hover:text-admin-text border border-admin-border px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                            title="More Status Options"
+                          >
+                            <FiSliders size={13} />
+                            <span>Status</span>
+                            <FiChevronDown size={12} className={`transition-transform duration-200 ${showBulkMenu ? 'rotate-180' : ''}`} />
+                          </button>
+
+                          {showBulkMenu && (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute top-full mt-2 left-0 sm:left-auto sm:right-0 w-44 bg-admin-surface border border-admin-border rounded-xl shadow-2xl p-1.5 z-50 animate-fadeIn backdrop-blur-md"
+                            >
+                              <button
+                                onClick={() => handleBulkStatusChange('pending')}
+                                disabled={updatingBulkStatus}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-admin-text hover:bg-yellow-500/10 hover:text-yellow-400 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
+                              >
+                                <FiClock size={13} className="text-yellow-400 shrink-0" />
+                                <span>Mark as Pending</span>
+                              </button>
+                              <button
+                                onClick={() => handleBulkStatusChange('hold')}
+                                disabled={updatingBulkStatus}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-admin-text hover:bg-orange-500/10 hover:text-orange-400 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
+                              >
+                                <FiAlertCircle size={13} className="text-orange-400 shrink-0" />
+                                <span>Mark as Hold</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Action 4: Deselect All */}
+                      <button
+                        onClick={() => {
+                          setSelectedEmployeeIds([]);
+                          setShowBulkMenu(false);
+                        }}
+                        className="flex items-center gap-1 text-admin-muted hover:text-red-400 px-2.5 py-1.5 rounded-xl text-xs font-semibold hover:bg-red-500/10 transition-colors cursor-pointer whitespace-nowrap"
+                        title="Deselect All"
+                      >
+                        <FiX size={14} />
+                        <span className="hidden sm:inline">Deselect</span>
+                      </button>
+                    </div>
+
+                    {/* RIGHT SIDE: Total Net Payable */}
+                    <div className="flex items-center gap-3 shrink-0 ml-auto">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                          <FiDollarSign size={16} className="text-emerald-400" />
+                        </div>
+                        <span className="text-xs font-bold text-admin-secondary uppercase tracking-wider hidden sm:inline">Total Net Payable</span>
+                      </div>
+                      <span className="text-xl sm:text-2xl font-extrabold text-admin-heading">{formatCurrency(totalNetPayable)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Normal State: Left side label, Right side amount */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                        <FiDollarSign size={20} className="text-emerald-400" />
+                      </div>
+                      <span className="text-sm font-bold text-admin-secondary uppercase tracking-wider">Total Net Payable</span>
+                    </div>
+                    <span className="text-2xl font-extrabold text-admin-heading">{formatCurrency(totalNetPayable)}</span>
+                  </>
+                )}
               </div>
 
               {/* Table */}

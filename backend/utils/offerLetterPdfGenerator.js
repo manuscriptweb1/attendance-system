@@ -1,7 +1,7 @@
 const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
-const { getOfferLetterSettings, resolveOfferLetterLogoPath } = require('./offerLetterSettingsHelper');
+const { getOfferLetterSettings, resolveOfferLetterLogoPath, getDesignatedPartnerSignaturePath } = require('./offerLetterSettingsHelper');
 const { getCompanyLogoPath } = require('./payslipGenerator');
 
 // Cache font paths
@@ -425,12 +425,13 @@ async function generateOfferLetterPDF(offerData, options = {}) {
   doc.addPage({ size: 'A4', margin: 0 });
   drawTopRightLogo(doc, logoPath, fonts, 55);
 
-  // Gradient horizontal band beneath logo at y = 120 (Aligned with content margins)
+  // Full-width gradient horizontal band beneath logo at y = 120 (Edge-to-edge from 0 to pageWidth)
   let curY = 120;
-  const gradientBand = doc.linearGradient(leftMargin, curY, leftMargin + contentWidth, curY);
+  const pageWidth = 595.28;
+  const gradientBand = doc.linearGradient(0, curY, pageWidth, curY);
   gradientBand.stop(0, '#D89A95');
   gradientBand.stop(1, '#EEDBD9');
-  doc.rect(leftMargin, curY, contentWidth, 12).fill(gradientBand);
+  doc.rect(0, curY, pageWidth, 12).fill(gradientBand);
 
   // Date on right beneath gradient banner at y = 145
   curY = 145;
@@ -696,39 +697,39 @@ async function generateOfferLetterPDF(offerData, options = {}) {
   renderBullet('Acceptance and signature of all applicable agreements (NDA, Agreement, and Company Policies)', 10, 3.5);
   renderBullet('Confirmation that there are no existing restrictions (e.g., non-compete) preventing you from joining', 10, 4);
 
-  curY = doc.y + 6;
+  curY = doc.y + 4;
   const misrepText = 'Any misrepresentation or failure in verification may result in withdrawal of this offer or termination of employment.';
   doc.font(fontRegular).fontSize(11).fillColor('#1F2937').text(misrepText, leftMargin, curY, { width: contentWidth, lineGap: 1.8 });
-  curY = doc.y + 12;
+  curY = doc.y + 8;
 
   // Working Policies
   doc.strokeColor('#A0AEC0').lineWidth(0.6).moveTo(leftMargin, curY).lineTo(leftMargin + contentWidth, curY).stroke();
-  curY += 14;
+  curY += 8;
 
   doc.font(fontBold).fontSize(11.5).fillColor('#000000').text('Working Policies', leftMargin, curY);
-  curY += 15;
+  curY += 12;
 
-  renderPrefixBullet('Leave and Attendance: ', 'As per the company’s leave and attendance policy in force and as updated from time to time', 4.0);
-  renderPrefixBullet('Remote/Hybrid Work: ', 'Work is office-based.', 4.0);
-  renderPrefixBullet('Code of Conduct: ', 'You are expected to maintain professional conduct and adhere to ethical standards', 10);
+  renderPrefixBullet('Leave and Attendance: ', 'As per the company’s leave and attendance policy in force and as updated from time to time', 3.5);
+  renderPrefixBullet('Remote/Hybrid Work: ', 'Work is office-based.', 3.5);
+  renderPrefixBullet('Code of Conduct: ', 'You are expected to maintain professional conduct and adhere to ethical standards', 6);
 
   // Termination
   doc.strokeColor('#A0AEC0').lineWidth(0.6).moveTo(leftMargin, curY).lineTo(leftMargin + contentWidth, curY).stroke();
-  curY += 14;
+  curY += 8;
 
   doc.font(fontBold).fontSize(11.5).fillColor('#000000').text('Termination', leftMargin, curY);
-  curY += 15;
+  curY += 12;
 
-  renderBullet('During probation, either party may terminate employment with 30 days written notice or pay in lieu of notice.', 10, 4.0);
-  renderBullet('Post-probation, either party may terminate employment within 30 days written notice or pay in lieu, as per policy.', 10, 4.0);
-  renderBullet('The company reserves the right to terminate employment for cause without notice, subject to applicable law and policies.', 10, 10);
+  renderBullet('During probation, either party may terminate employment with 30 days written notice or pay in lieu of notice.', 10, 3.5);
+  renderBullet('Post-probation, either party may terminate employment within 30 days written notice or pay in lieu, as per policy.', 10, 3.5);
+  renderBullet('The company reserves the right to terminate employment for cause without notice, subject to applicable law and policies.', 10, 6);
 
   // Acceptance of Offer
   doc.strokeColor('#A0AEC0').lineWidth(0.6).moveTo(leftMargin, curY).lineTo(leftMargin + contentWidth, curY).stroke();
-  curY += 14;
+  curY += 8;
 
   doc.font(fontBold).fontSize(11.5).fillColor('#000000').text('Acceptance of Offer', leftMargin, curY);
-  curY += 15;
+  curY = doc.y + 7;
 
   doc.font(fontRegular).fontSize(11).fillColor('#1F2937');
   doc.text('Please indicate your acceptance by signing and returning this letter along with the attached agreements by ', leftMargin, curY, {
@@ -738,7 +739,7 @@ async function generateOfferLetterPDF(offerData, options = {}) {
   });
   doc.font(fontBold).fillColor('#000000').text(acceptanceDateFormatted, { continued: true });
   doc.font(fontRegular).fillColor('#1F2937').text('. This offer will expire if not accepted by the specified date.');
-  curY = doc.y + 8;
+  curY = doc.y + 6;
 
   doc.text('We are excited at the prospect of you joining ', leftMargin, curY, {
     width: contentWidth,
@@ -748,14 +749,29 @@ async function generateOfferLetterPDF(offerData, options = {}) {
   doc.font(fontBold).fillColor('#000000').text(companyName, { continued: true });
   doc.font(fontRegular).fillColor('#1F2937').text(` and contributing to our mission. If you have any questions, please contact us at ${settings.header_email || settings.signatory_email}`);
   
-  // 6 lines of empty space for company seal and signature
-  curY = doc.y + 72;
-
   // Sign-off Block
-  doc.font(fontRegular).fontSize(11).fillColor('#000000').text('Sincerely,', leftMargin, curY); curY += 16;
-  doc.font(fontBold).fontSize(11).fillColor('#000000').text(signatoryName, leftMargin, curY); curY += 14;
-  doc.font(fontRegular).fontSize(11).fillColor('#222222').text(signatoryDesignation, leftMargin, curY); curY += 14;
-  doc.text(companyName, leftMargin, curY); curY += 14;
+  curY = doc.y + 8;
+  doc.font(fontRegular).fontSize(11).fillColor('#000000').text('Sincerely,', leftMargin, curY);
+  curY = doc.y + 2;
+
+  const includeSignature = options.includeSignature !== false;
+  const signaturePath = getDesignatedPartnerSignaturePath();
+
+  if (includeSignature && signaturePath && fs.existsSync(signaturePath)) {
+    try {
+      doc.image(signaturePath, leftMargin, curY, { height: 72 });
+      curY += 76;
+    } catch (sigErr) {
+      console.warn('Could not draw signature image in offer letter PDF:', sigErr.message);
+      curY += 76;
+    }
+  } else {
+    curY += 76;
+  }
+
+  doc.font(fontBold).fontSize(11).fillColor('#000000').text(signatoryName, leftMargin, curY); curY += 13;
+  doc.font(fontRegular).fontSize(11).fillColor('#222222').text(signatoryDesignation, leftMargin, curY); curY += 13;
+  doc.text(companyName, leftMargin, curY); curY += 13;
   doc.text(`Email: ${signatoryEmail}`, leftMargin, curY);
 
   drawPageFooter(doc, settings, fonts);

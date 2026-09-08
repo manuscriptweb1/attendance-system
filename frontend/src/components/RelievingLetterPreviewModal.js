@@ -12,6 +12,7 @@ const RelievingLetterPreviewModal = ({
   onPrint
 }) => {
   const [zoom, setZoom] = useState(1);
+  const [includeSignature, setIncludeSignature] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const containerRef = useRef(null);
 
@@ -21,7 +22,7 @@ const RelievingLetterPreviewModal = ({
   const letterNumber = letterData.letter_number || 'REL';
   const safeName = employeeName.replace(/[^a-zA-Z0-9_-]/g, '_');
   const safeNum = letterNumber.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const filename = `Relieving_Letter_${safeName}_${safeNum}.pdf`;
+  const filename = `Relieving_Letter_${safeName}_${safeNum}${includeSignature ? '_signed' : ''}.pdf`;
 
   const handleDownloadDirect = async () => {
     try {
@@ -30,12 +31,12 @@ const RelievingLetterPreviewModal = ({
       if (targetContainer) {
         await exportOfferLetterToPdf(targetContainer, filename);
       } else if (onDownload) {
-        await onDownload();
+        await onDownload(includeSignature);
       }
     } catch (err) {
       console.error('Direct PDF export failed, fallback to backend:', err);
       if (onDownload) {
-        await onDownload();
+        await onDownload(includeSignature);
       }
     } finally {
       setIsExporting(false);
@@ -44,7 +45,7 @@ const RelievingLetterPreviewModal = ({
 
   const handlePrint = () => {
     if (onPrint) {
-      onPrint();
+      onPrint(includeSignature);
     } else {
       window.print();
     }
@@ -69,6 +70,30 @@ const RelievingLetterPreviewModal = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Signature Toggle */}
+            <div className="flex items-center bg-admin-bg border border-admin-border rounded-xl p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setIncludeSignature(true)}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition-colors flex items-center gap-1 ${
+                  includeSignature ? 'bg-blue-600 text-white shadow-sm' : 'text-admin-secondary hover:text-admin-text'
+                }`}
+                title="Include Designated Partner Digital Signature & Seal"
+              >
+                <span>With Signature</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIncludeSignature(false)}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition-colors flex items-center gap-1 ${
+                  !includeSignature ? 'bg-slate-700 text-white shadow-sm' : 'text-admin-secondary hover:text-admin-text'
+                }`}
+                title="Without Signature (Clean for Physical Signing)"
+              >
+                <span>Without Signature</span>
+              </button>
+            </div>
+
             {/* Zoom Controls */}
             <div className="flex items-center bg-admin-bg border border-admin-border rounded-xl p-1 gap-1">
               <button
@@ -141,7 +166,11 @@ const RelievingLetterPreviewModal = ({
             }}
             className="w-full flex justify-center"
           >
-            <RelievingLetterDocument data={letterData} settings={settings} />
+            <RelievingLetterDocument
+              data={letterData}
+              settings={settings}
+              includeSignature={includeSignature}
+            />
           </div>
         </div>
       </div>

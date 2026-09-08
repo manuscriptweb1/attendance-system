@@ -597,11 +597,12 @@ const downloadOfferLetterPDF = async (req, res) => {
 
     const offer = result.rows[0];
     const settings = await getOfferLetterSettings();
-    const doc = await generateOfferLetterPDF(offer, { settings });
+    const includeSignature = req.query.signature !== 'false' && req.query.signature !== false;
+    const doc = await generateOfferLetterPDF(offer, { settings, includeSignature });
 
     const safeName = (offer.employee_name_snapshot || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
     const safeOfferNum = (offer.offer_number || 'OFF').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const filename = `Offer_Letter_${safeName}_${safeOfferNum}.pdf`;
+    const filename = `Offer_Letter_${safeName}_${safeOfferNum}${includeSignature ? '_signed' : ''}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -634,7 +635,8 @@ const previewOfferLetterPDF = async (req, res) => {
 
     const offer = result.rows[0];
     const settings = await getOfferLetterSettings();
-    const doc = await generateOfferLetterPDF(offer, { settings });
+    const includeSignature = req.query.signature !== 'false' && req.query.signature !== false;
+    const doc = await generateOfferLetterPDF(offer, { settings, includeSignature });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'inline');

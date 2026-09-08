@@ -465,11 +465,12 @@ const downloadRelievingLetterPDF = async (req, res) => {
 
     const rel = result.rows[0];
     const settings = await getOfferLetterSettings();
-    const doc = await generateRelievingLetterPDF(rel, { settings });
+    const includeSignature = req.query.signature !== 'false' && req.query.signature !== false;
+    const doc = await generateRelievingLetterPDF(rel, { settings, includeSignature });
 
     const safeName = (rel.employee_name_snapshot || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
     const safeRelNum = (rel.letter_number || 'REL').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const filename = `Relieving_Letter_${safeName}_${safeRelNum}.pdf`;
+    const filename = `Relieving_Letter_${safeName}_${safeRelNum}${includeSignature ? '_signed' : ''}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -502,7 +503,8 @@ const previewRelievingLetterPDF = async (req, res) => {
 
     const rel = result.rows[0];
     const settings = await getOfferLetterSettings();
-    const doc = await generateRelievingLetterPDF(rel, { settings });
+    const includeSignature = req.query.signature !== 'false' && req.query.signature !== false;
+    const doc = await generateRelievingLetterPDF(rel, { settings, includeSignature });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'inline');

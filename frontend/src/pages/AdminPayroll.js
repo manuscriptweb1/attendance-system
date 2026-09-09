@@ -27,6 +27,13 @@ import {
 import { sortEmployeeRows } from '../utils/sorting';
 import { formatIndianCurrency as formatCurrency } from '../utils/formatCurrency';
 
+const formatDayValue = (val) => {
+  if (val === undefined || val === null || val === '') return '0';
+  const num = Number(val || 0);
+  if (Number.isInteger(num)) return String(num);
+  return String(parseFloat(num.toFixed(2)));
+};
+
 const AdminPayroll = () => {
   const { hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState('payroll'); // 'payroll' | 'loans'
@@ -903,13 +910,13 @@ const AdminPayroll = () => {
                                 )}
                               </div>
                             </td>
-                            <td className="px-2 py-2 text-[11px] font-bold text-admin-text text-center align-middle">{r.totalDays}</td>
-                            <td className="px-2 py-2 text-[11px] text-admin-secondary text-center align-middle">{r.workingDays}</td>
-                            <td className="px-2 py-2 text-[11px] font-bold text-emerald-400 text-center align-middle">{parseFloat(r.paidDays).toFixed(1)}</td>
+                            <td className="px-2 py-2 text-[11px] font-bold text-admin-text text-center align-middle">{formatDayValue(r.totalDays)}</td>
+                            <td className="px-2 py-2 text-[11px] text-admin-secondary text-center align-middle">{formatDayValue(r.workingDays)}</td>
+                            <td className="px-2 py-2 text-[11px] font-bold text-emerald-400 text-center align-middle">{formatDayValue(r.paidDays)}</td>
                             <td className="px-2 py-2 align-middle text-center">
                               {parseFloat(r.halfDays) > 0 ? (
                                 <div className="flex flex-col items-center justify-center">
-                                  <span className="text-[11px] font-bold text-yellow-500 leading-tight">{parseFloat(r.halfDays).toFixed(1)}</span>
+                                  <span className="text-[11px] font-bold text-yellow-500 leading-tight">{formatDayValue(r.halfDays)}</span>
                                   <span className="text-[9px] text-red-400/80 leading-tight">{formatCurrency(r.halfDayLossAmount ?? r.half_day_loss_amount ?? 0)}</span>
                                 </div>
                               ) : (
@@ -921,7 +928,7 @@ const AdminPayroll = () => {
                             <td className="px-2 py-2 align-middle text-center">
                               {parseFloat(r.lopDays) > 0 ? (
                                 <div className="flex flex-col items-center justify-center">
-                                  <span className="text-[11px] font-bold text-red-400 leading-tight">{parseFloat(r.lopDays).toFixed(1)}</span>
+                                  <span className="text-[11px] font-bold text-red-400 leading-tight">{formatDayValue(r.lopDays)}</span>
                                   <span className="text-[9px] text-red-400/80 leading-tight">{formatCurrency(r.lopAmount)}</span>
                                 </div>
                               ) : (

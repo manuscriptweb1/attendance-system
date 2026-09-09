@@ -4,6 +4,15 @@ import { formatIndianCurrency as formatCurrency } from '../utils/formatCurrency'
 
 import { downloadSinglePayslip, getBrandingSettings } from '../services/api';
 
+const formatDayValue = (value) => {
+  if (value === undefined || value === null || value === '') return '-';
+  const num = Number(value || 0);
+  if (Number.isInteger(num)) {
+    return String(num);
+  }
+  return String(parseFloat(num.toFixed(2)));
+};
+
 const PayrollPaySlip = ({ data, onClose, logoPath }) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [branding, setBranding] = useState(null);
@@ -130,10 +139,10 @@ const PayrollPaySlip = ({ data, onClose, logoPath }) => {
                 <h3 className="payslip-section-title text-xs font-bold uppercase tracking-wider mb-2 border-b border-slate-200 pb-1">Attendance Details</h3>
                 <table className="w-full text-[13px]">
                   <tbody>
-                    <tr className="payslip-row border-b border-slate-100"><td className="py-1.5 text-slate-600 font-medium w-32">Working Days</td><td className="py-1.5 font-bold text-right">{payroll.work_days}</td></tr>
-                    <tr className="payslip-row border-b border-slate-100"><td className="py-1.5 text-slate-600 font-medium">Paid Days</td><td className="py-1.5 font-bold text-right">{payroll.paid_days}</td></tr>
-                    <tr className="payslip-row border-b border-slate-100"><td className="py-1.5 text-slate-600 font-medium">Present Days</td><td className="py-1.5 font-bold text-right">{payroll.present_days}</td></tr>
-                    <tr className="payslip-row border-b border-slate-100"><td className="py-1.5 text-slate-600 font-medium">Absent Days</td><td className="py-1.5 font-bold text-right">{payroll.absent_days}</td></tr>
+                    <tr className="payslip-row border-b border-slate-100"><td className="py-1.5 text-slate-600 font-medium w-32">Working Days</td><td className="py-1.5 font-bold text-right">{formatDayValue(payroll.work_days)}</td></tr>
+                    <tr className="payslip-row border-b border-slate-100"><td className="py-1.5 text-slate-600 font-medium">Paid Days</td><td className="py-1.5 font-bold text-right">{formatDayValue(payroll.paid_days)}</td></tr>
+                    <tr className="payslip-row border-b border-slate-100"><td className="py-1.5 text-slate-600 font-medium">Present Days</td><td className="py-1.5 font-bold text-right">{formatDayValue(payroll.present_days)}</td></tr>
+                    <tr className="payslip-row border-b border-slate-100"><td className="py-1.5 text-slate-600 font-medium">Absent Days</td><td className="py-1.5 font-bold text-right">{formatDayValue(payroll.absent_days)}</td></tr>
                   </tbody>
                 </table>
               </div>

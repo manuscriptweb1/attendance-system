@@ -22,6 +22,14 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
+const formatDayValue = (value) => {
+  const num = Number(value || 0);
+  if (Number.isInteger(num)) {
+    return String(num);
+  }
+  return String(parseFloat(num.toFixed(2)));
+};
+
 const EmployeePayrollTab = ({ employeeId, employee }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
@@ -501,12 +509,12 @@ const EmployeePayrollTab = ({ employeeId, employee }) => {
                       {/* Working Days */}
                       <td className="py-3.5 px-4 text-admin-text font-medium">
                         <div>
-                          <span className="font-bold text-admin-text">{r.paid_days || 0}</span>
-                          <span className="text-admin-text-muted text-[11px]"> / {r.total_days || 0} Days</span>
+                          <span className="font-bold text-admin-text">{formatDayValue(r.paid_days)}</span>
+                          <span className="text-admin-text-muted text-[11px]"> / {formatDayValue(r.total_days)} Days</span>
                         </div>
                         {Number(r.lop_days || 0) > 0 && (
                           <span className="text-[10px] font-bold text-rose-400">
-                            {r.lop_days} LOP
+                            {formatDayValue(r.lop_days)} LOP
                           </span>
                         )}
                       </td>

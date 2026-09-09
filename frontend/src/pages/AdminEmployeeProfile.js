@@ -9,16 +9,9 @@ import EmployeeAttendanceTab from '../components/employee/EmployeeAttendanceTab'
 import EmployeePermissionsTab from '../components/employee/EmployeePermissionsTab';
 import EmployeePayrollTab from '../components/employee/EmployeePayrollTab';
 import EmployeeDocumentsTab from '../components/employee/EmployeeDocumentsTab';
-import OfferLetterPreviewModal from '../components/OfferLetterPreviewModal';
-import ExperienceLetterPreviewModal from '../components/ExperienceLetterPreviewModal';
-import RelievingLetterPreviewModal from '../components/RelievingLetterPreviewModal';
 import EmployeeDetailsFormModal from '../components/EmployeeDetailsFormModal';
 import {
   getEmployeeFullProfile,
-  getOfferLetterById,
-  getExperienceLetterById,
-  getRelievingLetterById,
-  getOfferLetterSettings,
   getAllDepartments,
   updateEmployee,
   enableWFH,
@@ -66,17 +59,6 @@ const AdminEmployeeProfile = () => {
   const [profileData, setProfileData] = useState(null);
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'attendance' | 'permissions' | 'payroll' | 'documents'
 
-  // Letter Preview Modals
-  const [previewOfferData, setPreviewOfferData] = useState(null);
-  const [showOfferModal, setShowOfferModal] = useState(false);
-
-  const [previewExpData, setPreviewExpData] = useState(null);
-  const [showExpModal, setShowExpModal] = useState(false);
-
-  const [previewRelData, setPreviewRelData] = useState(null);
-  const [showRelModal, setShowRelModal] = useState(false);
-
-  const [letterSettings, setLetterSettings] = useState(null);
 
   // Bio-Data Form Modal
   const [showFormModal, setShowFormModal] = useState(false);
@@ -112,12 +94,6 @@ const AdminEmployeeProfile = () => {
 
   useEffect(() => {
     fetchProfile();
-    // Pre-fetch letter settings for preview modals
-    getOfferLetterSettings()
-      .then(res => {
-        if (res.data?.success) setLetterSettings(res.data.settings);
-      })
-      .catch(() => {});
     getAllDepartments()
       .then(res => {
         if (res.data?.departments) setDepartments(res.data.departments);
@@ -125,42 +101,6 @@ const AdminEmployeeProfile = () => {
       .catch(() => {});
   }, [fetchProfile]);
 
-  // Open Letter Preview Handlers
-  const handleOpenOfferLetter = async (offerId) => {
-    try {
-      const res = await getOfferLetterById(offerId);
-      if (res.data?.success) {
-        setPreviewOfferData(res.data.offer);
-        setShowOfferModal(true);
-      }
-    } catch (err) {
-      console.error('Error fetching offer letter for preview:', err);
-    }
-  };
-
-  const handleOpenExperienceLetter = async (expId) => {
-    try {
-      const res = await getExperienceLetterById(expId);
-      if (res.data?.success) {
-        setPreviewExpData(res.data.experienceLetter);
-        setShowExpModal(true);
-      }
-    } catch (err) {
-      console.error('Error fetching experience letter for preview:', err);
-    }
-  };
-
-  const handleOpenRelievingLetter = async (relId) => {
-    try {
-      const res = await getRelievingLetterById(relId);
-      if (res.data?.success) {
-        setPreviewRelData(res.data.relievingLetter);
-        setShowRelModal(true);
-      }
-    } catch (err) {
-      console.error('Error fetching relieving letter for preview:', err);
-    }
-  };
 
   // Toggle WFH Privilege
   const handleToggleWFH = async () => {
@@ -279,6 +219,24 @@ const AdminEmployeeProfile = () => {
     } finally {
       setSavingEdit(false);
     }
+  };
+
+  // Switch to Official Documents tab & focus/filter specific card
+  const [highlightDoc, setHighlightDoc] = useState({ type: 'all', ts: 0 });
+
+  const handleOpenOfferLetter = () => {
+    setActiveTab('documents');
+    setHighlightDoc({ type: 'offer', ts: Date.now() });
+  };
+
+  const handleOpenExperienceLetter = () => {
+    setActiveTab('documents');
+    setHighlightDoc({ type: 'experience', ts: Date.now() });
+  };
+
+  const handleOpenRelievingLetter = () => {
+    setActiveTab('documents');
+    setHighlightDoc({ type: 'relieving', ts: Date.now() });
   };
 
   const employee = profileData?.employee;
@@ -452,59 +410,59 @@ const AdminEmployeeProfile = () => {
               {/* Quick KPI Counters Row */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {/* 1. Working Tenure */}
-                <div className="p-4 rounded-xl bg-admin-surface border border-admin-border shadow-sm">
+                <div className="p-4 rounded-xl bg-white dark:bg-admin-surface border border-slate-200 dark:border-admin-border shadow-sm">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-admin-secondary">Total Tenure</span>
-                    <FiCalendar size={15} className="text-purple-400" />
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300">Total Tenure</span>
+                    <FiCalendar size={15} className="text-purple-600 dark:text-purple-400" />
                   </div>
-                  <p className="text-base sm:text-lg font-black text-admin-text truncate">
+                  <p className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate">
                     {tenure?.formatted || '—'}
                   </p>
-                  <p className="text-[11px] text-admin-muted mt-0.5">
+                  <p className="text-[11px] text-slate-700 dark:text-slate-300 font-medium mt-0.5">
                     Joined: {formatDate(employee.joining_date) || 'Not set'}
                   </p>
                 </div>
 
                 {/* 2. Total Present Days */}
-                <div className="p-4 rounded-xl bg-admin-surface border border-admin-border shadow-sm">
+                <div className="p-4 rounded-xl bg-white dark:bg-admin-surface border border-slate-200 dark:border-admin-border shadow-sm">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-admin-secondary">Days Present</span>
-                    <FiCheckCircle size={15} className="text-emerald-400" />
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300">Days Present</span>
+                    <FiCheckCircle size={15} className="text-emerald-600 dark:text-emerald-400" />
                   </div>
-                  <p className="text-base sm:text-lg font-black text-admin-text">
+                  <p className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
                     {stats?.attendance?.present_count ?? 0}
                   </p>
-                  <p className="text-[11px] text-admin-muted mt-0.5">
+                  <p className="text-[11px] text-slate-700 dark:text-slate-300 font-medium mt-0.5">
                     {stats?.attendance?.total_working_hours ?? 0} total hrs logged
                   </p>
                 </div>
 
                 {/* 3. Monthly Salary / CTC */}
-                <div className="p-4 rounded-xl bg-admin-surface border border-admin-border shadow-sm">
+                <div className="p-4 rounded-xl bg-white dark:bg-admin-surface border border-slate-200 dark:border-admin-border shadow-sm">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-admin-secondary">Monthly CTC</span>
-                    <FiDollarSign size={15} className="text-blue-400" />
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300">Monthly CTC</span>
+                    <FiDollarSign size={15} className="text-blue-600 dark:text-blue-400" />
                   </div>
-                  <p className="text-base sm:text-lg font-black text-admin-text">
+                  <p className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
                     {formatCurrency(employee.monthly_salary || employee.base_salary)}
                   </p>
-                  <p className="text-[11px] text-admin-muted mt-0.5">
+                  <p className="text-[11px] text-slate-700 dark:text-slate-300 font-medium mt-0.5">
                     Annual: {formatCurrency((employee.monthly_salary || employee.base_salary || 0) * 12)}
                   </p>
                 </div>
 
                 {/* 4. Privileges & WFH */}
-                <div className="p-4 rounded-xl bg-admin-surface border border-admin-border shadow-sm">
+                <div className="p-4 rounded-xl bg-white dark:bg-admin-surface border border-slate-200 dark:border-admin-border shadow-sm">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-admin-secondary">Privileges</span>
-                    <FiShield size={15} className="text-amber-400" />
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300">Privileges</span>
+                    <FiShield size={15} className="text-amber-600 dark:text-amber-400" />
                   </div>
                   {isResigned ? (
                     <div>
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/25">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/25">
                         Former Employee (Inactive)
                       </span>
-                      <p className="text-[11px] text-admin-muted mt-1">Privileges archived on exit</p>
+                      <p className="text-[11px] text-slate-700 dark:text-slate-300 font-medium mt-1">Privileges archived on exit</p>
                     </div>
                   ) : (
                     <>
@@ -514,8 +472,8 @@ const AdminEmployeeProfile = () => {
                           disabled={togglingWFH}
                           className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
                             employee.wfh_enabled
-                              ? 'bg-blue-500/15 text-blue-400 border-blue-500/30 hover:bg-blue-500/25'
-                              : 'bg-white/5 text-admin-muted border-white/10 hover:bg-white/10'
+                              ? 'bg-blue-100 text-blue-900 border-blue-400 hover:bg-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/40'
+                              : 'bg-slate-100 text-slate-800 border-slate-300 hover:bg-slate-200 dark:bg-white/5 dark:text-admin-muted dark:border-white/10 dark:hover:bg-white/10'
                           }`}
                           title="Toggle WFH Privilege"
                         >
@@ -526,15 +484,15 @@ const AdminEmployeeProfile = () => {
                           disabled={togglingEarlyCO}
                           className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
                             employee.early_checkout_enabled
-                              ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25'
-                              : 'bg-white/5 text-admin-muted border-white/10 hover:bg-white/10'
+                              ? 'bg-emerald-100 text-emerald-900 border-emerald-400 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40'
+                              : 'bg-slate-100 text-slate-800 border-slate-300 hover:bg-slate-200 dark:bg-white/5 dark:text-admin-muted dark:border-white/10 dark:hover:bg-white/10'
                           }`}
                           title="Toggle Early Checkout Privilege"
                         >
                           {togglingEarlyCO ? '...' : (employee.early_checkout_enabled ? 'Early CO: ON' : 'Early CO: OFF')}
                         </button>
                       </div>
-                      <p className="text-[11px] text-admin-muted mt-1">Click tag to toggle</p>
+                      <p className="text-[11px] text-slate-700 dark:text-slate-300 font-medium mt-1">Click tag to toggle</p>
                     </>
                   )}
                 </div>
@@ -554,7 +512,12 @@ const AdminEmployeeProfile = () => {
                   return (
                     <button
                       key={t.id}
-                      onClick={() => setActiveTab(t.id)}
+                      onClick={() => {
+                        setActiveTab(t.id);
+                        if (t.id === 'documents') {
+                          setHighlightDoc({ type: 'all', ts: Date.now() });
+                        }
+                      }}
                       className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                         isActive
                           ? 'bg-admin-accent text-white shadow-md shadow-admin-accent/25'
@@ -746,56 +709,40 @@ const AdminEmployeeProfile = () => {
 
               {/* TAB 2: Attendance History Matrix */}
               {activeTab === 'attendance' && (
-                <EmployeeAttendanceTab employeeId={employee.employee_id} />
+                <EmployeeAttendanceTab 
+                  employeeId={id || employee?.id || employee?.employee_id} 
+                  employee={employee}
+                />
               )}
 
               {/* TAB 3: Permissions & Leaves Log */}
               {activeTab === 'permissions' && (
-                <EmployeePermissionsTab employeeId={employee.employee_id} />
+                <EmployeePermissionsTab 
+                  employeeId={id || employee?.id || employee?.employee_id} 
+                  employee={employee}
+                />
               )}
 
               {/* TAB 4: Payroll & Historical Payslips */}
               {activeTab === 'payroll' && (
-                <EmployeePayrollTab employeeId={employee.employee_id} employee={employee} />
+                <EmployeePayrollTab 
+                  employeeId={id || employee?.id || employee?.employee_id} 
+                  employee={employee} 
+                />
               )}
 
               {/* TAB 5: Official Documents & Letters Hub */}
               {activeTab === 'documents' && (
                 <EmployeeDocumentsTab
-                  employeeId={employee.employee_id}
+                  employeeId={id || employee?.id || employee?.employee_id}
                   employee={employee}
                   fullProfileData={profileData}
                   onRefreshProfile={fetchProfile}
+                  highlightDoc={highlightDoc}
+                  setHighlightDoc={setHighlightDoc}
                 />
               )}
 
-              {/* Modals for Document Previews */}
-              {showOfferModal && previewOfferData && (
-                <OfferLetterPreviewModal
-                  isOpen={showOfferModal}
-                  onClose={() => setShowOfferModal(false)}
-                  offerData={previewOfferData}
-                  settings={letterSettings}
-                />
-              )}
-
-              {showExpModal && previewExpData && (
-                <ExperienceLetterPreviewModal
-                  isOpen={showExpModal}
-                  onClose={() => setShowExpModal(false)}
-                  letterData={previewExpData}
-                  settings={letterSettings}
-                />
-              )}
-
-              {showRelModal && previewRelData && (
-                <RelievingLetterPreviewModal
-                  isOpen={showRelModal}
-                  onClose={() => setShowRelModal(false)}
-                  letterData={previewRelData}
-                  settings={letterSettings}
-                />
-              )}
 
               {/* Employee Bio-Data Form Modal */}
               {showFormModal && employee && (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   FiFileText,
   FiUserCheck,
@@ -15,6 +15,105 @@ import {
 } from 'react-icons/fi';
 import { formatDate } from '../../utils/dateUtils';
 import { updateEmployeeMilestones } from '../../services/api';
+
+function calculateClientTenure(startDateStr, endDateStr) {
+  if (!startDateStr) return { years: 0, months: 0, days: 0, totalDays: 0, formatted: '0 Days' };
+  
+  let start;
+  if (typeof startDateStr === 'string') {
+    const clean = startDateStr.split('T')[0];
+    const parts = clean.split('-');
+    if (parts.length === 3) {
+      start = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    }
+  }
+  if (!start) start = new Date(startDateStr);
+  if (isNaN(start.getTime())) return { years: 0, months: 0, days: 0, totalDays: 0, formatted: '0 Days' };
+
+  let end;
+  if (endDateStr) {
+    if (typeof endDateStr === 'string') {
+      const clean = endDateStr.split('T')[0];
+      const parts = clean.split('-');
+      if (parts.length === 3) {
+        end = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      }
+    }
+    if (!end) end = new Date(endDateStr);
+  } else {
+    end = new Date();
+  }
+
+  let years = end.getFullYear() - start.getFullYear();
+  let months = end.getMonth() - start.getMonth();
+  let days = end.getDate() - start.getDate();
+
+  if (days < 0) {
+    months -= 1;
+    const prevMonthDays = new Date(end.getFullYear(), end.getMonth(), 0).getDate();
+    days += prevMonthDays;
+  }
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  const diffTime = Math.max(0, end.getTime() - start.getTime());
+  const totalDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+  if (years < 0) {
+    years = 0;
+    months = 0;
+    days = 0;
+  }
+
+  const parts = [];
+  if (years > 0) parts.push(`${years} ${years === 1 ? 'Year' : 'Years'}`);
+  if (months > 0) parts.push(`${months} ${months === 1 ? 'Month' : 'Months'}`);
+  if (days > 0 || parts.length === 0) parts.push(`${days} ${days === 1 ? 'Day' : 'Days'}`);
+
+  return {
+    years,
+    months,
+    days,
+    totalDays,
+    formatted: parts.join(', ')
+  };
+}
+
+function calculateProbationDetails(joiningDateStr, monthsCount = 3) {
+  if (!joiningDateStr) return { date: null, is_completed: false };
+  let year, month, day;
+  if (typeof joiningDateStr === 'string') {
+    const clean = joiningDateStr.split('T')[0];
+    const parts = clean.split('-');
+    if (parts.length === 3) {
+      year = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10) - 1;
+      day = parseInt(parts[2], 10);
+    }
+  }
+  if (!year) {
+    const d = new Date(joiningDateStr);
+    if (isNaN(d.getTime())) return { date: null, is_completed: false };
+    year = d.getFullYear();
+    month = d.getMonth();
+    day = d.getDate();
+  }
+
+  const targetDate = new Date(year, month + monthsCount, day);
+  const now = new Date();
+  const targetMidnight = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const pad = (n) => String(n).padStart(2, '0');
+  const dateStr = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}`;
+
+  return {
+    date: dateStr,
+    is_completed: nowMidnight >= targetMidnight
+  };
+}
 
 const EmployeeJourneyTimeline = ({
   employee,
@@ -66,9 +165,43 @@ const EmployeeJourneyTimeline = ({
   const isResigned = milestones?.current_service?.is_resigned;
   const offer = milestones?.offer_letter || {};
   const joining = milestones?.joining || {};
-  const probation = milestones?.probation || {};
   const experience = milestones?.experience_letter || {};
   const relieving = milestones?.relieving_letter || {};
+
+  const effectiveJoiningDate = employee?.joining_date || joining.date;
+
+  const probation = useMemo(() => {
+    if (milestones?.probation?.date) {
+      const calc = calculateProbationDetails(effectiveJoiningDate);
+      return {
+        date: milestones.probation.date,
+        is_completed: milestones.probation.is_completed !== undefined
+          ? Boolean(milestones.probation.is_completed)
+          : calc.is_completed
+      };
+    }
+    return calculateProbationDetails(effectiveJoiningDate);
+  }, [milestones?.probation, effectiveJoiningDate]);
+
+  const isProbationCompleted = Boolean(probation.is_completed);
+
+  // Active Tenure representation (accurate years, months, days)
+  const activeTenure = useMemo(() => {
+    if (tenure?.formatted && tenure.formatted !== 'Calculating...' && tenure.formatted !== '-') {
+      return tenure;
+    }
+    return calculateClientTenure(
+      effectiveJoiningDate,
+      isResigned ? (employee?.resigned_date || milestones?.current_service?.resigned_date) : null
+    );
+  }, [tenure, effectiveJoiningDate, isResigned, employee?.resigned_date, milestones?.current_service?.resigned_date]);
+
+  // Determine stage flags:
+  // - Exit stage: isResigned is true
+  // - Probation stage: employee not resigned and probation NOT completed
+  // - Current Tenure stage: employee not resigned and probation IS completed
+  const isProbationStage = !isResigned && !isProbationCompleted;
+  const isTenureStage = !isResigned && isProbationCompleted;
 
   return (
     <div className="bg-admin-surface border border-admin-border rounded-2xl p-5 sm:p-6 shadow-clay-admin transition-all">
@@ -94,9 +227,9 @@ const EmployeeJourneyTimeline = ({
           {/* Live Tenure Counter Pill */}
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-purple-100 text-purple-900 border border-purple-300 dark:bg-purple-950/40 dark:text-purple-200 dark:border-purple-500/40 text-xs font-bold font-mono shadow-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 shrink-0 shadow-sm shadow-emerald-500/50" />
-            <span>Tenure: {tenure?.formatted || 'Calculating...'}</span>
-            {tenure?.totalDays ? (
-              <span className="text-purple-700 dark:text-purple-300 font-semibold">({tenure.totalDays} days)</span>
+            <span>Tenure: {activeTenure?.formatted || 'Calculating...'}</span>
+            {activeTenure?.totalDays ? (
+              <span className="text-purple-700 dark:text-purple-300 font-semibold">({activeTenure.totalDays} days)</span>
             ) : null}
           </div>
 
@@ -206,90 +339,139 @@ const EmployeeJourneyTimeline = ({
           </div>
 
           {/* STEP 3: Probation / Confirmation Milestone */}
-          <div className="flex flex-col items-center text-center p-3.5 rounded-xl bg-admin-bg/60 border border-admin-border/50 hover:border-amber-500/40 transition-all group">
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-3 shadow-md transition-transform group-hover:scale-105 ${
-              probation.is_completed
-                ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-amber-500/25'
-                : 'bg-admin-surface border border-admin-border text-admin-muted'
-            }`}>
-              <FiShield size={22} />
-            </div>
-
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
-              Step 3 • Probation
-            </span>
-
-            <p className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-full">
-              3-Month Evaluation
-            </p>
-
-            <span className="text-xs font-mono font-bold text-amber-800 dark:text-amber-300 mt-0.5">
-              {probation.date ? formatDate(probation.date) : 'N/A'}
-            </span>
-
-            <div className="mt-2.5">
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold border shadow-sm ${
-                probation.is_completed
-                  ? 'bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40'
-                  : 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-white/10 dark:text-slate-300 dark:border-white/20'
-              }`}>
-                {probation.is_completed ? <FiCheckCircle size={11} className="text-amber-600 dark:text-amber-400" /> : <FiClock size={11} />}
-                {probation.is_completed ? 'Confirmed' : 'In Progress'}
-              </span>
-            </div>
-          </div>
-
-          {/* STEP 4: Live Service & Current Tenure */}
-          <div className={`relative flex flex-col items-center text-center p-3.5 pt-5 rounded-xl border transition-all duration-300 group ${
-            isResigned
-              ? 'bg-admin-bg/60 border-admin-border/50'
-              : 'bg-gradient-to-b from-purple-500/20 via-purple-500/10 to-indigo-500/5 border-2 border-purple-500/80 shadow-xl shadow-purple-500/20 ring-4 ring-purple-500/15'
+          <div className={`relative flex flex-col items-center text-center p-3.5 rounded-xl transition-all duration-300 group ${
+            isProbationStage
+              ? 'pt-5 border-2 border-purple-500/80 bg-gradient-to-b from-purple-500/20 via-purple-500/10 to-indigo-500/5 shadow-xl shadow-purple-500/20 ring-4 ring-purple-500/15'
+              : 'bg-admin-bg/60 border border-admin-border/50 hover:border-amber-500/40'
           }`}>
-            {!isResigned && (
+            {isProbationStage && (
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 text-white text-[9px] font-black uppercase tracking-widest shadow-md shadow-purple-500/30 border border-purple-300/40 whitespace-nowrap flex items-center gap-1.5 z-20">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 <span>Current Stage</span>
               </div>
             )}
 
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-3 shadow-md transition-transform group-hover:scale-105 relative ${
-              isResigned
-                ? 'bg-admin-surface border border-admin-border text-admin-muted'
-                : 'bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/35 ring-4 ring-purple-500/30'
+              isProbationStage
+                ? 'bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/35 ring-4 ring-purple-500/30'
+                : isProbationCompleted
+                ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-emerald-500/25'
+                : 'bg-admin-surface border border-admin-border text-admin-muted'
             }`}>
-              <FiActivity size={22} />
-              {!isResigned && (
-                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-admin-surface shadow-sm" title="Active Status" />
+              <FiShield size={22} />
+              {isProbationStage && (
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-admin-surface shadow-sm" title="Active in Probation" />
               )}
             </div>
 
             <span className={`text-[10px] uppercase tracking-wider mb-0.5 ${
-              isResigned ? 'font-extrabold text-slate-500 dark:text-slate-400' : 'font-black text-purple-700 dark:text-purple-300'
+              isProbationStage ? 'font-black text-purple-700 dark:text-purple-300' : 'font-extrabold text-slate-500 dark:text-slate-400'
+            }`}>
+              Step 3 • Probation
+            </span>
+
+            <p className="text-xs font-black text-slate-900 dark:text-white truncate max-w-full">
+              {isProbationCompleted ? 'Probation Completed' : '3-Month Evaluation'}
+            </p>
+
+            {isProbationStage ? (
+              <>
+                {/* When in probation: show tenure duration (months, days, years) worked so far */}
+                <span className="text-xs font-mono font-bold mt-1 px-2.5 py-1 rounded-lg border shadow-sm text-purple-900 bg-purple-100 border-purple-300 dark:text-purple-200 dark:bg-purple-900/50 dark:border-purple-500/50">
+                  {activeTenure?.formatted || '0 Days'}
+                </span>
+                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 mt-1">
+                  Target: {probation.date ? formatDate(probation.date) : '3 Months'}
+                </span>
+              </>
+            ) : (
+              /* When probation is completed: show ONLY the probation date completed */
+              <span className="text-xs font-mono font-bold text-emerald-800 dark:text-emerald-300 mt-0.5">
+                {probation.date ? formatDate(probation.date) : 'Completed'}
+              </span>
+            )}
+
+            <div className="mt-2.5">
+              {isProbationCompleted ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-900 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40 shadow-sm">
+                  <FiCheckCircle size={11} className="text-emerald-600 dark:text-emerald-400" /> Confirmed
+                </span>
+              ) : isProbationStage ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-500/25 dark:text-amber-300 dark:border-amber-500/40 shadow-sm">
+                  <FiClock size={11} className="text-amber-600 dark:text-amber-400" /> In Progress
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-300 dark:bg-white/10 dark:text-slate-300 dark:border-white/20 text-[10px] font-bold shadow-sm">
+                  <FiClock size={11} /> Pending
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* STEP 4: Live Service & Current Tenure */}
+          <div className={`relative flex flex-col items-center text-center p-3.5 rounded-xl border transition-all duration-300 group ${
+            isTenureStage
+              ? 'pt-5 border-2 border-purple-500/80 bg-gradient-to-b from-purple-500/20 via-purple-500/10 to-indigo-500/5 shadow-xl shadow-purple-500/20 ring-4 ring-purple-500/15'
+              : 'bg-admin-bg/60 border-admin-border/50 hover:border-purple-500/40'
+          }`}>
+            {isTenureStage && (
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 text-white text-[9px] font-black uppercase tracking-widest shadow-md shadow-purple-500/30 border border-purple-300/40 whitespace-nowrap flex items-center gap-1.5 z-20">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Current Stage</span>
+              </div>
+            )}
+
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-3 shadow-md transition-transform group-hover:scale-105 relative ${
+              isTenureStage
+                ? 'bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/35 ring-4 ring-purple-500/30'
+                : 'bg-admin-surface border border-admin-border text-admin-muted'
+            }`}>
+              <FiActivity size={22} />
+              {isTenureStage && (
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-admin-surface shadow-sm" title="Active Confirmed Status" />
+              )}
+            </div>
+
+            <span className={`text-[10px] uppercase tracking-wider mb-0.5 ${
+              isTenureStage ? 'font-black text-purple-700 dark:text-purple-300' : 'font-extrabold text-slate-500 dark:text-slate-400'
             }`}>
               Step 4 • Current Tenure
             </span>
 
             <p className="text-xs font-black text-slate-900 dark:text-white truncate max-w-full">
-              {isResigned ? 'Service Concluded' : 'Active Working Status'}
+              {isResigned ? 'Service Concluded' : isTenureStage ? 'Active Working Status' : 'Confirmed Service'}
             </p>
 
-            <span className={`text-xs font-mono font-bold mt-1 px-2.5 py-1 rounded-lg border shadow-sm ${
-              isResigned
-                ? 'text-slate-800 bg-slate-100 border-slate-300 dark:text-slate-300 dark:bg-white/10 dark:border-white/20'
-                : 'text-purple-900 bg-purple-100 border-purple-300 dark:text-purple-200 dark:bg-purple-900/50 dark:border-purple-500/50'
-            }`}>
-              {tenure?.formatted || 'Active'}
-            </span>
+            {isTenureStage || isResigned ? (
+              <span className={`text-xs font-mono font-bold mt-1 px-2.5 py-1 rounded-lg border shadow-sm ${
+                isResigned
+                  ? 'text-slate-800 bg-slate-100 border-slate-300 dark:text-slate-300 dark:bg-white/10 dark:border-white/20'
+                  : 'text-purple-900 bg-purple-100 border-purple-300 dark:text-purple-200 dark:bg-purple-900/50 dark:border-purple-500/50'
+              }`}>
+                {activeTenure?.formatted || 'Active'}
+              </span>
+            ) : (
+              <span className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400 mt-1">
+                Post-Probation Confirmation
+              </span>
+            )}
 
             <div className="mt-2.5">
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border shadow-sm ${
-                isResigned
-                  ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-500/25 dark:text-amber-300 dark:border-amber-500/40'
-                  : 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/25 dark:text-emerald-300 dark:border-emerald-500/40'
-              }`}>
-                <span className={`w-2 h-2 rounded-full ${isResigned ? 'bg-amber-600 dark:bg-amber-400' : 'bg-emerald-600 dark:bg-emerald-400'}`} />
-                {isResigned ? 'Resigned' : 'Active Employee'}
-              </span>
+              {isTenureStage ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/25 dark:text-emerald-300 dark:border-emerald-500/40 shadow-sm">
+                  <span className="w-2 h-2 rounded-full bg-emerald-600 dark:bg-emerald-400" />
+                  Active Employee
+                </span>
+              ) : isResigned ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-500/25 dark:text-amber-300 dark:border-amber-500/40 shadow-sm">
+                  <span className="w-2 h-2 rounded-full bg-amber-600 dark:bg-amber-400" />
+                  Resigned
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-300 dark:bg-white/10 dark:text-slate-300 dark:border-white/20 text-[10px] font-bold shadow-sm">
+                  <FiClock size={11} /> Awaiting Confirmation
+                </span>
+              )}
             </div>
           </div>
 

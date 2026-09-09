@@ -56,36 +56,7 @@ const LetterTypeSelectModal = ({ isOpen, onClose, onSelectType }) => {
             </div>
           </button>
 
-          {/* OPTION 2: EXPERIENCE LETTER */}
-          <button
-            type="button"
-            onClick={() => onSelectType('experience')}
-            className="w-full text-left p-4 rounded-xl bg-admin-bg hover:bg-admin-elevated/80 border border-admin-border hover:border-emerald-500/40 transition-all group flex items-start justify-between cursor-pointer shadow-sm hover:shadow-md"
-          >
-            <div className="flex items-start gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0 font-bold group-hover:scale-105 transition-transform">
-                <FiAward size={22} />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-bold text-admin-text group-hover:text-emerald-500 transition-colors">
-                    Experience Letter
-                  </h4>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                    1 Page Certificate
-                  </span>
-                </div>
-                <p className="text-xs text-admin-secondary leading-relaxed">
-                  Official experience & relieving certificate with tenure dates, monthly salary in words, role-specific project execution summary, and conduct appraisal.
-                </p>
-              </div>
-            </div>
-            <div className="p-2 text-admin-muted group-hover:text-emerald-500 transition-colors">
-              <FiArrowRight size={18} />
-            </div>
-          </button>
-
-          {/* OPTION 3: RELIEVING LETTER */}
+          {/* OPTION 2: RELIEVING LETTER */}
           <button
             type="button"
             onClick={() => onSelectType('relieving')}
@@ -110,6 +81,35 @@ const LetterTypeSelectModal = ({ isOpen, onClose, onSelectType }) => {
               </div>
             </div>
             <div className="p-2 text-admin-muted group-hover:text-purple-500 transition-colors">
+              <FiArrowRight size={18} />
+            </div>
+          </button>
+
+          {/* OPTION 3: EXPERIENCE LETTER */}
+          <button
+            type="button"
+            onClick={() => onSelectType('experience')}
+            className="w-full text-left p-4 rounded-xl bg-admin-bg hover:bg-admin-elevated/80 border border-admin-border hover:border-emerald-500/40 transition-all group flex items-start justify-between cursor-pointer shadow-sm hover:shadow-md"
+          >
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0 font-bold group-hover:scale-105 transition-transform">
+                <FiAward size={22} />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-admin-text group-hover:text-emerald-500 transition-colors">
+                    Experience Letter
+                  </h4>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                    1 Page Certificate
+                  </span>
+                </div>
+                <p className="text-xs text-admin-secondary leading-relaxed">
+                  Official experience & relieving certificate with tenure dates, monthly salary in words, role-specific project execution summary, and conduct appraisal.
+                </p>
+              </div>
+            </div>
+            <div className="p-2 text-admin-muted group-hover:text-emerald-500 transition-colors">
               <FiArrowRight size={18} />
             </div>
           </button>

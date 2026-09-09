@@ -997,6 +997,46 @@ function calculateTenure(startDateStr, endDateStr) {
   };
 }
 
+function calculateProbationMilestone(joiningDateStr, monthsCount = 3) {
+  if (!joiningDateStr) return { date: null, is_completed: false };
+  let year, month, day;
+  if (typeof joiningDateStr === 'string') {
+    const clean = joiningDateStr.split('T')[0];
+    const parts = clean.split('-');
+    if (parts.length === 3) {
+      year = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10) - 1;
+      day = parseInt(parts[2], 10);
+    }
+  }
+  if (!year && joiningDateStr instanceof Date) {
+    year = joiningDateStr.getFullYear();
+    month = joiningDateStr.getMonth();
+    day = joiningDateStr.getDate();
+  }
+  if (!year) {
+    const d = new Date(joiningDateStr);
+    if (isNaN(d.getTime())) return { date: null, is_completed: false };
+    year = d.getFullYear();
+    month = d.getMonth();
+    day = d.getDate();
+  }
+
+  const targetDate = new Date(year, month + monthsCount, day);
+  const now = new Date();
+  
+  const targetMidnight = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const pad = (n) => String(n).padStart(2, '0');
+  const dateStr = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}`;
+
+  return {
+    date: dateStr,
+    is_completed: nowMidnight >= targetMidnight
+  };
+}
+
 const getEmployeeFullProfile = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1082,10 +1122,7 @@ const getEmployeeFullProfile = async (req, res) => {
         date: employee.joining_date || null,
         status: employee.joining_date ? 'Completed' : 'Not Mentioned'
       },
-      probation: {
-        date: employee.joining_date ? new Date(new Date(employee.joining_date).setMonth(new Date(employee.joining_date).getMonth() + 3)).toISOString().split('T')[0] : null,
-        is_completed: employee.joining_date ? (new Date() >= new Date(new Date(employee.joining_date).setMonth(new Date(employee.joining_date).getMonth() + 3))) : false
-      },
+      probation: calculateProbationMilestone(employee.joining_date, 3),
       current_service: {
         status: employee.status || (isResigned ? 'Resigned' : 'Active'),
         is_resigned: isResigned,
@@ -1262,9 +1299,11 @@ const getEmployeeAttendanceHistory = async (req, res) => {
     const { month, year, status } = req.query;
 
     const empRes = await pool.query(
-      `SELECT employee_id FROM employees WHERE id::text = $1 OR employee_id = $1
+      `SELECT id, employee_id, joining_date, NULL::date AS resigned_date FROM employees 
+       WHERE id::text = $1 OR employee_id = $1 OR LOWER(employee_id) = LOWER($1) OR TRIM(employee_id) = TRIM($1)
        UNION
-       SELECT employee_id FROM resigned_employees WHERE id::text = $1 OR employee_id = $1 OR original_id::text = $1
+       SELECT id, employee_id, joining_date, resigned_date FROM resigned_employees 
+       WHERE id::text = $1 OR employee_id = $1 OR original_id::text = $1 OR LOWER(employee_id) = LOWER($1) OR TRIM(employee_id) = TRIM($1)
        LIMIT 1`,
       [id]
     );
@@ -1274,57 +1313,228 @@ const getEmployeeAttendanceHistory = async (req, res) => {
     }
 
     const empCode = empRes.rows[0].employee_id;
+    const empNumericId = empRes.rows[0].id ? String(empRes.rows[0].id) : null;
 
     let query = `
       SELECT 
-        a.id,
-        TO_CHAR(a.attendance_date, 'YYYY-MM-DD') AS attendance_date,
-        TO_CHAR(a.login_time, 'HH12:MI AM') AS check_in_time,
-        TO_CHAR(a.logout_time, 'HH12:MI AM') AS check_out_time,
-        a.login_time,
-        a.logout_time,
-        a.attendance_status,
-        a.total_working_hours,
-        a.late_minutes,
-        a.early_minutes,
-        a.checkin_status,
-        a.checkout_status,
-        a.is_wfh,
-        a.is_auto_checkout,
-        a.is_manual_entry,
-        a.absent_reason,
-        a.address_login,
-        a.address_logout
+        a.*,
+        TO_CHAR(a.attendance_date, 'YYYY-MM-DD') AS formatted_attendance_date,
+        CASE WHEN a.login_time IS NOT NULL THEN TO_CHAR(a.login_time, 'HH12:MI AM') ELSE NULL END AS formatted_check_in_time,
+        CASE WHEN a.logout_time IS NOT NULL THEN TO_CHAR(a.logout_time, 'HH12:MI AM') ELSE NULL END AS formatted_check_out_time
       FROM attendance a
-      WHERE a.employee_id = $1
+      WHERE (a.employee_id = $1 OR a.employee_id = $2 OR a.employee_id = $3)
     `;
-    const params = [empCode];
-    let paramIndex = 2;
+    const params = [empCode, empNumericId || empCode, id];
+    let paramIndex = 4;
 
     if (year && year !== 'all') {
-      query += ` AND EXTRACT(YEAR FROM a.attendance_date) = $${paramIndex}`;
-      params.push(parseInt(year));
-      paramIndex++;
+      query += ` AND (EXTRACT(YEAR FROM a.attendance_date::DATE) = $${paramIndex} OR a.attendance_date::text LIKE $${paramIndex + 1})`;
+      params.push(parseInt(year), `${year}-%`);
+      paramIndex += 2;
     }
 
     if (month && month !== 'all') {
-      query += ` AND EXTRACT(MONTH FROM a.attendance_date) = $${paramIndex}`;
-      params.push(parseInt(month));
-      paramIndex++;
+      const padM = String(month).padStart(2, '0');
+      query += ` AND (EXTRACT(MONTH FROM a.attendance_date::DATE) = $${paramIndex} OR a.attendance_date::text LIKE $${paramIndex + 1})`;
+      params.push(parseInt(month), `%-${padM}-%`);
+      paramIndex += 2;
     }
 
     if (status && status !== 'all') {
-      query += ` AND a.attendance_status = $${paramIndex}`;
-      params.push(status);
-      paramIndex++;
+      const s = status.trim().toLowerCase();
+      if (s === 'late' || s === 'late check-in' || s === 'late arrivals') {
+        query += ` AND (a.attendance_status = 'Late' OR a.attendance_status = 'Late Check-in' OR (a.late_minutes IS NOT NULL AND a.late_minutes > 0))`;
+      } else if (s === 'absent') {
+        query += ` AND (a.attendance_status = 'Absent' OR a.attendance_status = 'Not Mention')`;
+      } else if (s === 'half day') {
+        query += ` AND a.attendance_status = 'Half Day'`;
+      } else if (s === 'work from home' || s === 'wfh') {
+        query += ` AND (a.attendance_status = 'Work From Home' OR a.attendance_status = 'WFH' OR a.is_wfh = true)`;
+      } else if (s === 'present') {
+        query += ` AND (a.attendance_status = 'Present' OR a.attendance_status = 'On Time')`;
+      } else {
+        query += ` AND a.attendance_status = $${paramIndex}`;
+        params.push(status);
+        paramIndex++;
+      }
     }
 
     query += ` ORDER BY a.attendance_date DESC`;
 
     const result = await pool.query(query, params);
-    const records = result.rows;
+    const records = result.rows.map(r => ({
+      ...r,
+      attendance_date: r.formatted_attendance_date || r.attendance_date,
+      check_in_time: r.formatted_check_in_time || (r.check_in_time ? String(r.check_in_time) : (r.login_time ? new Date(r.login_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : null)),
+      check_out_time: r.formatted_check_out_time || (r.check_out_time ? String(r.check_out_time) : (r.logout_time ? new Date(r.logout_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : null)),
+      total_working_hours: r.total_working_hours ?? r.total_hours ?? 0,
+      late_minutes: r.late_minutes || 0,
+      early_minutes: r.early_minutes || 0,
+      is_wfh: Boolean(r.is_wfh),
+      is_auto_checkout: Boolean(r.is_auto_checkout),
+      is_manual_entry: Boolean(r.is_manual_entry)
+    }));
 
-    // Compute period statistics
+    // If an explicit month and year are selected, build the complete month calendar
+    let finalRecords = records;
+
+    if (month && month !== 'all' && year && year !== 'all') {
+      const mInt = parseInt(month, 10);
+      const yInt = parseInt(year, 10);
+      const daysInMonth = new Date(yInt, mInt, 0).getDate();
+
+      // Fetch holidays for the selected month and year
+      const holidaysRes = await pool.query(
+        `SELECT holiday_date, holiday_title, holiday_type FROM holidays 
+         WHERE EXTRACT(MONTH FROM holiday_date) = $1 AND EXTRACT(YEAR FROM holiday_date) = $2 AND is_enabled = true`,
+        [mInt, yInt]
+      ).catch(() => ({ rows: [] }));
+
+      const holidayMap = {};
+      holidaysRes.rows.forEach(h => {
+        const dStr = h.holiday_date instanceof Date ? h.holiday_date.toISOString().split('T')[0] : String(h.holiday_date).split('T')[0];
+        holidayMap[dStr] = h;
+      });
+
+      // Employee joining & resigned dates
+      const joiningDateStr = empRes.rows[0].joining_date
+        ? (empRes.rows[0].joining_date instanceof Date ? empRes.rows[0].joining_date.toISOString().split('T')[0] : String(empRes.rows[0].joining_date).split('T')[0])
+        : null;
+      const resignedDateStr = empRes.rows[0].resigned_date
+        ? (empRes.rows[0].resigned_date instanceof Date ? empRes.rows[0].resigned_date.toISOString().split('T')[0] : String(empRes.rows[0].resigned_date).split('T')[0])
+        : null;
+
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+      // Map existing records by YYYY-MM-DD
+      const existingMap = {};
+      records.forEach(r => {
+        const dKey = String(r.attendance_date).split('T')[0];
+        existingMap[dKey] = r;
+      });
+
+      const fullMonth = [];
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dayStr = String(d).padStart(2, '0');
+        const mStr = String(mInt).padStart(2, '0');
+        const dateStr = `${yInt}-${mStr}-${dayStr}`;
+        const dateObj = new Date(yInt, mInt - 1, d);
+        const isSunday = dateObj.getDay() === 0;
+        const holiday = holidayMap[dateStr];
+
+        if (existingMap[dateStr]) {
+          fullMonth.push(existingMap[dateStr]);
+        } else {
+          if (isSunday) {
+            fullMonth.push({
+              id: `sun-${dateStr}`,
+              employee_id: empCode,
+              attendance_date: dateStr,
+              login_time: null,
+              logout_time: null,
+              check_in_time: null,
+              check_out_time: null,
+              total_working_hours: 0,
+              attendance_status: 'Sunday',
+              remarks: 'Weekly Off',
+              is_synthetic: true
+            });
+          } else if (holiday) {
+            fullMonth.push({
+              id: `hol-${dateStr}`,
+              employee_id: empCode,
+              attendance_date: dateStr,
+              login_time: null,
+              logout_time: null,
+              check_in_time: null,
+              check_out_time: null,
+              total_working_hours: 0,
+              attendance_status: holiday.holiday_type || 'Holiday',
+              remarks: holiday.holiday_title || 'Public Holiday',
+              is_synthetic: true
+            });
+          } else if (joiningDateStr && dateStr < joiningDateStr) {
+            fullMonth.push({
+              id: `pre-${dateStr}`,
+              employee_id: empCode,
+              attendance_date: dateStr,
+              login_time: null,
+              logout_time: null,
+              check_in_time: null,
+              check_out_time: null,
+              total_working_hours: 0,
+              attendance_status: 'Pre-Joining',
+              remarks: 'Before Joining',
+              is_synthetic: true
+            });
+          } else if (resignedDateStr && dateStr > resignedDateStr) {
+            fullMonth.push({
+              id: `post-${dateStr}`,
+              employee_id: empCode,
+              attendance_date: dateStr,
+              login_time: null,
+              logout_time: null,
+              check_in_time: null,
+              check_out_time: null,
+              total_working_hours: 0,
+              attendance_status: 'Post-Exit',
+              remarks: 'After Resignation',
+              is_synthetic: true
+            });
+          } else if (dateStr > todayStr) {
+            fullMonth.push({
+              id: `up-${dateStr}`,
+              employee_id: empCode,
+              attendance_date: dateStr,
+              login_time: null,
+              logout_time: null,
+              check_in_time: null,
+              check_out_time: null,
+              total_working_hours: 0,
+              attendance_status: 'Upcoming',
+              remarks: '—',
+              is_synthetic: true
+            });
+          } else {
+            // Past active workday with no punch in -> Not Mention (Absent)
+            fullMonth.push({
+              id: `abs-${dateStr}`,
+              employee_id: empCode,
+              attendance_date: dateStr,
+              login_time: null,
+              logout_time: null,
+              check_in_time: null,
+              check_out_time: null,
+              total_working_hours: 0,
+              attendance_status: 'Not Mention',
+              remarks: '—',
+              is_synthetic: true
+            });
+          }
+        }
+      }
+
+      // Filter by status if requested
+      if (status && status !== 'all') {
+        const s = status.trim().toLowerCase();
+        finalRecords = fullMonth.filter(r => {
+          const st = (r.attendance_status || '').trim().toLowerCase();
+          if (s === 'present') return st === 'present' || st === 'on time';
+          if (s === 'late' || s === 'late check-in' || s === 'late arrivals') {
+            return st === 'late' || st === 'late check-in' || (r.late_minutes && Number(r.late_minutes) > 0);
+          }
+          if (s === 'half day') return st === 'half day';
+          if (s === 'absent') return st === 'absent' || st === 'not mention';
+          if (s === 'work from home' || s === 'wfh') return st === 'work from home' || st === 'wfh' || r.is_wfh;
+          return st === s;
+        });
+      } else {
+        finalRecords = fullMonth;
+      }
+    }
+
+    // Compute period statistics strictly according to each status category
     let presentDays = 0;
     let lateDays = 0;
     let halfDays = 0;
@@ -1333,38 +1543,52 @@ const getEmployeeAttendanceHistory = async (req, res) => {
     let totalWorkingHours = 0;
     let totalLateMinutes = 0;
 
-    for (const r of records) {
-      const st = r.attendance_status;
-      if (['Present', 'On Time', 'Late Check-in', 'Early Checkout', 'Work From Home'].includes(st)) {
+    for (const r of finalRecords) {
+      const st = (r.attendance_status || '').trim();
+
+      // 1. Present: ONLY records with Present status (or On Time)
+      if (st === 'Present' || st === 'On Time') {
         presentDays++;
-      } else if (st === 'Half Day') {
+      } 
+      // 2. Half Day: ONLY Half Day
+      else if (st === 'Half Day') {
         halfDays++;
-      } else if (st === 'Absent') {
+      } 
+      // 3. Absent: Absent or unexcused / Not Mention (exclude Sunday, Holiday, Pre-joining, Upcoming)
+      else if (st === 'Absent' || st === 'Not Mention') {
         absentDays++;
       }
 
-      if (st === 'Late Check-in' || (r.late_minutes && Number(r.late_minutes) > 0)) {
+      // 4. Late: Late status, Late Check-in, or late_minutes > 0
+      if (st === 'Late' || st === 'Late Check-in' || (r.late_minutes && Number(r.late_minutes) > 0)) {
         lateDays++;
         totalLateMinutes += Number(r.late_minutes || 0);
       }
 
-      if (r.is_wfh) {
+      // 5. Work From Home
+      if (r.is_wfh || st === 'Work From Home' || st === 'WFH') {
         wfhDays++;
       }
 
-      if (r.total_working_hours) {
-        totalWorkingHours += Number(r.total_working_hours);
+      // 6. Total working hours logged in that period
+      const hrs = Number(r.total_working_hours ?? r.total_hours ?? 0);
+      if (hrs > 0) {
+        totalWorkingHours += hrs;
       }
     }
 
-    const totalDaysRecorded = records.length;
-    const avgWorkingHours = presentDays > 0 ? Number((totalWorkingHours / presentDays).toFixed(1)) : 0;
-    const attendedEquivalent = presentDays + (halfDays * 0.5);
-    const attendanceRate = totalDaysRecorded > 0 ? Math.round((attendedEquivalent / totalDaysRecorded) * 100) : 0;
+    const totalDaysRecorded = finalRecords.length;
+    const avgWorkingHours = totalDaysRecorded > 0 ? Number((totalWorkingHours / totalDaysRecorded).toFixed(1)) : 0;
+    
+    // Percentage rate calculation: Present %, Half Day %, Absent % summing to 100% of countable days
+    const countableDays = presentDays + halfDays + absentDays;
+    const presentRate = countableDays > 0 ? Math.round((presentDays / countableDays) * 100) : 0;
+    const halfDayRate = countableDays > 0 ? Math.round((halfDays / countableDays) * 100) : 0;
+    const absentRate = countableDays > 0 ? Math.round((absentDays / countableDays) * 100) : 0;
 
     res.json({
       success: true,
-      attendance: records,
+      attendance: finalRecords,
       stats: {
         totalDaysRecorded,
         presentDays,
@@ -1375,7 +1599,11 @@ const getEmployeeAttendanceHistory = async (req, res) => {
         totalWorkingHours: Number(totalWorkingHours.toFixed(1)),
         avgWorkingHours,
         totalLateMinutes,
-        attendanceRate
+        countableDays,
+        presentRate,
+        halfDayRate,
+        absentRate,
+        attendanceRate: presentRate
       }
     });
 
@@ -1390,9 +1618,11 @@ const getEmployeePermissionsAndLeaves = async (req, res) => {
     const { id } = req.params;
 
     const empRes = await pool.query(
-      `SELECT employee_id FROM employees WHERE id::text = $1 OR employee_id = $1
+      `SELECT id, employee_id FROM employees 
+       WHERE id::text = $1 OR employee_id = $1 OR LOWER(employee_id) = LOWER($1) OR TRIM(employee_id) = TRIM($1)
        UNION
-       SELECT employee_id FROM resigned_employees WHERE id::text = $1 OR employee_id = $1 OR original_id::text = $1
+       SELECT id, employee_id FROM resigned_employees 
+       WHERE id::text = $1 OR employee_id = $1 OR original_id::text = $1 OR LOWER(employee_id) = LOWER($1) OR TRIM(employee_id) = TRIM($1)
        LIMIT 1`,
       [id]
     );
@@ -1402,6 +1632,7 @@ const getEmployeePermissionsAndLeaves = async (req, res) => {
     }
 
     const empCode = empRes.rows[0].employee_id;
+    const empNumericId = empRes.rows[0].id ? String(empRes.rows[0].id) : null;
 
     const [permRes, absentRes] = await Promise.all([
       pool.query(
@@ -1417,9 +1648,9 @@ const getEmployeePermissionsAndLeaves = async (req, res) => {
            reason,
            created_at
          FROM employee_permissions
-         WHERE employee_id = $1
+         WHERE (employee_id = $1 OR employee_id = $2 OR employee_id = $3)
          ORDER BY permission_date DESC, from_time DESC`,
-        [empCode]
+        [empCode, empNumericId || empCode, id]
       ).catch(() => ({ rows: [] })),
       pool.query(
         `SELECT 
@@ -1430,9 +1661,9 @@ const getEmployeePermissionsAndLeaves = async (req, res) => {
            absent_reason,
            updated_at
          FROM attendance
-         WHERE employee_id = $1 AND absent_reason IS NOT NULL AND TRIM(absent_reason) != ''
+         WHERE (employee_id = $1 OR employee_id = $2 OR employee_id = $3) AND absent_reason IS NOT NULL AND TRIM(absent_reason) != ''
          ORDER BY attendance_date DESC`,
-        [empCode]
+        [empCode, empNumericId || empCode, id]
       ).catch(() => ({ rows: [] }))
     ]);
 
@@ -1466,7 +1697,7 @@ const getEmployeePayrollHistory = async (req, res) => {
       `SELECT e.*, d.name as department_name
        FROM employees e
        LEFT JOIN departments d ON e.department_id = d.id
-       WHERE e.id::text = $1 OR e.employee_id = $1
+       WHERE e.id::text = $1 OR e.employee_id = $1 OR LOWER(e.employee_id) = LOWER($1) OR TRIM(e.employee_id) = TRIM($1)
        LIMIT 1`,
       [id]
     );
@@ -1476,7 +1707,7 @@ const getEmployeePayrollHistory = async (req, res) => {
         `SELECT r.*, d.name as department_name
          FROM resigned_employees r
          LEFT JOIN departments d ON r.department_id = d.id
-         WHERE r.id::text = $1 OR r.employee_id = $1 OR r.original_id::text = $1
+         WHERE r.id::text = $1 OR r.employee_id = $1 OR r.original_id::text = $1 OR LOWER(r.employee_id) = LOWER($1) OR TRIM(r.employee_id) = TRIM($1)
          LIMIT 1`,
         [id]
       );

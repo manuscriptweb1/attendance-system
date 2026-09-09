@@ -93,25 +93,25 @@ export const getAllEmployees = () =>
   api.get('/employees');
 
 export const getEmployeeById = (id) => 
-  api.get(`/employees/${id}`);
+  api.get(`/employees/${encodeURIComponent(id)}`);
 
 export const getEmployeeFullProfile = (id) =>
-  api.get(`/employees/${id}/full-profile`);
+  api.get(`/employees/${encodeURIComponent(id)}/full-profile`);
 
 export const updateEmployeeMilestones = (id, data) =>
-  api.put(`/employees/${id}/milestones`, data);
+  api.put(`/employees/${encodeURIComponent(id)}/milestones`, data);
 
 export const getEmployeeAttendanceHistory = (id, params) =>
-  api.get(`/employees/${id}/attendance`, { params });
+  api.get(`/employees/${encodeURIComponent(id)}/attendance`, { params });
 
 export const getEmployeePermissionsAndLeaves = (id) =>
-  api.get(`/employees/${id}/permissions-and-leaves`);
+  api.get(`/employees/${encodeURIComponent(id)}/permissions-and-leaves`);
 
 export const getEmployeePayrollHistory = (id) =>
-  api.get(`/employees/${id}/payroll`);
+  api.get(`/employees/${encodeURIComponent(id)}/payroll`);
 
 export const downloadEmployeeDetailsForm = (id) =>
-  api.get(`/employees/${id}/download-form`, { responseType: 'blob' });
+  api.get(`/employees/${encodeURIComponent(id)}/download-form`, { responseType: 'blob' });
 
 export const addEmployee = (data) => 
   api.post('/employees', data);

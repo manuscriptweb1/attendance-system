@@ -11,6 +11,10 @@ const COMBINED_CONFIG = {
   'Government Holiday':{ base: 'bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-200/80 dark:border-purple-500/25', dot: 'bg-purple-500 dark:bg-purple-400' },
   'Office Holiday':    { base: 'bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-200/80 dark:border-violet-500/25', dot: 'bg-violet-500 dark:bg-violet-400' },
   'Sunday':            { base: 'bg-slate-50 dark:bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-200/80 dark:border-slate-500/20', dot: 'bg-slate-400 dark:bg-slate-500' },
+  'Weekend':           { base: 'bg-slate-50 dark:bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-200/80 dark:border-slate-500/20', dot: 'bg-slate-400 dark:bg-slate-500' },
+  'Holiday':           { base: 'bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-200/80 dark:border-purple-500/25', dot: 'bg-purple-500 dark:bg-purple-400' },
+  'Upcoming':          { base: 'bg-slate-50 dark:bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-200/60 dark:border-slate-600/20', dot: 'bg-slate-300 dark:bg-slate-600' },
+  'Pre-Joining':       { base: 'bg-slate-50 dark:bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-200/60 dark:border-slate-600/20', dot: 'bg-slate-300 dark:bg-slate-600' },
   'Active':            { base: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-200/80 dark:border-emerald-500/25', dot: 'bg-emerald-500 dark:bg-emerald-400' },
   'Inactive':          { base: 'bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-400 border-red-200/80 dark:border-red-500/25', dot: 'bg-red-500 dark:bg-red-400' },
 };

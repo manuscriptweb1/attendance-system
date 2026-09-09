@@ -152,74 +152,82 @@ const EmployeePayrollTab = ({ employeeId, employee }) => {
       {/* Top Quick Stats Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Net Paid */}
-        <div className="p-4 rounded-2xl bg-admin-surface border border-admin-border shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0">
+        <div className="p-4 rounded-2xl bg-white dark:bg-admin-surface border border-slate-200 dark:border-admin-border shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-100 border border-emerald-300 dark:bg-emerald-500/10 dark:border-emerald-500/20 flex items-center justify-center text-emerald-800 dark:text-emerald-400 flex-shrink-0">
             <FiTrendingUp className="w-6 h-6" />
           </div>
-          <div>
-            <span className="text-xs font-medium text-admin-text-muted uppercase tracking-wider block">
+          <div className="min-w-0 flex-1">
+            <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider block">
               Total Disbursed
             </span>
-            <span className="text-xl font-black text-admin-text">
+            <p className="text-xl font-black text-slate-900 dark:text-white leading-tight mt-0.5">
               {formatIndianCurrency(summary?.totalNetPaid || 0)}
-            </span>
-            <span className="text-[11px] text-emerald-400/80 block mt-0.5">
-              Across {summary?.paidSlipsCount || 0} paid cycles
-            </span>
+            </p>
+            <div className="mt-1.5">
+              <span className="inline-block px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-950 dark:bg-emerald-950/80 dark:text-emerald-100 font-black text-xs border border-emerald-300 dark:border-emerald-600 shadow-sm">
+                Across {summary?.paidSlipsCount || 0} paid cycles
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Current Monthly CTC */}
-        <div className="p-4 rounded-2xl bg-admin-surface border border-admin-border shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 flex-shrink-0">
+        <div className="p-4 rounded-2xl bg-white dark:bg-admin-surface border border-slate-200 dark:border-admin-border shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-100 border border-blue-300 dark:bg-blue-500/10 dark:border-blue-500/20 flex items-center justify-center text-blue-800 dark:text-blue-400 flex-shrink-0">
             <FiDollarSign className="w-6 h-6" />
           </div>
-          <div>
-            <span className="text-xs font-medium text-admin-text-muted uppercase tracking-wider block">
+          <div className="min-w-0 flex-1">
+            <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider block">
               Monthly CTC
             </span>
-            <span className="text-xl font-black text-admin-text">
+            <p className="text-xl font-black text-slate-900 dark:text-white leading-tight mt-0.5">
               {formatIndianCurrency(salary?.monthlySalary || 0)}
-            </span>
-            <span className="text-[11px] text-blue-400/80 block mt-0.5">
-              Annual: {formatIndianCurrency(salary?.annualCtc || 0)}
-            </span>
+            </p>
+            <div className="mt-1.5">
+              <span className="inline-block px-2.5 py-0.5 rounded-md bg-blue-100 text-blue-950 dark:bg-blue-950/80 dark:text-blue-100 font-black text-xs border border-blue-300 dark:border-blue-600 shadow-sm">
+                Annual: {formatIndianCurrency(salary?.annualCtc || 0)}
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Estimated Monthly In-Hand */}
-        <div className="p-4 rounded-2xl bg-admin-surface border border-admin-border shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 flex-shrink-0">
+        <div className="p-4 rounded-2xl bg-white dark:bg-admin-surface border border-slate-200 dark:border-admin-border shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-indigo-100 border border-indigo-300 dark:bg-indigo-500/10 dark:border-indigo-500/20 flex items-center justify-center text-indigo-800 dark:text-indigo-400 flex-shrink-0">
             <FiCreditCard className="w-6 h-6" />
           </div>
-          <div>
-            <span className="text-xs font-medium text-admin-text-muted uppercase tracking-wider block">
+          <div className="min-w-0 flex-1">
+            <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider block">
               Est. Take-Home
             </span>
-            <span className="text-xl font-black text-admin-text">
+            <p className="text-xl font-black text-slate-900 dark:text-white leading-tight mt-0.5">
               {formatIndianCurrency(salary?.estimatedNet || 0)}
-            </span>
-            <span className="text-[11px] text-indigo-400/80 block mt-0.5">
-              After standard deductions
-            </span>
+            </p>
+            <div className="mt-1.5">
+              <span className="inline-block px-2.5 py-0.5 rounded-md bg-indigo-100 text-indigo-950 dark:bg-indigo-950/80 dark:text-indigo-100 font-black text-xs border border-indigo-300 dark:border-indigo-600 shadow-sm">
+                After standard deductions
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Total Payslips Issued */}
-        <div className="p-4 rounded-2xl bg-admin-surface border border-admin-border shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0">
+        <div className="p-4 rounded-2xl bg-white dark:bg-admin-surface border border-slate-200 dark:border-admin-border shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-amber-100 border border-amber-300 dark:bg-amber-500/10 dark:border-amber-500/20 flex items-center justify-center text-amber-800 dark:text-amber-400 flex-shrink-0">
             <FiLayers className="w-6 h-6" />
           </div>
-          <div>
-            <span className="text-xs font-medium text-admin-text-muted uppercase tracking-wider block">
+          <div className="min-w-0 flex-1">
+            <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider block">
               Total Payslips
             </span>
-            <span className="text-xl font-black text-admin-text">
+            <p className="text-xl font-black text-slate-900 dark:text-white leading-tight mt-0.5">
               {summary?.totalSlips || 0} Records
-            </span>
-            <span className="text-[11px] text-amber-400/80 block mt-0.5">
-              {summary?.activeLoansCount ? `${summary.activeLoansCount} active loan(s)` : 'No active loans'}
-            </span>
+            </p>
+            <div className="mt-1.5">
+              <span className="inline-block px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-950 dark:bg-amber-950/80 dark:text-amber-100 font-black text-xs border border-amber-300 dark:border-amber-600 shadow-sm">
+                {summary?.activeLoansCount ? `${summary.activeLoansCount} active loan(s)` : 'No active loans'}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -230,39 +238,39 @@ const EmployeePayrollTab = ({ employeeId, employee }) => {
         <div className="lg:col-span-2 p-6 rounded-2xl bg-admin-surface border border-admin-border shadow-sm">
           <div className="flex items-center justify-between pb-4 mb-4 border-b border-admin-border">
             <div>
-              <h3 className="text-base font-bold text-admin-text flex items-center gap-2">
-                <FiDollarSign className="text-admin-accent" />
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <FiDollarSign className="text-blue-600 dark:text-blue-400" />
                 Compensation & Salary Structure
               </h3>
-              <p className="text-xs text-admin-text-muted mt-0.5">
+              <p className="text-xs text-slate-700 dark:text-slate-300 mt-0.5 font-medium">
                 Current active wage components, allowances, and mandatory deductions
               </p>
             </div>
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-admin-accent/10 text-admin-accent border border-admin-accent/20">
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-900 border border-blue-300 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30">
               Active Tier
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Earnings Breakdown */}
-            <div className="p-4 rounded-xl bg-admin-bg/50 border border-admin-border space-y-3">
-              <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block">
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-admin-bg/50 border border-slate-200 dark:border-admin-border space-y-3">
+              <span className="text-xs font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-wider block">
                 Gross Earnings
               </span>
               <div className="space-y-2 text-xs">
-                <div className="flex justify-between items-center py-1 border-b border-admin-border/50">
-                  <span className="text-admin-text-muted">Basic Salary (50%)</span>
-                  <span className="font-bold text-admin-text">{formatIndianCurrency(salary?.basicSalary || 0)}</span>
+                <div className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-admin-border/50">
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">Basic Salary (50%)</span>
+                  <span className="font-black text-slate-900 dark:text-white">{formatIndianCurrency(salary?.basicSalary || 0)}</span>
                 </div>
-                <div className="flex justify-between items-center py-1 border-b border-admin-border/50">
-                  <span className="text-admin-text-muted">House Rent Allowance (HRA 20%)</span>
-                  <span className="font-bold text-admin-text">{formatIndianCurrency(salary?.hra || 0)}</span>
+                <div className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-admin-border/50">
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">House Rent Allowance (HRA 20%)</span>
+                  <span className="font-black text-slate-900 dark:text-white">{formatIndianCurrency(salary?.hra || 0)}</span>
                 </div>
-                <div className="flex justify-between items-center py-1 border-b border-admin-border/50">
-                  <span className="text-admin-text-muted">Special Allowance</span>
-                  <span className="font-bold text-admin-text">{formatIndianCurrency(salary?.specialAllowance || 0)}</span>
+                <div className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-admin-border/50">
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">Special Allowance</span>
+                  <span className="font-black text-slate-900 dark:text-white">{formatIndianCurrency(salary?.specialAllowance || 0)}</span>
                 </div>
-                <div className="flex justify-between items-center pt-2 font-bold text-sm text-emerald-400">
+                <div className="flex justify-between items-center pt-2 font-black text-sm text-emerald-900 dark:text-emerald-300">
                   <span>Total Monthly CTC</span>
                   <span>{formatIndianCurrency(salary?.monthlySalary || 0)}</span>
                 </div>
@@ -270,24 +278,24 @@ const EmployeePayrollTab = ({ employeeId, employee }) => {
             </div>
 
             {/* Deductions Breakdown */}
-            <div className="p-4 rounded-xl bg-admin-bg/50 border border-admin-border space-y-3">
-              <span className="text-xs font-bold text-rose-400 uppercase tracking-wider block">
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-admin-bg/50 border border-slate-200 dark:border-admin-border space-y-3">
+              <span className="text-xs font-black text-rose-800 dark:text-rose-300 uppercase tracking-wider block">
                 Standard Deductions
               </span>
               <div className="space-y-2 text-xs">
-                <div className="flex justify-between items-center py-1 border-b border-admin-border/50">
-                  <span className="text-admin-text-muted">Professional Tax (PT)</span>
-                  <span className="font-bold text-admin-text">{formatIndianCurrency(salary?.professionalTax || 0)}</span>
+                <div className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-admin-border/50">
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">Professional Tax (PT)</span>
+                  <span className="font-black text-slate-900 dark:text-white">{formatIndianCurrency(salary?.professionalTax || 0)}</span>
                 </div>
-                <div className="flex justify-between items-center py-1 border-b border-admin-border/50">
-                  <span className="text-admin-text-muted">Tax Deducted at Source (TDS)</span>
-                  <span className="font-bold text-admin-text">{formatIndianCurrency(salary?.tds || 0)}</span>
+                <div className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-admin-border/50">
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">Tax Deducted at Source (TDS)</span>
+                  <span className="font-black text-slate-900 dark:text-white">{formatIndianCurrency(salary?.tds || 0)}</span>
                 </div>
-                <div className="flex justify-between items-center py-1 border-b border-admin-border/50">
-                  <span className="text-admin-text-muted">Staff Advance / Deductions</span>
-                  <span className="font-bold text-admin-text">{formatIndianCurrency(salary?.staffAdvance || 0)}</span>
+                <div className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-admin-border/50">
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">Staff Advance / Deductions</span>
+                  <span className="font-black text-slate-900 dark:text-white">{formatIndianCurrency(salary?.staffAdvance || 0)}</span>
                 </div>
-                <div className="flex justify-between items-center pt-2 font-bold text-sm text-indigo-400">
+                <div className="flex justify-between items-center pt-2 font-black text-sm text-indigo-900 dark:text-indigo-300">
                   <span>Net Estimated Monthly</span>
                   <span>{formatIndianCurrency(salary?.estimatedNet || 0)}</span>
                 </div>
@@ -296,28 +304,28 @@ const EmployeePayrollTab = ({ employeeId, employee }) => {
           </div>
 
           {/* Bank & Tax Information Mini Strip */}
-          <div className="mt-4 pt-4 border-t border-admin-border grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="mt-4 pt-4 border-t border-slate-200 dark:border-admin-border grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div>
-              <span className="text-admin-text-muted block text-[11px]">Bank Name</span>
-              <span className="font-bold text-admin-text truncate block">
+              <span className="text-slate-700 dark:text-slate-300 block text-[11px] font-bold">Bank Name</span>
+              <span className="font-extrabold text-slate-900 dark:text-white truncate block">
                 {salary?.bankDetails?.bankName || '—'}
               </span>
             </div>
             <div>
-              <span className="text-admin-text-muted block text-[11px]">Account Number</span>
-              <span className="font-bold text-admin-text font-mono truncate block">
+              <span className="text-slate-700 dark:text-slate-300 block text-[11px] font-bold">Account Number</span>
+              <span className="font-extrabold text-slate-900 dark:text-white font-mono truncate block">
                 {salary?.bankDetails?.accountNumber || '—'}
               </span>
             </div>
             <div>
-              <span className="text-admin-text-muted block text-[11px]">IFSC Code</span>
-              <span className="font-bold text-admin-text font-mono truncate block">
+              <span className="text-slate-700 dark:text-slate-300 block text-[11px] font-bold">IFSC Code</span>
+              <span className="font-extrabold text-slate-900 dark:text-white font-mono truncate block">
                 {salary?.bankDetails?.ifscCode || '—'}
               </span>
             </div>
             <div>
-              <span className="text-admin-text-muted block text-[11px]">PAN / Aadhar</span>
-              <span className="font-bold text-admin-text font-mono truncate block">
+              <span className="text-slate-700 dark:text-slate-300 block text-[11px] font-bold">PAN / Aadhar</span>
+              <span className="font-extrabold text-slate-900 dark:text-white font-mono truncate block">
                 {salary?.bankDetails?.panNumber || salary?.bankDetails?.aadharNumber || '—'}
               </span>
             </div>

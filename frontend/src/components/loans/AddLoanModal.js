@@ -2,6 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FiX, FiDollarSign, FiCheckCircle, FiLayers, FiSearch } from 'react-icons/fi';
 import { Spinner } from '../Loader';
 
+const monthNames = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
 export default function AddLoanModal({ isOpen, onClose, onSave, employees = [] }) {
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
@@ -39,11 +44,6 @@ export default function AddLoanModal({ isOpen, onClose, onSave, employees = [] }
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
-
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
 
   // Helper integer paise conversion to avoid floating point inaccuracies
   const toPaise = (rupees) => Math.round(parseFloat(rupees || 0) * 100);

@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { FiX, FiEdit2, FiCheckCircle, FiLock, FiLayers } from 'react-icons/fi';
 import { Spinner } from '../Loader';
 
+const monthNames = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
 export default function EditLoanModal({ isOpen, onClose, onSave, loan }) {
   const currentYear = new Date().getFullYear();
 
@@ -18,10 +23,7 @@ export default function EditLoanModal({ isOpen, onClose, onSave, loan }) {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
+
 
   const hasPostedDeductions = loan ? (loan.totalPostedDeduction > 0 || loan.completedInstalments > 0) : false;
 
@@ -39,7 +41,7 @@ export default function EditLoanModal({ isOpen, onClose, onSave, loan }) {
       setLoanIssueDate(loan.loanIssueDate ? new Date(loan.loanIssueDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
       setRemarks(loan.remarks || '');
     }
-  }, [loan]);
+  }, [loan, currentYear]);
 
   // Live Repayment Schedule Preview & Field Synchronization
   useEffect(() => {

@@ -1,3 +1,4 @@
+/* eslint-disable no-control-regex */
 import React, { useState, useEffect, useRef } from 'react';
 import {
   FiX,
@@ -104,6 +105,7 @@ export default function ExperienceLetterFormModal({
     setErrorMsg('');
     setEmployeeSearchQuery('');
     setIsEmployeeDropdownOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, initialData, settings]);
 
   // Close employee search dropdown on outside click

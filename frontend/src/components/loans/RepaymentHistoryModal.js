@@ -23,6 +23,7 @@ export default function RepaymentHistoryModal({ isOpen, onClose, loan, onReverse
     if (isOpen && loan) {
       fetchRepaymentHistory();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, loan]);
 
   const fetchRepaymentHistory = async () => {

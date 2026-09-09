@@ -54,6 +54,7 @@ export default function EmployeeLoansTab({ employees = [], showToast }) {
   useEffect(() => {
     fetchLoansData();
     fetchLoanSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, statusFilter, page]);
 
   const fetchLoansData = async () => {

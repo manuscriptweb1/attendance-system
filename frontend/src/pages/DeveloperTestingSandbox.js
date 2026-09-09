@@ -3,7 +3,7 @@ import {
   FiShield, FiRefreshCw, FiFileText, FiClock,
   FiDollarSign, FiCalendar, FiDownload, FiLock,
   FiCpu, FiLayers, FiTrendingUp, FiImage, FiUploadCloud,
-  FiRotateCcw, FiCheckCircle, FiSliders, FiEye, FiSettings, FiCheck
+  FiRotateCcw, FiCheckCircle, FiSliders, FiEye, FiCheck
 } from 'react-icons/fi';
 import { Spinner } from '../components/Loader';
 import {
@@ -100,6 +100,7 @@ export default function DeveloperTestingSandbox() {
     if (isAuthenticated) {
       fetchSimulationData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, month, year, employeeFilter, monthsHorizon, selectedLoanId]);
 
   // Auto-select first loan when simData loads
@@ -107,7 +108,7 @@ export default function DeveloperTestingSandbox() {
     if (simData && simData.availableLoans && simData.availableLoans.length > 0 && !selectedLoanId) {
       setSelectedLoanId(String(simData.availableLoans[0].id));
     }
-  }, [simData]);
+  }, [simData, selectedLoanId]);
 
   const fetchBranding = async () => {
     try {
@@ -482,6 +483,12 @@ export default function DeveloperTestingSandbox() {
                   {loadingSim ? <Spinner size={14} color="white" /> : <FiRefreshCw size={14} />} Re-Run Simulation
                 </button>
               </div>
+
+              {simError && (
+                <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold rounded-xl text-center">
+                  {simError}
+                </div>
+              )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
             {/* Month Selector */}

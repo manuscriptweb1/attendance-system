@@ -270,8 +270,9 @@ async function generateRelievingLetterPDF(relData, options = {}) {
   const joiningDateFormatted = formatDateWithOrdinal(relData.joining_date);
   const relievingDateFormatted = formatDateWithOrdinal(relData.relieving_date);
 
-  const signatoryName = sanitizeText(relData.signatory_name || settings.signatory_name || 'Dr. Mueen Ahmed');
-  const signatoryDesignation = sanitizeText(relData.signatory_designation || settings.signatory_designation || 'Authorized Signatory');
+  const signatoryName = sanitizeText(relData.signatory_name || settings.signatory_name || 'Dr. Mueen Ahmed KK');
+  const signatoryDesignation = sanitizeText(relData.signatory_designation || settings.signatory_designation || 'Designated Partner');
+  const signatoryEmail = sanitizeText(relData.signatory_email || settings.signatory_email || 'contact@mstechnomedia.com');
 
   const p1 = sanitizeText(relData.paragraph_1_snapshot || relData.paragraph_1 ||
     `With reference to your resignation letter dated on ${resignationDateFormatted}, we hereby accept your resignation and agree to relieve you from the duties on ${relievingDateFormatted}. We confirm that you have worked in our company from ${joiningDateFormatted} as a ${jobTitle}. During your employment with us we found you to be hardworking, diligent and honest in performing your duties.`);
@@ -346,30 +347,36 @@ async function generateRelievingLetterPDF(relData, options = {}) {
   doc.text(p2, leftMargin, curY, paragraphOptions);
   curY = doc.y + 24;
 
-  // Signatory Closing Block
-  doc.font(fontRegular).fontSize(12).fillColor('#000000').text('Yours Sincerely,', leftMargin, curY);
-  curY = doc.y + 6;
+  // Signatory Closing Block: Seal & Signature at top, then Sincerely, then Signatory Name
+  curY = doc.y + 16;
 
   const includeSignature = options.includeSignature !== false;
   const signaturePath = getDesignatedPartnerSignaturePath();
 
   if (includeSignature && signaturePath && fs.existsSync(signaturePath)) {
     try {
-      doc.image(signaturePath, leftMargin, curY, { height: 75 });
-      curY += 80;
+      doc.image(signaturePath, leftMargin, curY, { height: 92 });
+      curY += 94;
     } catch (sigErr) {
       console.warn('Could not draw signature in Relieving letter PDF:', sigErr.message);
-      curY += 80;
+      curY += 94;
     }
   } else {
-    curY += 80;
+    curY += 94;
   }
 
+  doc.font(fontRegular).fontSize(12).fillColor('#000000').text('Sincerely,', leftMargin, curY);
+  curY = doc.y + 2;
+
   doc.font(fontBold).fontSize(12).fillColor('#000000').text(signatoryName, leftMargin, curY);
-  curY += 15;
-  doc.font(fontRegular).fontSize(11.5).fillColor('#334155').text(signatoryDesignation, leftMargin, curY);
   curY += 14;
+  doc.font(fontRegular).fontSize(11.5).fillColor('#334155').text(signatoryDesignation, leftMargin, curY);
+  curY += 13;
   doc.text(companyName, leftMargin, curY);
+  if (signatoryEmail) {
+    curY += 13;
+    doc.text(`Email: ${signatoryEmail}`, leftMargin, curY);
+  }
 
   // Footer (3 Lines identical to Experience Letter)
   drawFooter(doc, settings);

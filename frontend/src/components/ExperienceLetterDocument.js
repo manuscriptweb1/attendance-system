@@ -179,26 +179,28 @@ const ExperienceLetterDocument = ({ data, settings, includeSignature = true }) =
         </div>
 
         {/* Signatory Closing Block */}
-        <div className="text-slate-800 text-[12pt] space-y-0.5 pt-3 mb-4">
-          <p className="text-slate-800 mb-1">Sincerely,</p>
+        <div className="text-slate-800 text-[12pt] pt-3 mb-4">
           {shouldIncludeSignature ? (
-            <div className="py-1">
+            <div className="pb-1.5">
               <img
                 src="/assets/payslip/mueen-sir-signature.png?v=3"
                 alt="Designated Partner Signature & Company Seal"
-                className="h-[75px] max-w-[210px] object-contain object-left block"
+                className="h-[96px] max-w-[270px] object-contain object-left block"
                 onError={(e) => {
                   e.target.style.display = 'none';
                 }}
               />
             </div>
           ) : (
-            <div className="h-[75px]"></div>
+            <div className="h-[96px]"></div>
           )}
-          <p className="font-bold text-slate-950">{signatoryName}</p>
-          <p className="text-slate-700">{signatoryDesignation}</p>
-          <p className="text-slate-700">{companyName}</p>
-          {signatoryEmail && <p className="text-slate-700">Email: {signatoryEmail}</p>}
+          <div className="space-y-0.5 pt-0 mt-0">
+            <p className="text-slate-800 mb-0.5 font-medium">Sincerely,</p>
+            <p className="font-bold text-slate-950">{signatoryName}</p>
+            <p className="text-slate-700">{signatoryDesignation}</p>
+            <p className="text-slate-700">{companyName}</p>
+            {signatoryEmail && <p className="text-slate-700">Email: {signatoryEmail}</p>}
+          </div>
         </div>
       </div>
 

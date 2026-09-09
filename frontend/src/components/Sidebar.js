@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAdminTheme } from '../context/AdminThemeContext';
+import { useAdminSidebar } from '../context/AdminSidebarContext';
 import {
   FiHome, FiUsers, FiCalendar, FiLogOut, FiUser, FiClock,
   FiSettings, FiShield, FiMenu, FiX, FiLock, FiKey,
   FiAlertCircle, FiUmbrella, FiChevronRight, FiChevronDown, FiSmartphone, FiActivity, FiLayers, FiGrid,
-  FiDollarSign, FiTrendingUp, FiPieChart, FiClipboard, FiUserX, FiSun, FiMoon, FiFileText
+  FiDollarSign, FiTrendingUp, FiPieChart, FiClipboard, FiUserX, FiSun, FiMoon, FiFileText, FiSidebar
 } from 'react-icons/fi';
 
 const adminSections = [
@@ -109,8 +110,8 @@ const Sidebar = () => {
   const nameStr  = user?.name || user?.username || 'U';
   const initials = nameStr.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
-  const isWideTablePage = location.pathname.includes('/admin/attendance') || location.pathname.includes('/admin/payroll');
-  const isCollapsed = isAdmin && isWideTablePage;
+  const { isCollapsed: adminSidebarCollapsed, toggleSidebar } = useAdminSidebar();
+  const isCollapsed = isAdmin && adminSidebarCollapsed;
 
   /* ─── Admin Sidebar ─── */
   if (isAdmin) {
@@ -121,27 +122,63 @@ const Sidebar = () => {
           {isMobileMenuOpen ? <FiX size={20} /> : <FiMenu size={20} />}
         </button>
         {isMobileMenuOpen && <div className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-30" onClick={() => setIsMobileMenuOpen(false)} />}
-        <aside className={`fixed lg:sticky lg:top-0 inset-y-0 left-0 z-40 ${isCollapsed ? 'w-14' : 'w-64'} flex-shrink-0 h-screen flex flex-col overflow-hidden bg-admin-bg border-r border-admin-border transform transition-transform duration-300 ease-out dark-scroll ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
-          {/* Logo */}
-          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 px-5'} h-16 border-b border-admin-border flex-shrink-0`}>
-            <div className="flex items-center justify-center flex-shrink-0">
-              <img
-                src={`${process.env.PUBLIC_URL || ''}/favicon/favicon-96x96.png`}
-                alt="MTM Attendance"
-                className="w-8 h-8 rounded-lg object-contain"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = '/favicon/apple-touch-icon.png';
-                }}
-              />
-            </div>
-            {!isCollapsed && (
-              <div className="min-w-0">
-                <p className="font-bold text-admin-text text-sm leading-none tracking-tight">MTM Attendance</p>
-                <p className="text-[10px] text-admin-accent mt-0.5 font-medium">Admin Panel</p>
+        <aside className={`fixed lg:sticky lg:top-0 inset-y-0 left-0 z-40 ${isCollapsed ? 'w-14' : 'w-64'} flex-shrink-0 h-screen flex flex-col overflow-hidden bg-admin-bg border-r border-admin-border transform transition-all duration-300 ease-in-out dark-scroll ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+          {/* Logo & Header Toggle */}
+          {!isCollapsed ? (
+            <div className="flex items-center justify-between px-4 h-16 border-b border-admin-border flex-shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center justify-center flex-shrink-0">
+                  <img
+                    src={`${process.env.PUBLIC_URL || ''}/favicon/favicon-96x96.png`}
+                    alt="MTM Attendance"
+                    className="w-8 h-8 rounded-lg object-contain"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = '/favicon/apple-touch-icon.png';
+                    }}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-admin-text text-sm leading-none tracking-tight truncate">MTM Attendance</p>
+                  <p className="text-[10px] text-admin-accent mt-0.5 font-medium">Admin Panel</p>
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* Collapse to Full-Width Toggle Button */}
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="hidden lg:flex items-center justify-center w-8 h-8 rounded-xl bg-admin-surface hover:bg-admin-elevated border border-admin-border text-admin-secondary hover:text-admin-accent transition-all duration-200 cursor-pointer shadow-sm active:scale-95 group"
+                title="Full Width Mode / Collapse Sidebar (Alt+S or \)"
+                aria-label="Collapse sidebar"
+              >
+                <FiSidebar size={16} className="text-admin-muted group-hover:text-admin-accent transition-colors" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-16 border-b border-admin-border flex-shrink-0 relative group">
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-admin-secondary hover:text-admin-text hover:bg-admin-elevated border border-transparent hover:border-admin-border transition-all duration-200 cursor-pointer relative"
+                title="Expand Sidebar (Full Navigation) (Alt+S or \)"
+                aria-label="Expand sidebar"
+              >
+                <img
+                  src={`${process.env.PUBLIC_URL || ''}/favicon/favicon-96x96.png`}
+                  alt="MTM Attendance"
+                  className="w-7 h-7 rounded-lg object-contain group-hover:opacity-0 transition-opacity"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = '/favicon/apple-touch-icon.png';
+                  }}
+                />
+                <div className="absolute inset-0 rounded-xl bg-admin-accent/15 border border-admin-accent/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <FiSidebar size={17} className="text-admin-accent" />
+                </div>
+              </button>
+            </div>
+          )}
           {/* User chip */}
           <div className={`px-4 py-3 border-b border-admin-border flex-shrink-0 ${isCollapsed ? 'hidden' : ''}`}>
             <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-admin-surface border border-admin-border">

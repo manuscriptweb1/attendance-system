@@ -363,17 +363,29 @@ const updateEmployee = async (req, res) => {
     }
 
     // Check if employee exists
-    const checkResult = await pool.query(
-      'SELECT * FROM employees WHERE id = $1',
+    let isResignedRecord = false;
+    let checkResult = await pool.query(
+      'SELECT * FROM employees WHERE id::text = $1 OR employee_id = $1',
       [id]
     );
 
     if (checkResult.rows.length === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Employee not found' 
-      });
+      checkResult = await pool.query(
+        'SELECT * FROM resigned_employees WHERE id::text = $1 OR original_id::text = $1 OR employee_id = $1',
+        [id]
+      );
+      if (checkResult.rows.length > 0) {
+        isResignedRecord = true;
+      } else {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Employee not found' 
+        });
+      }
     }
+
+    const targetTable = isResignedRecord ? 'resigned_employees' : 'employees';
+    const targetId = checkResult.rows[0].id;
 
     const oldData = { 
       name: checkResult.rows[0].name, 
@@ -412,7 +424,7 @@ const updateEmployee = async (req, res) => {
     // If password is provided, hash it and update
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
-      query = `UPDATE employees 
+      query = `UPDATE ${targetTable} 
                SET name = $1, department_id = $2, job_role = $3, 
                    mobile = $4, email = $5, personal_email = $6, status = $7, password = $8, 
                    date_of_birth = $9, joining_date = $10, monthly_salary = $11, basic_salary = $12, hra = $13, 
@@ -424,9 +436,9 @@ const updateEmployee = async (req, res) => {
                RETURNING *`;
       values = [name, department_id, job_role, mobile, email, personal_email || null, status, hashedPassword, date_of_birth, joining_date || null,
                 monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds,
-                bank_name || null, bank_address || null, account_holder_name || null, formatted_account, formatted_ifsc, formatted_pan, formatted_aadhar, permanent_address || null, formatted_alt_phone, id];
+                bank_name || null, bank_address || null, account_holder_name || null, formatted_account, formatted_ifsc, formatted_pan, formatted_aadhar, permanent_address || null, formatted_alt_phone, targetId];
     } else {
-      query = `UPDATE employees 
+      query = `UPDATE ${targetTable} 
                SET name = $1, department_id = $2, job_role = $3, 
                    mobile = $4, email = $5, personal_email = $6, status = $7, 
                    date_of_birth = $8, joining_date = $9, monthly_salary = $10, basic_salary = $11, hra = $12, 
@@ -438,7 +450,7 @@ const updateEmployee = async (req, res) => {
                RETURNING *`;
       values = [name, department_id, job_role, mobile, email, personal_email || null, status, date_of_birth, joining_date || null,
                 monthly_salary, basic_salary, hra, special_allowance, staff_advance, professional_tax, tds,
-                bank_name || null, bank_address || null, account_holder_name || null, formatted_account, formatted_ifsc, formatted_pan, formatted_aadhar, permanent_address || null, formatted_alt_phone, id];
+                bank_name || null, bank_address || null, account_holder_name || null, formatted_account, formatted_ifsc, formatted_pan, formatted_aadhar, permanent_address || null, formatted_alt_phone, targetId];
     }
 
     const result = await pool.query(query, values);
@@ -942,9 +954,671 @@ const downloadEmployeeDetailsForm = async (req, res) => {
   }
 };
 
+function calculateTenure(startDateStr, endDateStr) {
+  if (!startDateStr) return { years: 0, months: 0, days: 0, totalDays: 0, formatted: 'Not Specified' };
+  const start = new Date(startDateStr);
+  const end = endDateStr ? new Date(endDateStr) : new Date();
+  if (isNaN(start.getTime())) return { years: 0, months: 0, days: 0, totalDays: 0, formatted: '-' };
+
+  const diffTime = end.getTime() - start.getTime();
+  const totalDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+
+  let years = end.getFullYear() - start.getFullYear();
+  let months = end.getMonth() - start.getMonth();
+  let days = end.getDate() - start.getDate();
+
+  if (days < 0) {
+    months -= 1;
+    const prevMonthDays = new Date(end.getFullYear(), end.getMonth(), 0).getDate();
+    days += prevMonthDays;
+  }
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  if (years < 0) {
+    years = 0;
+    months = 0;
+    days = totalDays;
+  }
+
+  const parts = [];
+  if (years > 0) parts.push(`${years} ${years === 1 ? 'Year' : 'Years'}`);
+  if (months > 0) parts.push(`${months} ${months === 1 ? 'Month' : 'Months'}`);
+  if (days > 0 || parts.length === 0) parts.push(`${days} ${days === 1 ? 'Day' : 'Days'}`);
+
+  return {
+    years,
+    months,
+    days,
+    totalDays,
+    formatted: parts.join(', ')
+  };
+}
+
+const getEmployeeFullProfile = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Fetch employee with department and permissions
+    let empRes = await pool.query(
+      `SELECT e.*, d.name as department_name,
+              w.is_enabled as wfh_enabled,
+              ec.is_enabled as early_checkout_enabled
+       FROM employees e
+       LEFT JOIN departments d ON e.department_id = d.id
+       LEFT JOIN wfh_permissions w ON e.employee_id = w.employee_id
+       LEFT JOIN early_checkout_permissions ec ON e.employee_id = ec.employee_id
+       WHERE e.id::text = $1 OR e.employee_id = $1`,
+      [id]
+    );
+
+    if (empRes.rows.length === 0) {
+      empRes = await pool.query(
+        `SELECT r.*, d.name as department_name,
+                false as wfh_enabled,
+                false as early_checkout_enabled
+         FROM resigned_employees r
+         LEFT JOIN departments d ON r.department_id = d.id
+         WHERE r.id::text = $1 OR r.employee_id = $1 OR r.original_id::text = $1`,
+        [id]
+      );
+    }
+
+    if (empRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    const employee = empRes.rows[0];
+    const empCode = employee.employee_id;
+
+    // Fetch letters: offer_letters, experience_letters, relieving_letters
+    const [offersRes, expRes, relRes] = await Promise.all([
+      pool.query(
+        `SELECT id, offer_number, status, offer_date, joining_date, acceptance_deadline_date, monthly_salary, total_ctc, generated_at, created_at
+         FROM offer_letters
+         WHERE employee_id = $1 OR employee_id_snapshot = $1
+         ORDER BY created_at DESC LIMIT 5`,
+        [empCode]
+      ).catch(() => ({ rows: [] })),
+      pool.query(
+        `SELECT id, letter_number, status, issue_date, joining_date, relieving_date, generated_at, created_at
+         FROM experience_letters
+         WHERE employee_id = $1 OR employee_id_snapshot = $1
+         ORDER BY created_at DESC LIMIT 5`,
+        [empCode]
+      ).catch(() => ({ rows: [] })),
+      pool.query(
+        `SELECT id, letter_number, status, issue_date, joining_date, relieving_date, notice_period, generated_at, created_at
+         FROM relieving_letters
+         WHERE employee_id = $1 OR employee_id_snapshot = $1
+         ORDER BY created_at DESC LIMIT 5`,
+        [empCode]
+      ).catch(() => ({ rows: [] }))
+    ]);
+
+    // Calculate tenure
+    const isResigned = employee.status?.toLowerCase() === 'inactive' || !!employee.resigned_date;
+    const endDate = isResigned && employee.resigned_date ? employee.resigned_date : null;
+    const tenure = calculateTenure(employee.joining_date, endDate);
+
+    // Latest letter instances
+    const latestOffer = offersRes.rows[0] || null;
+    const latestExperience = expRes.rows[0] || null;
+    const latestRelieving = relRes.rows[0] || null;
+
+    // Milestones definition
+    const milestones = {
+      offer_letter: {
+        date: latestOffer?.offer_date || employee.manual_offer_letter_date || null,
+        id: latestOffer?.id || null,
+        letter_number: latestOffer?.offer_number || null,
+        status: latestOffer?.status || (employee.manual_offer_letter_date ? 'Manual Entry' : 'Date Not Mentioned'),
+        is_system: !!latestOffer,
+        is_manual: !latestOffer && !!employee.manual_offer_letter_date
+      },
+      joining: {
+        date: employee.joining_date || null,
+        status: employee.joining_date ? 'Completed' : 'Not Mentioned'
+      },
+      probation: {
+        date: employee.joining_date ? new Date(new Date(employee.joining_date).setMonth(new Date(employee.joining_date).getMonth() + 3)).toISOString().split('T')[0] : null,
+        is_completed: employee.joining_date ? (new Date() >= new Date(new Date(employee.joining_date).setMonth(new Date(employee.joining_date).getMonth() + 3))) : false
+      },
+      current_service: {
+        status: employee.status || (isResigned ? 'Resigned' : 'Active'),
+        is_resigned: isResigned,
+        resigned_date: employee.resigned_date || null,
+        tenure: tenure
+      },
+      relieving_letter: {
+        date: latestRelieving?.issue_date || latestRelieving?.relieving_date || null,
+        id: latestRelieving?.id || null,
+        letter_number: latestRelieving?.letter_number || null,
+        status: latestRelieving?.status || 'Not Issued'
+      },
+      experience_letter: {
+        date: latestExperience?.issue_date || null,
+        id: latestExperience?.id || null,
+        letter_number: latestExperience?.letter_number || null,
+        status: latestExperience?.status || 'Not Issued'
+      },
+      custom: employee.milestones_override || {}
+    };
+
+    // Lifetime Attendance Summary
+    const attStatsRes = await pool.query(
+      `SELECT 
+         COUNT(*)::int as total_days_recorded,
+         COUNT(*) FILTER (WHERE attendance_status IN ('Present', 'On Time', 'Late Check-in', 'Early Checkout'))::int as present_count,
+         COUNT(*) FILTER (WHERE attendance_status = 'Late Check-in' OR late_minutes > 0)::int as late_count,
+         COUNT(*) FILTER (WHERE attendance_status = 'Half Day')::int as half_day_count,
+         COUNT(*) FILTER (WHERE attendance_status = 'Absent')::int as absent_count,
+         COUNT(*) FILTER (WHERE is_wfh = true)::int as wfh_count,
+         COALESCE(ROUND(SUM(total_working_hours)::numeric, 1), 0) as total_working_hours
+       FROM attendance
+       WHERE employee_id = $1`,
+      [empCode]
+    ).catch(() => ({ rows: [{}] }));
+
+    // Permissions & Leaves counters
+    const [permCountRes, leaveCountRes] = await Promise.all([
+      pool.query(`SELECT COUNT(*)::int as count FROM permissions WHERE employee_id = $1`, [empCode]).catch(() => ({ rows: [{ count: 0 }] })),
+      pool.query(`SELECT COUNT(*)::int as count FROM absent_reasons WHERE employee_id = $1`, [empCode]).catch(() => ({ rows: [{ count: 0 }] }))
+    ]);
+
+    // Recent Payroll Records (up to 12)
+    const payrollRes = await pool.query(
+      `SELECT id, payroll_month, payroll_year, 
+              monthly_earning as gross_salary, 
+              (COALESCE(lop_amount, 0) + COALESCE(loan_deduction, 0)) as total_deductions, 
+              net_payable as net_salary, 
+              status, paid_at
+       FROM payroll_records
+       WHERE employee_id::text = $1 OR employee_code::text = $2 OR employee_code::text = $1
+       ORDER BY payroll_year DESC, payroll_month DESC
+       LIMIT 12`,
+      [String(employee.id), empCode]
+    ).catch(() => ({ rows: [] }));
+
+    res.json({
+      success: true,
+      employee,
+      milestones,
+      tenure,
+      letters: {
+        offer_letters: offersRes.rows,
+        experience_letters: expRes.rows,
+        relieving_letters: relRes.rows
+      },
+      stats: {
+        attendance: attStatsRes.rows[0] || {},
+        total_permissions: permCountRes.rows[0]?.count || 0,
+        total_leaves: leaveCountRes.rows[0]?.count || 0,
+        recent_payrolls: payrollRes.rows
+      }
+    });
+
+  } catch (error) {
+    console.error('Get employee full profile error:', error);
+    res.status(500).json({ success: false, message: 'Server error retrieving employee profile' });
+  }
+};
+
+const updateEmployeeMilestones = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { manual_offer_letter_date, joining_date, resigned_date, custom_milestones } = req.body;
+
+    let isResigned = false;
+    let current;
+
+    const empCheck = await pool.query(
+      `SELECT id, employee_id, name, manual_offer_letter_date, joining_date, resigned_date, milestones_override
+       FROM employees
+       WHERE id::text = $1 OR employee_id = $1`,
+      [id]
+    );
+
+    if (empCheck.rows.length > 0) {
+      current = empCheck.rows[0];
+    } else {
+      const resCheck = await pool.query(
+        `SELECT id, employee_id, name, manual_offer_letter_date, joining_date, resigned_date, milestones_override
+         FROM resigned_employees
+         WHERE id::text = $1 OR employee_id = $1 OR original_id::text = $1`,
+        [id]
+      );
+      if (resCheck.rows.length > 0) {
+        current = resCheck.rows[0];
+        isResigned = true;
+      } else {
+        return res.status(404).json({ success: false, message: 'Employee not found' });
+      }
+    }
+
+    const newOfferDate = manual_offer_letter_date !== undefined ? (manual_offer_letter_date || null) : current.manual_offer_letter_date;
+    const newJoiningDate = joining_date !== undefined ? (joining_date || null) : current.joining_date;
+    const newResignedDate = resigned_date !== undefined ? (resigned_date || null) : current.resigned_date;
+    
+    let newMilestonesOverride = current.milestones_override || {};
+    if (custom_milestones && typeof custom_milestones === 'object') {
+      newMilestonesOverride = { ...newMilestonesOverride, ...custom_milestones };
+    }
+
+    let updatedRes;
+    if (isResigned) {
+      updatedRes = await pool.query(
+        `UPDATE resigned_employees
+         SET manual_offer_letter_date = $1,
+             joining_date = $2,
+             resigned_date = $3,
+             milestones_override = $4,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $5
+         RETURNING *`,
+        [newOfferDate, newJoiningDate, newResignedDate, JSON.stringify(newMilestonesOverride), current.id]
+      );
+    } else {
+      updatedRes = await pool.query(
+        `UPDATE employees
+         SET manual_offer_letter_date = $1,
+             joining_date = $2,
+             resigned_date = $3,
+             milestones_override = $4,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $5
+         RETURNING *`,
+        [newOfferDate, newJoiningDate, newResignedDate, JSON.stringify(newMilestonesOverride), current.id]
+      );
+    }
+
+    await logAdminActivity({
+      adminId: req.user?.id,
+      adminName: req.user?.username || req.user?.name || 'Admin',
+      adminEmail: req.user?.email || '',
+      actionType: ADMIN_ACTION_TYPES.UPDATE_EMPLOYEE || 'Update Employee',
+      moduleName: MODULE_NAMES.EMPLOYEES || 'Employees',
+      description: `Updated career milestones for employee ${current.name} (${current.employee_id}).`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+
+    res.json({
+      success: true,
+      message: 'Employee milestones updated successfully',
+      employee: updatedRes.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Update employee milestones error:', error);
+    res.status(500).json({ success: false, message: 'Server error updating milestones' });
+  }
+};
+
+const getEmployeeAttendanceHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { month, year, status } = req.query;
+
+    const empRes = await pool.query(
+      `SELECT employee_id FROM employees WHERE id::text = $1 OR employee_id = $1
+       UNION
+       SELECT employee_id FROM resigned_employees WHERE id::text = $1 OR employee_id = $1 OR original_id::text = $1
+       LIMIT 1`,
+      [id]
+    );
+
+    if (empRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    const empCode = empRes.rows[0].employee_id;
+
+    let query = `
+      SELECT 
+        a.id,
+        TO_CHAR(a.attendance_date, 'YYYY-MM-DD') AS attendance_date,
+        TO_CHAR(a.login_time, 'HH12:MI AM') AS check_in_time,
+        TO_CHAR(a.logout_time, 'HH12:MI AM') AS check_out_time,
+        a.login_time,
+        a.logout_time,
+        a.attendance_status,
+        a.total_working_hours,
+        a.late_minutes,
+        a.early_minutes,
+        a.checkin_status,
+        a.checkout_status,
+        a.is_wfh,
+        a.is_auto_checkout,
+        a.is_manual_entry,
+        a.absent_reason,
+        a.address_login,
+        a.address_logout
+      FROM attendance a
+      WHERE a.employee_id = $1
+    `;
+    const params = [empCode];
+    let paramIndex = 2;
+
+    if (year && year !== 'all') {
+      query += ` AND EXTRACT(YEAR FROM a.attendance_date) = $${paramIndex}`;
+      params.push(parseInt(year));
+      paramIndex++;
+    }
+
+    if (month && month !== 'all') {
+      query += ` AND EXTRACT(MONTH FROM a.attendance_date) = $${paramIndex}`;
+      params.push(parseInt(month));
+      paramIndex++;
+    }
+
+    if (status && status !== 'all') {
+      query += ` AND a.attendance_status = $${paramIndex}`;
+      params.push(status);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY a.attendance_date DESC`;
+
+    const result = await pool.query(query, params);
+    const records = result.rows;
+
+    // Compute period statistics
+    let presentDays = 0;
+    let lateDays = 0;
+    let halfDays = 0;
+    let absentDays = 0;
+    let wfhDays = 0;
+    let totalWorkingHours = 0;
+    let totalLateMinutes = 0;
+
+    for (const r of records) {
+      const st = r.attendance_status;
+      if (['Present', 'On Time', 'Late Check-in', 'Early Checkout', 'Work From Home'].includes(st)) {
+        presentDays++;
+      } else if (st === 'Half Day') {
+        halfDays++;
+      } else if (st === 'Absent') {
+        absentDays++;
+      }
+
+      if (st === 'Late Check-in' || (r.late_minutes && Number(r.late_minutes) > 0)) {
+        lateDays++;
+        totalLateMinutes += Number(r.late_minutes || 0);
+      }
+
+      if (r.is_wfh) {
+        wfhDays++;
+      }
+
+      if (r.total_working_hours) {
+        totalWorkingHours += Number(r.total_working_hours);
+      }
+    }
+
+    const totalDaysRecorded = records.length;
+    const avgWorkingHours = presentDays > 0 ? Number((totalWorkingHours / presentDays).toFixed(1)) : 0;
+    const attendedEquivalent = presentDays + (halfDays * 0.5);
+    const attendanceRate = totalDaysRecorded > 0 ? Math.round((attendedEquivalent / totalDaysRecorded) * 100) : 0;
+
+    res.json({
+      success: true,
+      attendance: records,
+      stats: {
+        totalDaysRecorded,
+        presentDays,
+        lateDays,
+        halfDays,
+        absentDays,
+        wfhDays,
+        totalWorkingHours: Number(totalWorkingHours.toFixed(1)),
+        avgWorkingHours,
+        totalLateMinutes,
+        attendanceRate
+      }
+    });
+
+  } catch (error) {
+    console.error('Get employee attendance history error:', error);
+    res.status(500).json({ success: false, message: 'Server error retrieving attendance history' });
+  }
+};
+
+const getEmployeePermissionsAndLeaves = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const empRes = await pool.query(
+      `SELECT employee_id FROM employees WHERE id::text = $1 OR employee_id = $1
+       UNION
+       SELECT employee_id FROM resigned_employees WHERE id::text = $1 OR employee_id = $1 OR original_id::text = $1
+       LIMIT 1`,
+      [id]
+    );
+
+    if (empRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    const empCode = empRes.rows[0].employee_id;
+
+    const [permRes, absentRes] = await Promise.all([
+      pool.query(
+        `SELECT 
+           id,
+           employee_id,
+           TO_CHAR(permission_date, 'YYYY-MM-DD') AS permission_date,
+           TO_CHAR(from_time, 'HH12:MI AM') AS from_time_formatted,
+           TO_CHAR(to_time, 'HH12:MI AM') AS to_time_formatted,
+           from_time,
+           to_time,
+           duration_minutes,
+           reason,
+           created_at
+         FROM employee_permissions
+         WHERE employee_id = $1
+         ORDER BY permission_date DESC, from_time DESC`,
+        [empCode]
+      ).catch(() => ({ rows: [] })),
+      pool.query(
+        `SELECT 
+           id,
+           employee_id,
+           TO_CHAR(attendance_date, 'YYYY-MM-DD') AS attendance_date,
+           attendance_status,
+           absent_reason,
+           updated_at
+         FROM attendance
+         WHERE employee_id = $1 AND absent_reason IS NOT NULL AND TRIM(absent_reason) != ''
+         ORDER BY attendance_date DESC`,
+        [empCode]
+      ).catch(() => ({ rows: [] }))
+    ]);
+
+    const permissions = permRes.rows;
+    const absentRecords = absentRes.rows;
+    const totalMinutes = permissions.reduce((acc, p) => acc + Number(p.duration_minutes || 0), 0);
+
+    res.json({
+      success: true,
+      permissions,
+      absentRecords,
+      summary: {
+        totalPermissions: permissions.length,
+        totalPermissionMinutes: totalMinutes,
+        totalLeavesWithReason: absentRecords.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Get employee permissions and leaves error:', error);
+    res.status(500).json({ success: false, message: 'Server error retrieving permissions and leaves' });
+  }
+};
+
+const getEmployeePayrollHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Resolve employee from active or resigned employees
+    let empRes = await pool.query(
+      `SELECT e.*, d.name as department_name
+       FROM employees e
+       LEFT JOIN departments d ON e.department_id = d.id
+       WHERE e.id::text = $1 OR e.employee_id = $1
+       LIMIT 1`,
+      [id]
+    );
+
+    if (empRes.rows.length === 0) {
+      empRes = await pool.query(
+        `SELECT r.*, d.name as department_name
+         FROM resigned_employees r
+         LEFT JOIN departments d ON r.department_id = d.id
+         WHERE r.id::text = $1 OR r.employee_id = $1 OR r.original_id::text = $1
+         LIMIT 1`,
+        [id]
+      );
+    }
+
+    if (empRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    const employee = empRes.rows[0];
+    const empCode = employee.employee_id;
+    const empNumericId = employee.id;
+
+    // Fetch payroll records and employee loans in parallel
+    const [payrollRes, loansRes] = await Promise.all([
+      pool.query(
+        `SELECT 
+           pr.*,
+           COALESCE(e.name, r.name, pr.employee_id) as employee_name,
+           COALESCE(de.name, dr.name) as department_name
+         FROM payroll_records pr
+         LEFT JOIN employees e ON pr.employee_id::text = e.id::text OR pr.employee_code::text = e.employee_id::text
+         LEFT JOIN departments de ON e.department_id = de.id
+         LEFT JOIN resigned_employees r ON pr.employee_id::text = r.employee_id::text OR pr.employee_code::text = r.employee_id::text
+         LEFT JOIN departments dr ON r.department_id = dr.id
+         WHERE (pr.employee_id::text = $1 OR pr.employee_code::text = $1 OR e.employee_id::text = $1 OR e.id::text = $1 OR r.employee_id::text = $1)
+         ORDER BY pr.payroll_year DESC, pr.payroll_month DESC`,
+        [empCode]
+      ).catch(() => ({ rows: [] })),
+      pool.query(
+        `SELECT 
+           id, loan_code, employee_id, employee_code,
+           (total_loan_amount_paise / 100.0) AS total_loan_amount,
+           repayment_months,
+           (monthly_scheduled_deduction_paise / 100.0) AS monthly_deduction,
+           (total_posted_deduction_paise / 100.0) AS total_posted_deduction,
+           (remaining_balance_paise / 100.0) AS remaining_balance,
+           loan_issue_date,
+           first_deduction_month,
+           first_deduction_year,
+           expected_completion_month,
+           expected_completion_year,
+           completed_instalments,
+           remaining_planned_instalments,
+           status,
+           calculation_mode,
+           remarks,
+           created_at
+         FROM employee_loans
+         WHERE employee_code = $1 OR employee_id::text = $2
+         ORDER BY created_at DESC`,
+        [empCode, String(empNumericId)]
+      ).catch(() => ({ rows: [] }))
+    ]);
+
+    const records = payrollRes.rows;
+    const loans = loansRes.rows;
+
+    // Derived summary calculations
+    let totalGrossEarned = 0;
+    let totalNetPaid = 0;
+    let totalDeductions = 0;
+    let paidSlipsCount = 0;
+
+    for (const r of records) {
+      const monthlyEarn = parseFloat(r.monthly_earning || 0);
+      const netPay = parseFloat(r.net_payable || 0);
+      const adv = parseFloat(r.staff_advance || 0);
+      const pt = parseFloat(r.professional_tax || 0);
+      const tds = parseFloat(r.tds || 0);
+      const lop = parseFloat(r.lop_amount || 0);
+
+      totalGrossEarned += monthlyEarn;
+      totalDeductions += (adv + pt + tds + lop);
+
+      if (r.status === 'paid') {
+        totalNetPaid += netPay;
+        paidSlipsCount++;
+      }
+    }
+
+    // Salary structure
+    const monthlySalary = parseFloat(employee.monthly_salary || 0);
+    const basicSalary = parseFloat(employee.basic_salary || 0) || Number((monthlySalary * 0.50).toFixed(2));
+    const hra = parseFloat(employee.hra || 0) || Number((monthlySalary * 0.20).toFixed(2));
+    const specialAllowance = parseFloat(employee.special_allowance || 0) || Math.max(0, Number((monthlySalary - basicSalary - hra).toFixed(2)));
+    const professionalTax = parseFloat(employee.professional_tax || 0);
+    const tds = parseFloat(employee.tds || 0);
+    const staffAdvance = parseFloat(employee.staff_advance || 0);
+    const estimatedNet = Math.max(0, Number((monthlySalary - professionalTax - tds - staffAdvance).toFixed(2)));
+
+    const salaryStructure = {
+      monthlySalary,
+      annualCtc: monthlySalary * 12,
+      basicSalary,
+      hra,
+      specialAllowance,
+      professionalTax,
+      tds,
+      staffAdvance,
+      estimatedNet,
+      bankDetails: {
+        bankName: employee.bank_name || null,
+        bankAddress: employee.bank_address || null,
+        accountHolderName: employee.account_holder_name || null,
+        accountNumber: employee.account_number || null,
+        ifscCode: employee.ifsc_code || null,
+        panNumber: employee.pan_card_number || null,
+        aadharNumber: employee.aadhar_card_number || null
+      }
+    };
+
+    res.json({
+      success: true,
+      records,
+      loans,
+      salaryStructure,
+      summary: {
+        totalSlips: records.length,
+        paidSlipsCount,
+        totalGrossEarned: Number(totalGrossEarned.toFixed(2)),
+        totalNetPaid: Number(totalNetPaid.toFixed(2)),
+        totalDeductions: Number(totalDeductions.toFixed(2)),
+        activeLoansCount: loans.filter(l => l.status === 'Active' || l.status === 'Scheduled').length,
+        totalOutstandingLoan: Number(loans.filter(l => l.status === 'Active' || l.status === 'Scheduled').reduce((acc, l) => acc + Number(l.remaining_balance || 0), 0).toFixed(2))
+      }
+    });
+
+  } catch (error) {
+    console.error('Get employee payroll history error:', error);
+    res.status(500).json({ success: false, message: 'Server error retrieving payroll history' });
+  }
+};
+
 module.exports = {
   getAllEmployees,
   getEmployeeById,
+  getEmployeeFullProfile,
+  updateEmployeeMilestones,
+  getEmployeeAttendanceHistory,
+  getEmployeePermissionsAndLeaves,
+  getEmployeePayrollHistory,
   addEmployee,
   updateEmployee,
   deleteEmployee,

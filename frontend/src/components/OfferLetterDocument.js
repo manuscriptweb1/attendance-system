@@ -398,26 +398,28 @@ const OfferLetterDocument = ({ data, settings, pageNumber = null, includeSignatu
           </div>
 
           {/* Sign-off Block */}
-          <div className="text-slate-800 text-[11.5px] space-y-0.5 pt-3">
-            <p className="mb-0.5 font-medium">Sincerely,</p>
+          <div className="text-slate-800 text-[11.5px] pt-4 sm:pt-6">
             {shouldIncludeSignature ? (
-              <div className="py-1">
+              <div className="pb-1.5">
                 <img
                   src="/assets/payslip/mueen-sir-signature.png?v=3"
                   alt="Company Seal and Signature"
-                  className="h-[75px] max-w-[210px] object-contain object-left block"
+                  className="h-[96px] max-w-[270px] object-contain object-left block"
                   onError={(e) => {
                     e.target.style.display = 'none';
                   }}
                 />
               </div>
             ) : (
-              <div className="h-[75px]"></div>
+              <div className="h-[96px]"></div>
             )}
-            <p className="font-bold text-slate-950">{signatoryName}</p>
-            <p className="text-slate-700">{signatoryDesignation}</p>
-            <p className="text-slate-700">{companyName}</p>
-            <p className="text-slate-700">Email: {signatoryEmail}</p>
+            <div className="space-y-0.5 pt-0 mt-0">
+              <p className="mb-0.5 font-medium text-slate-800">Sincerely,</p>
+              <p className="font-bold text-slate-950 text-[12px]">{signatoryName}</p>
+              <p className="text-slate-700">{signatoryDesignation}</p>
+              <p className="text-slate-700">{companyName}</p>
+              <p className="text-slate-700">Email: {signatoryEmail}</p>
+            </div>
           </div>
         </div>
       </div>

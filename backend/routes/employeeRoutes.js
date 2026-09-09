@@ -12,7 +12,12 @@ const {
   deleteResignedEmployeePermanently,
   restoreResignedEmployee,
   getAllDepartments,
-  downloadEmployeeDetailsForm
+  downloadEmployeeDetailsForm,
+  getEmployeeFullProfile,
+  updateEmployeeMilestones,
+  getEmployeeAttendanceHistory,
+  getEmployeePermissionsAndLeaves,
+  getEmployeePayrollHistory
 } = require('../controllers/employeeController');
 
 // All routes require authentication and admin role
@@ -33,6 +38,13 @@ router.post('/resigned/:id/restore', requirePermission('employees', 'can_create'
 
 // Download employee details form PDF
 router.get('/:id/download-form', requirePermission('employees', 'can_view'), downloadEmployeeDetailsForm);
+
+// Employee Full 360 Profile, Attendance, Permissions/Leaves & Payroll
+router.get('/:id/full-profile', requirePermission('employees', 'can_view'), getEmployeeFullProfile);
+router.put('/:id/milestones', requirePermission('employees', 'can_edit'), updateEmployeeMilestones);
+router.get('/:id/attendance', requirePermission('employees', 'can_view'), getEmployeeAttendanceHistory);
+router.get('/:id/permissions-and-leaves', requirePermission('employees', 'can_view'), getEmployeePermissionsAndLeaves);
+router.get('/:id/payroll', requirePermission('employees', 'can_view'), getEmployeePayrollHistory);
 
 // Get single employee
 router.get('/:id', requirePermission('employees', 'can_view'), getEmployeeById);

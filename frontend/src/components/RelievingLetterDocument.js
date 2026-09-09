@@ -77,8 +77,9 @@ const RelievingLetterDocument = ({ data, settings, includeSignature = true }) =>
   const joiningDateFormatted = formatDateWithOrdinal(data.joining_date);
   const relievingDateFormatted = formatDateWithOrdinal(data.relieving_date || new Date());
 
-  const signatoryName = data.signatory_name || settings?.signatory_name || 'Dr. Mueen Ahmed';
-  const signatoryDesignation = data.signatory_designation || settings?.signatory_designation || 'Authorized Signatory';
+  const signatoryName = data.signatory_name || settings?.signatory_name || 'Dr. Mueen Ahmed KK';
+  const signatoryDesignation = data.signatory_designation || settings?.signatory_designation || 'Designated Partner';
+  const signatoryEmail = data.signatory_email || settings?.signatory_email || 'contact@mstechnomedia.com';
 
   // Paragraphs
   const p1 = data.paragraph_1 || data.paragraph_1_snapshot ||
@@ -154,25 +155,28 @@ const RelievingLetterDocument = ({ data, settings, includeSignature = true }) =>
         </div>
 
         {/* Signatory Closing Block */}
-        <div className="text-slate-900 text-[12pt] space-y-0.5 pt-4 mb-6">
-          <p className="text-slate-900 mb-1">Yours Sincerely,</p>
+        <div className="text-slate-900 text-[12pt] pt-4 mb-6">
           {shouldIncludeSignature ? (
-            <div className="py-2">
+            <div className="pb-1.5">
               <img
                 src="/assets/payslip/mueen-sir-signature.png?v=3"
                 alt="Designated Partner Signature & Company Seal"
-                className="h-[80px] max-w-[220px] object-contain object-left block"
+                className="h-[96px] max-w-[270px] object-contain object-left block"
                 onError={(e) => {
                   e.target.style.display = 'none';
                 }}
               />
             </div>
           ) : (
-            <div className="h-[80px]"></div>
+            <div className="h-[96px]"></div>
           )}
-          <p className="font-bold text-slate-950">{signatoryName}</p>
-          <p className="text-slate-800">{signatoryDesignation}</p>
-          <p className="text-slate-800">{companyName}</p>
+          <div className="space-y-0.5 pt-0 mt-0">
+            <p className="text-slate-900 mb-0.5 font-medium">Sincerely,</p>
+            <p className="font-bold text-slate-950">{signatoryName}</p>
+            <p className="text-slate-800">{signatoryDesignation}</p>
+            <p className="text-slate-800">{companyName}</p>
+            {signatoryEmail && <p className="text-slate-800">Email: {signatoryEmail}</p>}
+          </div>
         </div>
       </div>
 

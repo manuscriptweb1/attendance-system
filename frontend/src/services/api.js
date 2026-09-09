@@ -95,6 +95,21 @@ export const getAllEmployees = () =>
 export const getEmployeeById = (id) => 
   api.get(`/employees/${id}`);
 
+export const getEmployeeFullProfile = (id) =>
+  api.get(`/employees/${id}/full-profile`);
+
+export const updateEmployeeMilestones = (id, data) =>
+  api.put(`/employees/${id}/milestones`, data);
+
+export const getEmployeeAttendanceHistory = (id, params) =>
+  api.get(`/employees/${id}/attendance`, { params });
+
+export const getEmployeePermissionsAndLeaves = (id) =>
+  api.get(`/employees/${id}/permissions-and-leaves`);
+
+export const getEmployeePayrollHistory = (id) =>
+  api.get(`/employees/${id}/payroll`);
+
 export const downloadEmployeeDetailsForm = (id) =>
   api.get(`/employees/${id}/download-form`, { responseType: 'blob' });
 

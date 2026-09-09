@@ -64,6 +64,16 @@ async function runMasterMigration() {
     `);
     console.log('✅ Attendance columns checked/added.');
 
+    // 2c-2. Run employee milestone columns migration
+    console.log('📌 Ensuring employee milestone columns...');
+    await dbClient.query(`
+      ALTER TABLE employees
+      ADD COLUMN IF NOT EXISTS manual_offer_letter_date DATE,
+      ADD COLUMN IF NOT EXISTS milestones_override JSONB DEFAULT '{}'::jsonb,
+      ADD COLUMN IF NOT EXISTS resigned_date DATE;
+    `);
+    console.log('✅ Employee milestone columns checked/added.');
+
     // 2d. Run admin assistant settings migration
     console.log('📌 Ensuring settings columns...');
     await dbClient.query(`

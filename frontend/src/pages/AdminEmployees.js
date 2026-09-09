@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
@@ -46,6 +47,7 @@ const formatCurrency = (value) => {
 };
 
 const AdminEmployees = () => {
+  const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const [activeTab,    setActiveTab]    = useState('active'); // 'active' | 'resigned'
   const [employees,    setEmployees]    = useState([]);
@@ -523,9 +525,13 @@ const AdminEmployees = () => {
                   {activeTab === 'active' ? (
                     filteredEmployees.length > 0 ? filteredEmployees.map(emp => (
                       <tr key={emp.id} className="admin-table-row">
-                        <td className="px-4 py-3.5 text-sm text-slate-400 font-mono whitespace-nowrap">{emp.employee_id}</td>
+                        <td className="px-4 py-3.5 text-sm font-mono whitespace-nowrap">
+                          <button onClick={() => navigate(`/admin/employees/${emp.id}`)} className="text-blue-500 hover:text-blue-400 font-bold hover:underline cursor-pointer" title="View 360° Full Profile">
+                            {emp.employee_id}
+                          </button>
+                        </td>
                         <td className="px-4 py-3.5 text-sm font-semibold whitespace-nowrap">
-                          <button onClick={() => { setSelectedEmployee(emp); setShowDetailModal(true); }} className="employee-name-clickable text-left">
+                          <button onClick={() => navigate(`/admin/employees/${emp.id}`)} className="employee-name-clickable text-left" title="View 360° Full Profile">
                             {emp.name}
                           </button>
                         </td>
@@ -555,6 +561,13 @@ const AdminEmployees = () => {
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap">
                           <div className="flex items-center gap-1">
+                            <button 
+                              onClick={() => navigate(`/admin/employees/${emp.id}`)} 
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-blue-400 hover:bg-blue-500/10 transition-colors" 
+                              title="View 360° Full Profile"
+                            >
+                              <FiEye size={14} />
+                            </button>
                             {hasPermission('employees', 'can_edit') && (
                               <button onClick={() => handleEdit(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#60A5FA] hover:bg-blue-500/10 transition-colors" title="Edit"><FiEdit size={14} /></button>
                             )}
@@ -579,9 +592,17 @@ const AdminEmployees = () => {
                   ) : (
                     filteredResigned.length > 0 ? filteredResigned.map(emp => (
                       <tr key={emp.id} className="admin-table-row">
-                        <td className="px-4 py-3.5 text-sm text-slate-400 font-mono whitespace-nowrap">{emp.employee_id}</td>
+                        <td className="px-4 py-3.5 text-sm font-mono whitespace-nowrap">
+                          <button 
+                            onClick={() => navigate(`/admin/employees/${emp.employee_id || emp.original_id || emp.id}`)} 
+                            className="text-blue-500 hover:text-blue-400 font-bold hover:underline cursor-pointer" 
+                            title="View 360° Full Profile"
+                          >
+                            {emp.employee_id}
+                          </button>
+                        </td>
                         <td className="px-4 py-3.5 text-sm font-semibold whitespace-nowrap">
-                          <button onClick={() => { setSelectedEmployee(emp); setShowDetailModal(true); }} className="employee-name-clickable text-left">
+                          <button onClick={() => navigate(`/admin/employees/${emp.employee_id || emp.original_id || emp.id}`)} className="employee-name-clickable text-left" title="View 360° Full Profile">
                             {emp.name}
                           </button>
                         </td>
@@ -613,6 +634,13 @@ const AdminEmployees = () => {
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap">
                           <div className="flex items-center gap-1">
+                            <button 
+                              onClick={() => navigate(`/admin/employees/${emp.employee_id || emp.original_id || emp.id}`)} 
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-blue-400 hover:bg-blue-500/10 transition-colors" 
+                              title="View 360° Full Profile"
+                            >
+                              <FiEye size={14} />
+                            </button>
                             {hasPermission('employees', 'can_edit') && (
                               <button onClick={() => handleOpenEditResignedDate(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-amber-400 hover:bg-amber-500/10 transition-colors" title="Edit Resigned Date">
                                 <FiCalendar size={14} />

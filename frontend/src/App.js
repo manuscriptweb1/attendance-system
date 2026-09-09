@@ -2,6 +2,7 @@ import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AdminThemeProvider } from './context/AdminThemeContext';
+import { AdminSidebarProvider } from './context/AdminSidebarContext';
 import Loader from './components/Loader';
 import LogoutWarningDialog from './components/LogoutWarningDialog';
 import GlobalErrorDialog from './components/GlobalErrorDialog';
@@ -35,6 +36,7 @@ const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 // Admin Pages
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const AdminEmployees = lazy(() => import('./pages/AdminEmployees'));
+const AdminEmployeeProfile = lazy(() => import('./pages/AdminEmployeeProfile'));
 const AdminDepartments = lazy(() => import('./pages/AdminDepartments'));
 const AdminAttendance = lazy(() => import('./pages/AdminAttendance'));
 const AdminSettings = lazy(() => import('./pages/AdminSettings'));
@@ -178,10 +180,11 @@ function App() {
     <AuthProvider>
       <AdminThemeProvider>
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <ScrollToTop />
-          <NetworkAndServerStatus>
-          <Suspense fallback={<Loader />}>
-            <AdminAssistantBot />
+          <AdminSidebarProvider>
+            <ScrollToTop />
+            <NetworkAndServerStatus>
+            <Suspense fallback={<Loader />}>
+              <AdminAssistantBot />
             <GlobalErrorDialog />
             <Routes>
               {/* Public Pages */}
@@ -262,6 +265,10 @@ function App() {
               <Route
                 path="/admin/employees"
                 element={<ProtectedRoute requiredRole="admin" requiredPageKey="employees"><AdminEmployees /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/employees/:id"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="employees"><AdminEmployeeProfile /></ProtectedRoute>}
               />
               <Route
                 path="/admin/offer-letters"
@@ -383,6 +390,7 @@ function App() {
             </Routes>
           </Suspense>
           </NetworkAndServerStatus>
+          </AdminSidebarProvider>
         </Router>
       </AdminThemeProvider>
     </AuthProvider>

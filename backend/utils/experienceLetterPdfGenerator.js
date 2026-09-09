@@ -342,26 +342,26 @@ async function generateExperienceLetterPDF(expData, options = {}) {
   curY = doc.y + 8;
 
   doc.text(p5, leftMargin, curY, paragraphOptions);
+  // Signatory Block: Seal & Signature at top, then Sincerely, then Signatory Name
   curY = doc.y + 10;
-
-  // Signatory Block
-  doc.font(fontRegular).fontSize(12).fillColor('#0F172A').text('Sincerely,', leftMargin, curY);
-  curY = doc.y + 2;
 
   const includeSignature = options.includeSignature !== false;
   const signaturePath = getDesignatedPartnerSignaturePath();
 
   if (includeSignature && signaturePath && fs.existsSync(signaturePath)) {
     try {
-      doc.image(signaturePath, leftMargin, curY, { height: 72 });
-      curY += 76;
+      doc.image(signaturePath, leftMargin, curY, { height: 92 });
+      curY += 94;
     } catch (sigErr) {
       console.warn('Could not draw signature in Experience letter PDF:', sigErr.message);
-      curY += 76;
+      curY += 94;
     }
   } else {
-    curY += 76;
+    curY += 94;
   }
+
+  doc.font(fontRegular).fontSize(12).fillColor('#0F172A').text('Sincerely,', leftMargin, curY);
+  curY = doc.y + 2;
 
   doc.font(fontBold).fontSize(12).fillColor('#000000').text(signatoryName, leftMargin, curY);
   curY += 13;

@@ -365,6 +365,8 @@ const EmployeeAttendanceTab = ({ employeeId, employee }) => {
               <option value="Half Day">Half Day</option>
               <option value="Absent">Absent</option>
               <option value="Work From Home">Work From Home</option>
+              <option value="Holiday">Holiday</option>
+              <option value="Sunday">Sunday</option>
             </select>
           </div>
 
@@ -624,7 +626,7 @@ const EmployeeAttendanceTab = ({ employeeId, employee }) => {
                       {/* Remarks / Absent Reason */}
                       <td className="px-4 py-3 text-xs max-w-xs truncate text-admin-secondary" title={record.remarks || record.absent_reason || ''}>
                         {record.remarks || record.absent_reason ? (
-                          <span className={record.attendance_status === 'Holiday' ? 'text-purple-400 font-semibold' : record.attendance_status === 'Sunday' ? 'text-slate-400 font-semibold' : 'text-amber-300 font-semibold'}>
+                          <span className={record.attendance_status === 'Holiday' || record.attendance_status === 'Office Holiday' || record.attendance_status === 'Government Holiday' ? 'text-purple-400 font-semibold' : record.attendance_status === 'Sunday' ? 'text-teal-400 font-semibold' : 'text-amber-300 font-semibold'}>
                             {record.remarks || record.absent_reason}
                           </span>
                         ) : (

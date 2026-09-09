@@ -1340,7 +1340,7 @@ const getEmployeeAttendanceHistory = async (req, res) => {
       paramIndex += 2;
     }
 
-    if (status && status !== 'all') {
+    if (status && status !== 'all' && (!month || month === 'all' || !year || year === 'all')) {
       const s = status.trim().toLowerCase();
       if (s === 'late' || s === 'late check-in' || s === 'late arrivals') {
         query += ` AND (a.attendance_status = 'Late' OR a.attendance_status = 'Late Check-in' OR (a.late_minutes IS NOT NULL AND a.late_minutes > 0))`;
@@ -1352,6 +1352,10 @@ const getEmployeeAttendanceHistory = async (req, res) => {
         query += ` AND (a.attendance_status = 'Work From Home' OR a.attendance_status = 'WFH' OR a.is_wfh = true)`;
       } else if (s === 'present') {
         query += ` AND (a.attendance_status = 'Present' OR a.attendance_status = 'On Time')`;
+      } else if (s === 'holiday') {
+        query += ` AND (a.attendance_status = 'Holiday' OR a.attendance_status = 'Office Holiday' OR a.attendance_status = 'Government Holiday')`;
+      } else if (s === 'sunday') {
+        query += ` AND a.attendance_status = 'Sunday'`;
       } else {
         query += ` AND a.attendance_status = $${paramIndex}`;
         params.push(status);
@@ -1385,14 +1389,14 @@ const getEmployeeAttendanceHistory = async (req, res) => {
 
       // Fetch holidays for the selected month and year
       const holidaysRes = await pool.query(
-        `SELECT holiday_date, holiday_title, holiday_type FROM holidays 
+        `SELECT TO_CHAR(holiday_date, 'YYYY-MM-DD') AS holiday_date_str, holiday_date, holiday_title, holiday_type FROM holidays 
          WHERE EXTRACT(MONTH FROM holiday_date) = $1 AND EXTRACT(YEAR FROM holiday_date) = $2 AND is_enabled = true`,
         [mInt, yInt]
       ).catch(() => ({ rows: [] }));
 
       const holidayMap = {};
       holidaysRes.rows.forEach(h => {
-        const dStr = h.holiday_date instanceof Date ? h.holiday_date.toISOString().split('T')[0] : String(h.holiday_date).split('T')[0];
+        const dStr = h.holiday_date_str || (h.holiday_date instanceof Date ? h.holiday_date.toISOString().split('T')[0] : String(h.holiday_date).split('T')[0]);
         holidayMap[dStr] = h;
       });
 
@@ -1422,96 +1426,111 @@ const getEmployeeAttendanceHistory = async (req, res) => {
         const dateObj = new Date(yInt, mInt - 1, d);
         const isSunday = dateObj.getDay() === 0;
         const holiday = holidayMap[dateStr];
+        const existing = existingMap[dateStr];
 
-        if (existingMap[dateStr]) {
-          fullMonth.push(existingMap[dateStr]);
+        const hasWorked = Boolean(
+          existing && (
+            existing.login_time || 
+            existing.check_in_time || 
+            (existing.total_working_hours && Number(existing.total_working_hours) > 0)
+          )
+        );
+
+        if (existing && hasWorked) {
+          // Employee actively worked on this day! Keep their attendance record
+          fullMonth.push(existing);
+        } else if (holiday) {
+          // Declared holiday (and employee did not punch in) -> show as Holiday
+          fullMonth.push({
+            ...(existing || {}),
+            id: existing ? existing.id : `hol-${dateStr}`,
+            employee_id: empCode,
+            attendance_date: dateStr,
+            login_time: null,
+            logout_time: null,
+            check_in_time: null,
+            check_out_time: null,
+            total_working_hours: 0,
+            attendance_status: holiday.holiday_type || 'Holiday',
+            remarks: holiday.holiday_title || 'Public Holiday',
+            is_synthetic: !existing
+          });
+        } else if (isSunday) {
+          // Sunday / Weekly Off (and employee did not punch in) -> show as Sunday
+          fullMonth.push({
+            ...(existing || {}),
+            id: existing ? existing.id : `sun-${dateStr}`,
+            employee_id: empCode,
+            attendance_date: dateStr,
+            login_time: null,
+            logout_time: null,
+            check_in_time: null,
+            check_out_time: null,
+            total_working_hours: 0,
+            attendance_status: 'Sunday',
+            remarks: 'Weekly Off',
+            is_synthetic: !existing
+          });
+        } else if (existing) {
+          // Normal active workday with an existing record in DB
+          fullMonth.push(existing);
+        } else if (joiningDateStr && dateStr < joiningDateStr) {
+          fullMonth.push({
+            id: `pre-${dateStr}`,
+            employee_id: empCode,
+            attendance_date: dateStr,
+            login_time: null,
+            logout_time: null,
+            check_in_time: null,
+            check_out_time: null,
+            total_working_hours: 0,
+            attendance_status: 'Pre-Joining',
+            remarks: 'Before Joining',
+            is_synthetic: true
+          });
+        } else if (resignedDateStr && dateStr > resignedDateStr) {
+          fullMonth.push({
+            id: `post-${dateStr}`,
+            employee_id: empCode,
+            attendance_date: dateStr,
+            login_time: null,
+            logout_time: null,
+            check_in_time: null,
+            check_out_time: null,
+            total_working_hours: 0,
+            attendance_status: 'Post-Exit',
+            remarks: 'After Resignation',
+            is_synthetic: true
+          });
+        } else if (dateStr > todayStr) {
+          fullMonth.push({
+            id: `up-${dateStr}`,
+            employee_id: empCode,
+            attendance_date: dateStr,
+            login_time: null,
+            logout_time: null,
+            check_in_time: null,
+            check_out_time: null,
+            total_working_hours: 0,
+            attendance_status: 'Upcoming',
+            remarks: '—',
+            is_synthetic: true
+          });
         } else {
-          if (isSunday) {
-            fullMonth.push({
-              id: `sun-${dateStr}`,
-              employee_id: empCode,
-              attendance_date: dateStr,
-              login_time: null,
-              logout_time: null,
-              check_in_time: null,
-              check_out_time: null,
-              total_working_hours: 0,
-              attendance_status: 'Sunday',
-              remarks: 'Weekly Off',
-              is_synthetic: true
-            });
-          } else if (holiday) {
-            fullMonth.push({
-              id: `hol-${dateStr}`,
-              employee_id: empCode,
-              attendance_date: dateStr,
-              login_time: null,
-              logout_time: null,
-              check_in_time: null,
-              check_out_time: null,
-              total_working_hours: 0,
-              attendance_status: holiday.holiday_type || 'Holiday',
-              remarks: holiday.holiday_title || 'Public Holiday',
-              is_synthetic: true
-            });
-          } else if (joiningDateStr && dateStr < joiningDateStr) {
-            fullMonth.push({
-              id: `pre-${dateStr}`,
-              employee_id: empCode,
-              attendance_date: dateStr,
-              login_time: null,
-              logout_time: null,
-              check_in_time: null,
-              check_out_time: null,
-              total_working_hours: 0,
-              attendance_status: 'Pre-Joining',
-              remarks: 'Before Joining',
-              is_synthetic: true
-            });
-          } else if (resignedDateStr && dateStr > resignedDateStr) {
-            fullMonth.push({
-              id: `post-${dateStr}`,
-              employee_id: empCode,
-              attendance_date: dateStr,
-              login_time: null,
-              logout_time: null,
-              check_in_time: null,
-              check_out_time: null,
-              total_working_hours: 0,
-              attendance_status: 'Post-Exit',
-              remarks: 'After Resignation',
-              is_synthetic: true
-            });
-          } else if (dateStr > todayStr) {
-            fullMonth.push({
-              id: `up-${dateStr}`,
-              employee_id: empCode,
-              attendance_date: dateStr,
-              login_time: null,
-              logout_time: null,
-              check_in_time: null,
-              check_out_time: null,
-              total_working_hours: 0,
-              attendance_status: 'Upcoming',
-              remarks: '—',
-              is_synthetic: true
-            });
-          } else {
-            // Past active workday with no punch in -> Not Mention (Absent)
-            fullMonth.push({
-              id: `abs-${dateStr}`,
-              employee_id: empCode,
-              attendance_date: dateStr,
-              login_time: null,
-              logout_time: null,
-              check_in_time: null,
-              check_out_time: null,
-              total_working_hours: 0,
-              attendance_status: 'Not Mention',
-              remarks: '—',
-              is_synthetic: true
-            });
-          }
+          // Past active workday with no punch in -> Not Mention (Absent)
+          fullMonth.push({
+            id: `abs-${dateStr}`,
+            employee_id: empCode,
+            attendance_date: dateStr,
+            login_time: null,
+            logout_time: null,
+            check_in_time: null,
+            check_out_time: null,
+            total_working_hours: 0,
+            attendance_status: 'Not Mention',
+            remarks: '—',
+            is_synthetic: true
+          });
         }
       }
 
@@ -1527,6 +1546,8 @@ const getEmployeeAttendanceHistory = async (req, res) => {
           if (s === 'half day') return st === 'half day';
           if (s === 'absent') return st === 'absent' || st === 'not mention';
           if (s === 'work from home' || s === 'wfh') return st === 'work from home' || st === 'wfh' || r.is_wfh;
+          if (s === 'holiday') return st === 'holiday' || st === 'office holiday' || st === 'government holiday';
+          if (s === 'sunday') return st === 'sunday';
           return st === s;
         });
       } else {

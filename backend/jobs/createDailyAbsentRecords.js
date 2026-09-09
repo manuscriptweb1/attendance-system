@@ -19,7 +19,25 @@ async function createDailyAbsentRecords(date = null) {
   try {
     const targetDate = date || getLocalDateString(); // Use local date instead of UTC
     
-    console.log(`Creating absent records for date: ${targetDate}`);
+    console.log(`Checking daily absent records for date: ${targetDate}`);
+
+    // 1. Check if targetDate is Sunday - skip creating absent records
+    const [year, month, day] = targetDate.split('-').map(Number);
+    const dateObj = new Date(year, month - 1, day);
+    if (dateObj.getDay() === 0) {
+      console.log(`⏩ Sunday detected (${targetDate}) - skipping absent records`);
+      return { success: true, recordsCreated: 0, date: targetDate, reason: 'Sunday' };
+    }
+
+    // 2. Check if targetDate is an enabled holiday - skip creating absent records
+    const holidayCheck = await pool.query(
+      'SELECT id, holiday_title FROM holidays WHERE holiday_date = $1 AND is_enabled = true',
+      [targetDate]
+    );
+    if (holidayCheck.rows.length > 0) {
+      console.log(`⏩ Holiday detected (${holidayCheck.rows[0].holiday_title}) on ${targetDate} - skipping absent records`);
+      return { success: true, recordsCreated: 0, date: targetDate, reason: 'Holiday' };
+    }
 
     // Get all active employees who don't have attendance record for today
     const result = await pool.query(`

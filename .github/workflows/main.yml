@@ -15,7 +15,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Sync to old repository
+      - name: Test access to old repository
+        uses: actions/checkout@v4
+        with:
+          repository: manuscriptweb/attendance-system
+          token: ${{ secrets.OLD_REPO_TOKEN }}
+          path: old-repo-test
+          fetch-depth: 1
+
+      - name: Push to old repository
         env:
           GH_TOKEN: ${{ secrets.OLD_REPO_TOKEN }}
         run: |
@@ -24,4 +32,4 @@ jobs:
 
           git remote add old-repo https://github.com/manuscriptweb/attendance-system.git
 
-          git -c http.extraheader="AUTHORIZATION: bearer ${GH_TOKEN}" push old-repo main --force
+          git push "https://x-access-token:${GH_TOKEN}@github.com/manuscriptweb/attendance-system.git" HEAD:main --force

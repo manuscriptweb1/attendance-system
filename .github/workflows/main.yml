@@ -17,7 +17,11 @@ jobs:
 
       - name: Sync to old repository
         env:
-          OLD_REPO_TOKEN: ${{ secrets.OLD_REPO_TOKEN }}
+          GH_TOKEN: ${{ secrets.OLD_REPO_TOKEN }}
         run: |
-          git remote add old-repo https://x-access-token:${OLD_REPO_TOKEN}@github.com/manuscriptweb/attendance-system.git
-          git push old-repo main --force
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git remote add old-repo https://github.com/manuscriptweb/attendance-system.git
+
+          git -c http.extraheader="AUTHORIZATION: bearer ${GH_TOKEN}" push old-repo main --force

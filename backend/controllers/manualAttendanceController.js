@@ -87,6 +87,7 @@ const createManualAttendance = async (req, res) => {
     const { records, reason } = req.body;
     // records: [{ employee_id, attendance_date, login_time, logout_time, attendance_status, is_wfh, remarks }]
     const adminId = req.user.id;
+    const numericAdminId = Number.isInteger(Number(adminId)) ? Number(adminId) : null;
 
     if (!records || !Array.isArray(records) || records.length === 0) {
       return res.status(400).json({ success: false, message: 'No records provided' });
@@ -252,7 +253,7 @@ const createManualAttendance = async (req, res) => {
         `INSERT INTO manual_attendance_logs (
           attendance_id, employee_id, attendance_date, action, admin_id, reason
         ) VALUES ($1, $2, $3, $4, $5, $6)`,
-        [newAttendance.id, employee_id, attendance_date, 'CREATED', adminId, reason]
+        [newAttendance.id, employee_id, attendance_date, 'CREATED', numericAdminId, reason]
       );
 
       createdRecords.push(newAttendance);
@@ -295,6 +296,7 @@ const updateManualAttendance = async (req, res) => {
     const { id } = req.params;
     const { login_time, logout_time, attendance_status, is_wfh, reason, remarks } = req.body;
     const adminId = req.user.id;
+    const numericAdminId = Number.isInteger(Number(adminId)) ? Number(adminId) : null;
 
     if (!reason || reason.trim() === '') {
       return res.status(400).json({ success: false, message: 'Reason for update is required' });
@@ -440,7 +442,7 @@ const updateManualAttendance = async (req, res) => {
       `INSERT INTO manual_attendance_logs (
         attendance_id, employee_id, attendance_date, action, admin_id, reason
       ) VALUES ($1, $2, $3, $4, $5, $6)`,
-      [id, attendance.employee_id, attendance.attendance_date, 'UPDATED', adminId, reason]
+      [id, attendance.employee_id, attendance.attendance_date, 'UPDATED', numericAdminId, reason]
     );
 
     await client.query('COMMIT');
@@ -488,6 +490,7 @@ const deleteManualAttendance = async (req, res) => {
   try {
     const { id } = req.params;
     const adminId = req.user.id;
+    const numericAdminId = Number.isInteger(Number(adminId)) ? Number(adminId) : null;
 
     // Fetch the record first to verify it exists and is Manual
     const fetchResult = await client.query(
@@ -511,7 +514,7 @@ const deleteManualAttendance = async (req, res) => {
     await client.query(
       `INSERT INTO manual_attendance_logs (attendance_id, employee_id, attendance_date, action, admin_id, reason)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [id, attendance.employee_id, attendance.attendance_date, 'DELETED', adminId, 'Admin deleted manual record']
+      [id, attendance.employee_id, attendance.attendance_date, 'DELETED', numericAdminId, 'Admin deleted manual record']
     );
 
     // Delete the record

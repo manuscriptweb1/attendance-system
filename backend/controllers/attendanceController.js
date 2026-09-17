@@ -938,7 +938,7 @@ const checkOut = async (req, res) => {
     // Update attendance status based on working hours (from database)
     const halfDayThreshold = settings.workingHours.halfDayThreshold;
     let finalStatus = attendance.attendance_status;
-    if (parseFloat(workingHours) < halfDayThreshold) {
+    if (parseFloat(workingHours) <= halfDayThreshold) {
       finalStatus = 'Half Day';
     }
 

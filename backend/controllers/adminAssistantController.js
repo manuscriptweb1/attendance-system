@@ -939,10 +939,11 @@ const handleBotCommand = async (req, res) => {
             newId = ins.rows[0].id;
           }
 
+          const numericAdminId = Number.isInteger(Number(adminId)) ? Number(adminId) : null;
           await pool.query(
             `INSERT INTO manual_attendance_logs (attendance_id, employee_id, attendance_date, action, admin_id, reason)
              VALUES ($1, $2, CURRENT_DATE, $3, $4, $5)`,
-            [newId, realEmpCode, 'CREATED', adminId, reason || 'Marked absent via Admin Assistant Bot']
+            [newId, realEmpCode, 'CREATED', numericAdminId, reason || 'Marked absent via Admin Assistant Bot']
           );
 
           await logAdminActivity({

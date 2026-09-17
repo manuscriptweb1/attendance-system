@@ -69,7 +69,7 @@ const getOfficeTimes = (settings) => {
   const rawLate = wh.office_late_time || wh.late_time || wh.lateAfterTime || wh.officeLateTime;
   const rawEnd = wh.office_end_time || wh.officeEndTime || wh.end_time;
   
-  const halfDayThreshold = parseFloat(wh.minimum_half_day_hours || wh.half_day_hours || 4);
+  const halfDayThreshold = parseFloat(wh.halfDayThreshold || wh.half_day_threshold || wh.minimum_half_day_hours || wh.half_day_hours || 4);
 
   return {
     startTime: parseOfficeTimeToMinutes(rawStart),

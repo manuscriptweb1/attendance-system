@@ -143,10 +143,11 @@ const quickCheckInEmployee = async ({
       newRecord = insertResult.rows[0];
     }
 
+    const numericAdminId = Number.isInteger(Number(adminId)) ? Number(adminId) : null;
     await client.query(
       `INSERT INTO manual_attendance_logs (attendance_id, employee_id, attendance_date, action, admin_id, reason)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [newRecord.id, realEmpCode, targetDate, 'CHECKIN_ROW', adminId, reasonSource]
+      [newRecord.id, realEmpCode, targetDate, 'CHECKIN_ROW', numericAdminId, reasonSource]
     );
 
     const effectiveSource = source || (reasonSource && reasonSource.toLowerCase().includes('admin assistant') ? 'ADMIN_ASSISTANT' : null);
@@ -248,7 +249,7 @@ const quickCheckOutEmployee = async ({
 
   let attendanceStatus = record.attendance_status;
   if (attendanceStatus !== 'Absent' && attendanceStatus !== 'Half Day') {
-    if (totalHours < officeTimes.halfDayThreshold) {
+    if (totalHours <= officeTimes.halfDayThreshold) {
       attendanceStatus = 'Half Day';
     }
   }
@@ -266,10 +267,11 @@ const quickCheckOutEmployee = async ({
       [logoutTime, workingHours, totalHours, totalMinutes, checkoutStatus, earlyMinutes, attendanceStatus, record.id]
     );
 
+    const numericAdminId = Number.isInteger(Number(adminId)) ? Number(adminId) : null;
     await client.query(
       `INSERT INTO manual_attendance_logs (attendance_id, employee_id, attendance_date, action, admin_id, reason)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [record.id, realEmpCode, targetDate, 'CHECKOUT_ROW', adminId, reasonSource]
+      [record.id, realEmpCode, targetDate, 'CHECKOUT_ROW', numericAdminId, reasonSource]
     );
 
     if (!suppressActivityLog) {

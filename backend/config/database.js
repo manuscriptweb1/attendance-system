@@ -5,7 +5,7 @@ require('dotenv').config();
 types.setTypeParser(1082, (str) => str);
 
 const poolConfig = {
-  max: 20,
+  max: parseInt(process.env.DB_POOL_MAX || '10'),
   idleTimeoutMillis: 30000,        // Close idle clients after 30s before cloud poolers drop them
   connectionTimeoutMillis: 10000,  // Return an error after 10s if connection cannot be established
   keepAlive: true,                 // Send keep-alive packets to prevent cloud firewalls from closing idle sockets

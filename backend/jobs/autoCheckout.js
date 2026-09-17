@@ -106,7 +106,7 @@ const autoCheckoutEmployees = async (options = {}) => {
         // Determine final attendance status
         let finalStatus = attendance.attendance_status;
         if (finalStatus !== 'Absent') {
-          if (totalHours < halfDayThreshold) {
+          if (totalHours <= halfDayThreshold) {
             finalStatus = 'Half Day';
           }
         }

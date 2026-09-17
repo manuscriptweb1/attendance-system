@@ -106,13 +106,16 @@ const generateMonthlyAttendanceReport = async (req, res) => {
         updated_at = CURRENT_TIMESTAMP
       RETURNING generated_at
     `;
+    // For emergency-super-admin, req.user.id is a string; sanitize to integer or null for PostgreSQL generated_by column
+    const adminId = Number.isInteger(Number(req.user?.id)) ? Number(req.user.id) : null;
+
     const result = await pool.query(upsertQuery, [
       month, year, 
       JSON.stringify(summaryRows), 
       JSON.stringify(dailyAttendanceMatrix),
       JSON.stringify(absentTable),
       JSON.stringify(holidayTable),
-      req.user.id
+      adminId
     ]);
 
     await logAdminActivity({

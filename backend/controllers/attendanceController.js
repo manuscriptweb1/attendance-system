@@ -1323,7 +1323,7 @@ const getEmployeeMonthlyAttendance = async (req, res) => {
 // Admin: Get all attendance
 const getAllAttendance = async (req, res) => {
   try {
-    const { date, status, employee_id } = req.query;
+    const { date, status, employee_id, search } = req.query;
     const targetDate = date || getLocalDateString(); // Use local date instead of UTC
 
     // Ensure daily attendance records exist for the target date
@@ -1359,9 +1359,10 @@ const getAllAttendance = async (req, res) => {
       }
     }
 
-    if (employee_id) {
-      query += ` AND e.employee_id ILIKE $${paramCount}`;
-      values.push(`%${employee_id}%`);
+    const searchTerm = (search || employee_id || '').trim();
+    if (searchTerm) {
+      query += ` AND (e.employee_id ILIKE $${paramCount} OR e.name ILIKE $${paramCount})`;
+      values.push(`%${searchTerm}%`);
       paramCount++;
     }
 

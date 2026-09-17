@@ -10,7 +10,7 @@ import { getAllAttendance, resetAttendance, deleteAttendance, clearDataByDate } 
 import { formatTime, formatDate, formatWorkingHours } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateDateString } from '../utils/dateValidation';
-import { FiFilter, FiRefreshCw, FiTrash2, FiRotateCcw, FiCalendar, FiCheckCircle, FiClock, FiHome, FiTrendingUp } from 'react-icons/fi';
+import { FiFilter, FiRefreshCw, FiTrash2, FiRotateCcw, FiCalendar, FiCheckCircle, FiClock, FiHome, FiTrendingUp, FiX } from 'react-icons/fi';
 import { sortEmployeeRows } from '../utils/sorting';
 
 const getLocalDateString = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`; };
@@ -20,6 +20,7 @@ const AdminAttendance = () => {
   const [attendance,   setAttendance]   = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [filters,      setFilters]      = useState({ date: getLocalDateString(), status:'', employee_id:'', department:'', is_wfh:'' });
+  const [searchTerm,   setSearchTerm]   = useState('');
   const [sortBy,       setSortBy]       = useState('name_asc');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen:false, title:'', message:'', onConfirm:null, type:'info' });
   const [alertDialog,   setAlertDialog]   = useState({ isOpen:false, title:'', message:'', type:'success' });
@@ -43,6 +44,17 @@ const AdminAttendance = () => {
     window.addEventListener('attendanceUpdated', handleUpdate);
     return () => window.removeEventListener('attendanceUpdated', handleUpdate);
   }, [filters]); // eslint-disable-line
+
+  // Debounce search term changes to avoid excessive API requests
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setFilters(f => {
+        if (f.employee_id === searchTerm) return f;
+        return { ...f, employee_id: searchTerm };
+      });
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
   const handleFilterChange = (e) => {
     if (e.target.name === 'date') {
@@ -163,8 +175,29 @@ const AdminAttendance = () => {
                 <input type="date" name="date" value={filters.date} onChange={handleFilterChange} className="admin-input py-2.5 text-sm" />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Search ID</label>
-                <input type="text" name="employee_id" value={filters.employee_id} onChange={handleFilterChange} placeholder="EMP-001" className="admin-input py-2.5 text-sm" />
+                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Search Name / ID</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    placeholder="Search by name or ID..."
+                    className="admin-input py-2.5 text-sm pr-8"
+                  />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchTerm('');
+                        setFilters(f => ({ ...f, employee_id: '' }));
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-admin-muted hover:text-admin-text p-1 cursor-pointer"
+                      title="Clear search"
+                    >
+                      <FiX size={13} />
+                    </button>
+                  )}
+                </div>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Department</label>

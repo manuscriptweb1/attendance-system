@@ -49,10 +49,12 @@ const app = express();
 
 // CORS Configuration for Production and Development
 const allowedOrigins = [
+  'https://hr.mstm.app',
+  'https://attendance-system-one-swart.vercel.app',
   process.env.FRONTEND_URL,
   'http://localhost:3000',
   'http://localhost:3001',
-  'http://localhost:5000' // Allow backend's own domain
+  'http://localhost:5000'
 ].filter(Boolean);
 
 app.use(cors({
@@ -60,8 +62,8 @@ app.use(cors({
     // Allow requests with no origin (mobile apps, Postman, curl, etc.)
     if (!origin) return callback(null, true);
     
-    // In development, allow all localhost origins
-    if (process.env.NODE_ENV !== 'production' && origin.startsWith('http://localhost')) {
+    // Allow localhost origins
+    if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
       return callback(null, true);
     }
     

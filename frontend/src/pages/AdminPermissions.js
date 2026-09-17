@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
 import AlertDialog from '../components/AlertDialog';
@@ -11,7 +11,7 @@ import { getPermissions, getPermissionSummary, createPermission, updatePermissio
 import { formatDate } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateMonthYear } from '../utils/dateValidation';
-import { FiPlus, FiEdit, FiTrash2, FiClock, FiUsers, FiFileText, FiX } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiTrash2, FiClock, FiUsers, FiFileText, FiX, FiSearch, FiCheckCircle } from 'react-icons/fi';
 
 const formatDuration = (minutes) => {
   const total = Number(minutes || 0);
@@ -45,6 +45,32 @@ const AdminPermissions = () => {
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [toastConfig, setToastConfig] = useState({ message: '', type: 'success' });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'danger' });
+
+  // Searchable Employee Selector state (Modal)
+  const [modalEmpSearchQuery, setModalEmpSearchQuery] = useState('');
+  const [isModalEmpDropdownOpen, setIsModalEmpDropdownOpen] = useState(false);
+  const modalEmpSearchRef = useRef(null);
+
+  // Searchable Employee Selector state (Filter bar)
+  const [filterEmpSearchQuery, setFilterEmpSearchQuery] = useState('');
+  const [isFilterEmpDropdownOpen, setIsFilterEmpDropdownOpen] = useState(false);
+  const filterEmpSearchRef = useRef(null);
+
+  // Close search dropdowns on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (modalEmpSearchRef.current && !modalEmpSearchRef.current.contains(event.target)) {
+        setIsModalEmpDropdownOpen(false);
+      }
+      if (filterEmpSearchRef.current && !filterEmpSearchRef.current.contains(event.target)) {
+        setIsFilterEmpDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const fetchData = async () => {
     const errorMsg = validateMonthYear(month, year);
@@ -133,6 +159,8 @@ const AdminPermissions = () => {
       to_time: perm.to_time,
       reason: perm.reason || ''
     });
+    setModalEmpSearchQuery('');
+    setIsModalEmpDropdownOpen(false);
     setEditMode(true);
     setShowModal(true);
   };
@@ -154,6 +182,8 @@ const AdminPermissions = () => {
     setShowModal(false); 
     setEditMode(false); 
     setFormData({ id: '', employee_id: '', permission_date: '', from_time: '', to_time: '', reason: '' }); 
+    setModalEmpSearchQuery('');
+    setIsModalEmpDropdownOpen(false);
   };
 
   const handleClearPermissions = async ({ fromDate, toDate }) => {
@@ -198,14 +228,23 @@ const AdminPermissions = () => {
                 </button>
               )}
               {hasPermission('permissions', 'can_create') && (
-                <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-glow-blue-sm">
+                <button 
+                  onClick={() => {
+                    setEditMode(false);
+                    setFormData({ id: '', employee_id: '', permission_date: '', from_time: '', to_time: '', reason: '' });
+                    setModalEmpSearchQuery('');
+                    setIsModalEmpDropdownOpen(false);
+                    setShowModal(true);
+                  }} 
+                  className="flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-glow-blue-sm cursor-pointer"
+                >
                   <FiPlus size={16} /> Create Permission
                 </button>
               )}
             </div>
           </div>
 
-          <div className="bg-admin-surface border border-admin-border rounded-2xl p-5 mb-6 shadow-clay-admin animate-fadeInUp stagger-2">
+          <div className="bg-admin-surface border border-admin-border rounded-2xl p-5 mb-6 shadow-clay-admin animate-fadeInUp stagger-2 relative z-30">
             <div className="flex flex-col sm:flex-row gap-4">
               <div>
                 <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Month</label>
@@ -224,14 +263,170 @@ const AdminPermissions = () => {
                   })}
                 </select>
               </div>
-              <div>
-                <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-2">Employee</label>
-                <select value={selectedEmployeeFilter} onChange={e => setSelectedEmployeeFilter(e.target.value)} className="admin-select py-2 text-sm text-admin-muted">
-                  <option value="">All Employees</option>
-                  {employees.map(emp => (
-                    <option key={emp.employee_id} value={emp.employee_id}>{emp.name} ({emp.employee_id})</option>
-                  ))}
-                </select>
+              <div className="relative min-w-[240px] sm:min-w-[280px]" ref={filterEmpSearchRef}>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider">
+                    Employee
+                  </label>
+                  {selectedEmployeeFilter && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedEmployeeFilter('');
+                        setFilterEmpSearchQuery('');
+                      }}
+                      className="text-[10px] text-admin-muted hover:text-admin-accent transition-colors flex items-center gap-1 font-semibold cursor-pointer"
+                    >
+                      <FiX size={11} /> Reset to All
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter Search Input */}
+                <div className="relative">
+                  <FiSearch
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-admin-muted pointer-events-none"
+                  />
+                  <input
+                    type="text"
+                    placeholder={
+                      (() => {
+                        const sel = employees.find(emp => String(emp.employee_id) === String(selectedEmployeeFilter));
+                        return sel ? `${sel.name} (${sel.employee_id})` : "All Employees (Type to search...)";
+                      })()
+                    }
+                    value={filterEmpSearchQuery}
+                    onFocus={() => setIsFilterEmpDropdownOpen(true)}
+                    onChange={(e) => {
+                      setFilterEmpSearchQuery(e.target.value);
+                      setIsFilterEmpDropdownOpen(true);
+                    }}
+                    className={`w-full pl-9 pr-8 py-2 text-xs rounded-xl bg-admin-bg border transition-colors ${
+                      selectedEmployeeFilter
+                        ? 'border-admin-accent/50 text-admin-accent font-bold'
+                        : 'border-admin-border text-admin-text placeholder:text-admin-muted font-medium'
+                    } focus:outline-none focus:border-admin-accent`}
+                  />
+                  {(filterEmpSearchQuery || selectedEmployeeFilter) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilterEmpSearchQuery('');
+                        setSelectedEmployeeFilter('');
+                        setIsFilterEmpDropdownOpen(false);
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-admin-muted hover:text-admin-text p-1 cursor-pointer"
+                      title="Clear employee filter"
+                    >
+                      <FiX size={13} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter Dropdown Results */}
+                {isFilterEmpDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 z-50 max-h-60 overflow-y-auto rounded-xl bg-admin-elevated border border-admin-border shadow-clay-admin-modal dark-scroll p-1.5 space-y-1">
+                    {/* Option: All Employees */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedEmployeeFilter('');
+                        setFilterEmpSearchQuery('');
+                        setIsFilterEmpDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
+                        !selectedEmployeeFilter
+                          ? 'bg-admin-accent/20 border border-admin-accent/30 text-admin-accent font-bold'
+                          : 'hover:bg-white/5 border border-transparent text-admin-text font-medium'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md bg-admin-bg border border-admin-border flex items-center justify-center text-[10px] font-bold text-admin-muted">
+                          ALL
+                        </div>
+                        <span className="text-xs">All Employees</span>
+                      </div>
+                      {!selectedEmployeeFilter && (
+                        <span className="text-emerald-400 text-xs font-bold flex items-center gap-1">
+                          <FiCheckCircle size={13} />
+                        </span>
+                      )}
+                    </button>
+
+                    <div className="border-t border-admin-border/50 my-1" />
+
+                    {(() => {
+                      const filtered = employees.filter((emp) => {
+                        if (!filterEmpSearchQuery.trim()) return true;
+                        const q = filterEmpSearchQuery.toLowerCase().trim();
+                        const nameMatch = (emp.name || '').toLowerCase().includes(q);
+                        const idMatch = (emp.employee_id || '').toLowerCase().includes(q);
+                        const roleMatch = (emp.job_role || emp.designation || '').toLowerCase().includes(q);
+                        const deptMatch = (emp.department_name || emp.department || '').toLowerCase().includes(q);
+                        return nameMatch || idMatch || roleMatch || deptMatch;
+                      });
+
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="p-3 text-center text-xs text-admin-muted">
+                            No employees matching &quot;{filterEmpSearchQuery}&quot;
+                          </div>
+                        );
+                      }
+
+                      return filtered.map((emp) => {
+                        const isSelected = emp.employee_id === selectedEmployeeFilter;
+                        return (
+                          <button
+                            key={emp.id || emp.employee_id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedEmployeeFilter(emp.employee_id);
+                              setFilterEmpSearchQuery('');
+                              setIsFilterEmpDropdownOpen(false);
+                            }}
+                            className={`w-full text-left p-2 rounded-lg transition-all flex items-center justify-between group cursor-pointer ${
+                              isSelected
+                                ? 'bg-admin-accent/20 border border-admin-accent/30'
+                                : 'hover:bg-white/5 border border-transparent'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-7 h-7 rounded-lg bg-admin-bg border border-admin-border text-admin-text font-bold text-[10px] flex items-center justify-center flex-shrink-0 group-hover:border-admin-accent/50">
+                                {(emp.name || 'EM')
+                                  .split(' ')
+                                  .map((n) => n[0])
+                                  .slice(0, 2)
+                                  .join('')
+                                  .toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-xs font-bold text-admin-text group-hover:text-admin-accent transition-colors truncate">
+                                    {emp.name}
+                                  </span>
+                                  <span className="font-mono text-[10px] text-blue-400 font-semibold px-1 py-0.2 rounded bg-blue-500/10 border border-blue-500/20">
+                                    {emp.employee_id}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-admin-secondary block truncate">
+                                  {emp.department_name || emp.department || 'General'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {isSelected && (
+                              <span className="text-emerald-400 text-xs font-bold flex items-center gap-1 flex-shrink-0 ml-1.5">
+                                <FiCheckCircle size={13} />
+                              </span>
+                            )}
+                          </button>
+                        );
+                      });
+                    })()}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -333,12 +528,191 @@ const AdminPermissions = () => {
               <button onClick={closeModal} className="text-admin-secondary hover:text-admin-text"><FiX size={18} /></button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Employee *</label>
-                <select name="employee_id" value={formData.employee_id} onChange={handleInputChange} required disabled={editMode} className="admin-select text-admin-muted">
-                  <option value="">-- Select Employee --</option>
-                  {employees.map(e => <option key={e.employee_id} value={e.employee_id}>{e.name} ({e.employee_id})</option>)}
-                </select>
+              {/* Searchable Employee Selection */}
+              <div className="sm:col-span-2 space-y-2 relative z-20" ref={modalEmpSearchRef}>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider">
+                    Employee <span className="text-rose-500">*</span>
+                  </label>
+                  {formData.employee_id && !editMode && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, employee_id: '' }));
+                        setModalEmpSearchQuery('');
+                        setIsModalEmpDropdownOpen(true);
+                      }}
+                      className="text-[11px] text-admin-muted hover:text-rose-400 transition-colors flex items-center gap-1 font-semibold cursor-pointer"
+                    >
+                      <FiX size={12} /> Clear Selection
+                    </button>
+                  )}
+                </div>
+
+                {/* Selected Employee Card (when chosen and dropdown is closed) */}
+                {(() => {
+                  const selectedModalEmp = employees.find(e => String(e.employee_id) === String(formData.employee_id)) || (
+                    formData.employee_id ? {
+                      employee_id: formData.employee_id,
+                      name: permissions.find(p => p.id === formData.id)?.employee_name || formData.employee_id,
+                      department_name: permissions.find(p => p.id === formData.id)?.department_name || ''
+                    } : null
+                  );
+
+                  if (selectedModalEmp && !isModalEmpDropdownOpen) {
+                    return (
+                      <div className="flex items-center justify-between p-3 rounded-xl bg-admin-bg border border-admin-accent/30 shadow-sm animate-fade-in">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-500 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                            {(selectedModalEmp.name || 'EM')
+                              .split(' ')
+                              .map((n) => n[0])
+                              .slice(0, 2)
+                              .join('')
+                              .toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-xs font-bold text-admin-text truncate">
+                                {selectedModalEmp.name}
+                              </p>
+                              <span className="font-mono text-[10px] text-blue-400 font-bold px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20">
+                                {selectedModalEmp.employee_id || selectedModalEmp.id}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-admin-secondary mt-0.5 truncate">
+                              {selectedModalEmp.job_role || selectedModalEmp.designation || 'Staff'} • {selectedModalEmp.department_name || selectedModalEmp.department || 'General'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {!editMode ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsModalEmpDropdownOpen(true);
+                              setModalEmpSearchQuery('');
+                            }}
+                            className="text-xs text-admin-accent hover:text-blue-400 font-bold px-3 py-1.5 rounded-lg bg-admin-accent/10 border border-admin-accent/20 hover:bg-admin-accent/20 transition-all flex items-center gap-1.5 flex-shrink-0 cursor-pointer ml-2"
+                          >
+                            Change
+                          </button>
+                        ) : (
+                          <span className="text-[10px] font-semibold text-admin-muted bg-white/5 border border-admin-border px-2 py-1 rounded-md">
+                            Locked
+                          </span>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    /* Search Input Box */
+                    <div className="relative">
+                      <FiSearch
+                        size={15}
+                        className="absolute left-3.5 top-1/2 -translate-y-1/2 text-admin-muted pointer-events-none"
+                      />
+                      <input
+                        type="text"
+                        autoFocus={isModalEmpDropdownOpen}
+                        disabled={editMode}
+                        placeholder="Search employee by name, ID (e.g. MTM-01), role, or department..."
+                        value={modalEmpSearchQuery}
+                        onFocus={() => { if (!editMode) setIsModalEmpDropdownOpen(true); }}
+                        onChange={(e) => {
+                          setModalEmpSearchQuery(e.target.value);
+                          setIsModalEmpDropdownOpen(true);
+                        }}
+                        className="w-full pl-10 pr-10 py-2.5 text-xs rounded-xl bg-admin-bg border border-admin-border text-admin-text placeholder:text-admin-muted font-medium focus:outline-none focus:border-admin-accent transition-colors"
+                      />
+                      {modalEmpSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setModalEmpSearchQuery('')}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-admin-muted hover:text-admin-text p-1 cursor-pointer"
+                        >
+                          <FiX size={14} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Dropdown Results List */}
+                {isModalEmpDropdownOpen && !editMode && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 z-50 max-h-60 overflow-y-auto rounded-xl bg-admin-elevated border border-admin-border shadow-clay-admin-modal dark-scroll p-1.5 space-y-1">
+                    {(() => {
+                      const filtered = employees.filter((emp) => {
+                        if (!modalEmpSearchQuery.trim()) return true;
+                        const q = modalEmpSearchQuery.toLowerCase().trim();
+                        const nameMatch = (emp.name || '').toLowerCase().includes(q);
+                        const idMatch = (emp.employee_id || '').toLowerCase().includes(q);
+                        const roleMatch = (emp.job_role || emp.designation || '').toLowerCase().includes(q);
+                        const deptMatch = (emp.department_name || emp.department || '').toLowerCase().includes(q);
+                        return nameMatch || idMatch || roleMatch || deptMatch;
+                      });
+
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="p-4 text-center text-xs text-admin-muted">
+                            No employees found matching &quot;{modalEmpSearchQuery}&quot;
+                          </div>
+                        );
+                      }
+
+                      return filtered.map((emp) => {
+                        const isSelected = emp.employee_id === formData.employee_id;
+                        return (
+                          <button
+                            key={emp.id || emp.employee_id}
+                            type="button"
+                            onClick={() => {
+                              setFormData(prev => ({ ...prev, employee_id: emp.employee_id }));
+                              setIsModalEmpDropdownOpen(false);
+                              setModalEmpSearchQuery('');
+                            }}
+                            className={`w-full text-left p-2.5 rounded-lg transition-all flex items-center justify-between group cursor-pointer ${
+                              isSelected
+                                ? 'bg-admin-accent/20 border border-admin-accent/30'
+                                : 'hover:bg-white/5 border border-transparent'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-lg bg-admin-bg border border-admin-border text-admin-text font-bold text-[11px] flex items-center justify-center flex-shrink-0 group-hover:border-admin-accent/50">
+                                {(emp.name || 'EM')
+                                  .split(' ')
+                                  .map((n) => n[0])
+                                  .slice(0, 2)
+                                  .join('')
+                                  .toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-bold text-admin-text group-hover:text-admin-accent transition-colors truncate">
+                                    {emp.name}
+                                  </span>
+                                  <span className="font-mono text-[10px] text-blue-400 font-semibold px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20">
+                                    {emp.employee_id}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-admin-secondary block mt-0.5 truncate">
+                                  {emp.job_role || emp.designation || 'Staff'} • {emp.department_name || emp.department || 'General'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {isSelected && (
+                              <span className="text-emerald-400 text-xs font-bold flex items-center gap-1 flex-shrink-0 ml-2">
+                                <FiCheckCircle size={14} /> Selected
+                              </span>
+                            )}
+                          </button>
+                        );
+                      });
+                    })()}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Date *</label>

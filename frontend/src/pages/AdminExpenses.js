@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
 import AlertDialog from '../components/AlertDialog';
@@ -11,7 +11,7 @@ import api, { clearExpenseRange } from '../services/api';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateMonthYear } from '../utils/dateValidation';
 import { formatIndianCurrency } from '../utils/formatCurrency';
-import { FiDownload, FiPlus, FiEdit, FiTrash2, FiTrendingUp, FiCreditCard, FiDollarSign, FiArchive, FiX, FiSettings, FiCheckCircle, FiMinusCircle, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { FiDownload, FiPlus, FiEdit, FiTrash2, FiTrendingUp, FiCreditCard, FiDollarSign, FiArchive, FiX, FiSettings, FiCheckCircle, FiMinusCircle, FiChevronDown, FiChevronUp, FiSearch } from 'react-icons/fi';
 
 const getBadgePalette = (str) => {
   if (!str) return { bg: "#f1f5f9", text: "#475569", border: "#cbd5e1" };
@@ -89,8 +89,9 @@ const AdminExpenses = () => {
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'danger' });
   const [clearDialog, setClearDialog] = useState({ isOpen: false, isLoading: false });
 
-  // Sorting
+  // Sorting & Searching
   const [sortConfig, setSortConfig] = useState({ key: 'expense_date', direction: 'desc' });
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchData = async () => {
     const errorMsg = validateMonthYear(month, year);
@@ -288,23 +289,34 @@ const AdminExpenses = () => {
     setSortConfig({ key, direction });
   };
 
-  const sortedExpenses = [...expenses].sort((a, b) => {
-    let aVal = a[sortConfig.key] || '';
-    let bVal = b[sortConfig.key] || '';
-    if (sortConfig.key === 'amount') {
-      aVal = parseFloat(aVal) || 0;
-      bVal = parseFloat(bVal) || 0;
-    } else if (sortConfig.key === 'expense_date') {
-      aVal = new Date(aVal).getTime();
-      bVal = new Date(bVal).getTime();
-    } else {
-      aVal = aVal.toString().toLowerCase();
-      bVal = bVal.toString().toLowerCase();
-    }
-    if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-    if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-    return 0;
-  });
+  const sortedExpenses = useMemo(() => {
+    return [...expenses].sort((a, b) => {
+      let aVal = a[sortConfig.key] || '';
+      let bVal = b[sortConfig.key] || '';
+      if (sortConfig.key === 'amount') {
+        aVal = parseFloat(aVal) || 0;
+        bVal = parseFloat(bVal) || 0;
+      } else if (sortConfig.key === 'expense_date') {
+        aVal = new Date(aVal).getTime();
+        bVal = new Date(bVal).getTime();
+      } else {
+        aVal = aVal.toString().toLowerCase();
+        bVal = bVal.toString().toLowerCase();
+      }
+      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [expenses, sortConfig]);
+
+  const filteredExpenses = useMemo(() => {
+    if (!searchQuery.trim()) return sortedExpenses;
+    const q = searchQuery.toLowerCase().trim();
+    return sortedExpenses.filter(r => {
+      const name = (r.name || r.title || '').toLowerCase();
+      return name.includes(q);
+    });
+  }, [sortedExpenses, searchQuery]);
 
   const handleClearRange = async (data) => {
     try {
@@ -379,6 +391,40 @@ const AdminExpenses = () => {
                     return <option key={yearVal} value={yearVal}>{yearVal}</option>
                   })}
                 </select>
+              </div>
+              <div className="flex-1 sm:max-w-xs">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-[10px] font-bold text-admin-secondary uppercase tracking-wider">Search Name</label>
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="text-[10px] text-admin-muted hover:text-admin-accent transition-colors flex items-center gap-1 font-semibold cursor-pointer"
+                    >
+                      <FiX size={11} /> Clear
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <FiSearch size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-admin-muted pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search by name..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full !pl-10 !pr-9 py-2 text-sm rounded-xl bg-admin-bg border border-admin-border text-admin-text placeholder:text-admin-muted focus:outline-none focus:border-admin-accent transition-colors"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-admin-muted hover:text-admin-text p-1 cursor-pointer"
+                      title="Clear search"
+                    >
+                      <FiX size={13} />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -460,7 +506,7 @@ const AdminExpenses = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
-                    {sortedExpenses.length > 0 ? sortedExpenses.map(r => (
+                    {filteredExpenses.length > 0 ? filteredExpenses.map(r => (
                       <tr key={r.id} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors">
                         <td className="px-5 py-4 whitespace-nowrap">
                           <span 
@@ -511,7 +557,7 @@ const AdminExpenses = () => {
                         </td>
                       </tr>
                     )) : (
-                      <tr><td colSpan={8} className="px-5 py-16 text-center text-admin-secondary text-sm">No expenses found for this month.</td></tr>
+                      <tr><td colSpan={8} className="px-5 py-16 text-center text-admin-secondary text-sm">{searchQuery ? `No expenses found matching "${searchQuery}".` : 'No expenses found for this month.'}</td></tr>
                     )}
                   </tbody>
                 </table>

@@ -110,15 +110,15 @@ const AdminReports = () => {
 
   const getStatusBadgeStyle = (code) => {
     switch (code) {
-      case 'P': return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
-      case 'L': return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
-      case 'HD': return 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30';
-      case 'A': return 'bg-rose-500/15 text-rose-400 border-rose-500/30';
-      case 'PL': return 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border-teal-500/30';
-      case 'S': return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
-      case 'OH': return 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30';
-      case 'GH': return 'bg-purple-500/15 text-purple-400 border-purple-500/30';
-      default: return 'bg-slate-500/15 text-slate-400 border-slate-500/30';
+      case 'P': return 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30';
+      case 'L': return 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/30';
+      case 'HD': return 'bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-500/15 dark:text-yellow-400 dark:border-yellow-500/30';
+      case 'A': return 'bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/30';
+      case 'PL': return 'bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-400 dark:border-teal-500/30';
+      case 'S': return 'bg-slate-200 text-slate-700 border-slate-300 dark:bg-blue-500/15 dark:text-blue-400 dark:border-blue-500/30';
+      case 'OH': return 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-indigo-500/15 dark:text-indigo-400 dark:border-indigo-500/30';
+      case 'GH': return 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-500/15 dark:text-purple-400 dark:border-purple-500/30';
+      default: return 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-500/15 dark:text-slate-400 dark:border-slate-500/30';
     }
   };
 
@@ -836,9 +836,9 @@ const AdminReports = () => {
             {/* Header */}
             <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-200 dark:border-slate-700/60">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center font-black text-xs shrink-0 text-slate-700 dark:text-slate-200">
+                <span className={`${getAttendanceStatusClass(selectedCellModal.code)} w-7 h-7 flex items-center justify-center font-black text-xs shrink-0 rounded-lg shadow-sm border border-black/5 dark:border-white/10`}>
                   {selectedCellModal.code}
-                </div>
+                </span>
                 <div className="min-w-0">
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate leading-tight">{selectedCellModal.employeeName}</h4>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">{selectedCellModal.employeeCode} • {selectedCellModal.department}</p>

@@ -120,12 +120,38 @@ const AdminReports = () => {
     }
   };
 
-  const handleCellClick = (emp, d, displayCode) => {
+  // Forward mousewheel to window when container reaches top or bottom
+  const handleTableWheel = (e) => {
+    const el = e.currentTarget;
+    const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 2;
+    const isAtTop = el.scrollTop <= 0;
+    if ((e.deltaY > 0 && isAtBottom) || (e.deltaY < 0 && isAtTop)) {
+      window.scrollBy({ top: e.deltaY, behavior: 'auto' });
+    }
+  };
+
+  const handleCellClick = (e, emp, d, displayCode) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    const rect = e && e.currentTarget ? e.currentTarget.getBoundingClientRect() : { top: 300, left: 300, width: 30, height: 30 };
+    
     const dateObj = new Date(year, month - 1, d);
     const options = { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' };
     const formattedDate = dateObj.toLocaleDateString('en-US', options);
 
     const details = emp.details && emp.details[d] ? emp.details[d] : null;
+
+    // Popover sizing & upside positioning with arrow anchor
+    const cardWidth = 320;
+    const cardHeight = 265;
+    const cellCenterX = rect.left + rect.width / 2;
+    const left = Math.max(12, Math.min(window.innerWidth - cardWidth - 12, cellCenterX - cardWidth / 2));
+    const arrowLeft = Math.max(16, Math.min(cardWidth - 16, cellCenterX - left));
+
+    // Show on UP SIDE above the attendance status
+    let top = rect.top - cardHeight - 10;
+    if (top < 10) {
+      top = Math.max(10, rect.top - cardHeight - 6);
+    }
 
     setSelectedCellModal({
       employeeName: emp.name,
@@ -135,7 +161,12 @@ const AdminReports = () => {
       code: displayCode,
       formattedDate,
       record: details ? details.record : null,
-      permissionMinutes: details ? details.permissionMinutes : 0
+      permissionMinutes: details ? details.permissionMinutes : 0,
+      coords: {
+        top,
+        left,
+        arrowLeft
+      }
     });
   };
   
@@ -536,7 +567,7 @@ const AdminReports = () => {
                 <h3 className="text-xs font-bold text-admin-text uppercase tracking-wider">Preview: {new Date(0, month-1).toLocaleString('default', { month: 'long' })} {year}</h3>
                 <span className="text-[10px] font-bold text-admin-secondary uppercase tracking-widest">{reportData.length} Records</span>
               </div>
-              <div className="table-responsive dark-scroll max-h-[62vh] overflow-y-auto rounded-xl border border-admin-border/50">
+              <div onWheel={handleTableWheel} className="table-responsive dark-scroll max-h-[62vh] overflow-y-auto rounded-xl border border-admin-border/50">
                 <table className="reports-summary-table min-w-full border-separate border-spacing-0 divide-y divide-white/[0.04]">
                   <thead className="bg-admin-bg sticky top-0 z-20 shadow-sm">
                     <tr>
@@ -601,7 +632,7 @@ const AdminReports = () => {
               <div className="p-4 border-b border-admin-border bg-admin-elevated flex justify-between items-center">
                 <h3 className="text-xs font-bold text-admin-text uppercase tracking-wider">Daily Attendance</h3>
               </div>
-              <div className="table-responsive dark-scroll max-h-[62vh] overflow-auto rounded-xl border border-admin-border/50">
+              <div onWheel={handleTableWheel} className="table-responsive dark-scroll max-h-[62vh] overflow-auto rounded-xl border border-admin-border/50">
                 <table className="min-w-full border-separate border-spacing-0 divide-y divide-white/[0.04]">
                   <thead className="bg-admin-bg sticky top-0 z-20 shadow-sm">
                     <tr>
@@ -625,7 +656,7 @@ const AdminReports = () => {
                             return (
                               <td 
                                 key={d} 
-                                onClick={() => handleCellClick(emp, d, displayCode)}
+                                onClick={(e) => handleCellClick(e, emp, d, displayCode)}
                                 className="px-2 py-3 text-center whitespace-nowrap border-b border-admin-border/30 cursor-pointer hover:bg-admin-accent/15 transition-all group"
                                 title={`Click to view attendance details for ${emp.name} on day ${d}`}
                               >
@@ -676,11 +707,11 @@ const AdminReports = () => {
               <div className="p-4 border-b border-admin-border bg-admin-elevated flex justify-between items-center">
                 <h3 className="text-xs font-bold text-admin-text uppercase tracking-wider">Employee Absent Details</h3>
               </div>
-              <div className="table-responsive dark-scroll">
-                <table className="min-w-full divide-y divide-white/[0.04]">
-                  <thead className="bg-admin-bg sticky top-0 z-10 shadow-sm">
+              <div onWheel={handleTableWheel} className="table-responsive dark-scroll max-h-[50vh] overflow-y-auto rounded-xl border border-admin-border/50">
+                <table className="min-w-full border-separate border-spacing-0 divide-y divide-white/[0.04]">
+                  <thead className="bg-admin-bg sticky top-0 z-20 shadow-sm">
                     <tr>{['S.No', 'Employee ID', 'Employee Name', 'Date', 'Absent Reason'].map(h => (
-                      <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-10">{h}</th>
+                      <th key={h} className="px-5 py-3.5 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-20 border-b border-admin-border/50">{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
@@ -705,11 +736,11 @@ const AdminReports = () => {
               <div className="p-4 border-b border-admin-border bg-admin-elevated flex justify-between items-center">
                 <h3 className="text-xs font-bold text-admin-text uppercase tracking-wider">Holiday Details</h3>
               </div>
-              <div className="table-responsive dark-scroll">
-                <table className="min-w-full divide-y divide-white/[0.04]">
-                  <thead className="bg-admin-bg sticky top-0 z-10 shadow-sm">
+              <div onWheel={handleTableWheel} className="table-responsive dark-scroll max-h-[50vh] overflow-y-auto rounded-xl border border-admin-border/50">
+                <table className="min-w-full border-separate border-spacing-0 divide-y divide-white/[0.04]">
+                  <thead className="bg-admin-bg sticky top-0 z-20 shadow-sm">
                     <tr>{['S.No', 'Holiday Date', 'Holiday Type', 'Holiday Name', 'Notes'].map(h => (
-                      <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-10">{h}</th>
+                      <th key={h} className="px-5 py-3.5 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-20 border-b border-admin-border/50">{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
@@ -733,113 +764,111 @@ const AdminReports = () => {
           )}
         </div>
       </div>
-      {/* Interactive Status Detail Card Modal */}
-      {selectedCellModal && (
+      {/* Interactive Status Detail Popover Card (Upside with Arrow pointing to cell) */}
+      {selectedCellModal && selectedCellModal.coords && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
+          className="fixed inset-0 z-50 overflow-hidden"
           onClick={() => setSelectedCellModal(null)}
         >
+          {/* Subtle backdrop catch-all */}
+          <div className="absolute inset-0 bg-black/25 backdrop-blur-[1px] transition-opacity" />
+
+          {/* Upside Anchored Popover Card */}
           <div 
-            className="bg-admin-surface border border-admin-border rounded-2xl max-w-md w-full p-6 shadow-clay-admin animate-scaleUp relative"
+            style={{
+              position: 'fixed',
+              top: `${selectedCellModal.coords.top}px`,
+              left: `${selectedCellModal.coords.left}px`,
+              width: '320px'
+            }}
+            className="bg-admin-surface/98 backdrop-blur-md border border-admin-border rounded-2xl p-4 shadow-2xl z-50 animate-fadeIn text-admin-text select-none"
             onClick={e => e.stopPropagation()}
           >
-            {/* Close Button */}
-            <button 
-              onClick={() => setSelectedCellModal(null)}
-              className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-admin-secondary hover:text-admin-text hover:bg-white/5 transition-colors cursor-pointer"
-            >
-              <FiX size={18} />
-            </button>
+            {/* Downward pointing arrow beak pointing directly at clicked attendance pill */}
+            <div 
+              style={{ left: `${selectedCellModal.coords.arrowLeft}px` }}
+              className="absolute -bottom-2 -translate-x-1/2 w-4 h-4 bg-admin-surface border-r border-b border-admin-border rotate-45 pointer-events-none"
+            />
 
             {/* Header */}
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-admin-bg border border-admin-border flex items-center justify-center text-admin-accent font-black text-sm">
-                {selectedCellModal.code}
+            <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-admin-border/50">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-lg bg-admin-bg border border-admin-border flex items-center justify-center text-admin-accent font-black text-xs shrink-0">
+                  {selectedCellModal.code}
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-xs font-bold text-admin-text truncate leading-tight">{selectedCellModal.employeeName}</h4>
+                  <p className="text-[10px] text-admin-secondary font-mono truncate">{selectedCellModal.employeeCode} • {selectedCellModal.department}</p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-base font-bold text-admin-text">{selectedCellModal.employeeName}</h4>
-                <p className="text-xs text-admin-secondary font-mono">{selectedCellModal.employeeCode} • {selectedCellModal.department}</p>
-              </div>
+
+              <button 
+                onClick={() => setSelectedCellModal(null)}
+                className="w-6 h-6 rounded-md flex items-center justify-center text-admin-secondary hover:text-admin-text hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
+              >
+                <FiX size={14} />
+              </button>
             </div>
 
-            {/* Date & Status Banner */}
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-admin-bg border border-admin-border mb-4">
-              <div>
-                <p className="text-[10px] font-bold text-admin-secondary uppercase tracking-wider">Date</p>
-                <p className="text-xs font-bold text-admin-text mt-0.5">{selectedCellModal.formattedDate}</p>
-              </div>
-              <div>
-                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusBadgeStyle(selectedCellModal.code)}`}>
-                  {getStatusLabel(selectedCellModal.code)}
-                </span>
-              </div>
+            {/* Date & Status */}
+            <div className="flex items-center justify-between p-2 rounded-lg bg-admin-bg/80 border border-admin-border/50 mb-2.5">
+              <span className="text-[11px] font-bold text-admin-text truncate">{selectedCellModal.formattedDate}</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${getStatusBadgeStyle(selectedCellModal.code)}`}>
+                {getStatusLabel(selectedCellModal.code)}
+              </span>
             </div>
 
-            {/* Details Grid */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              {/* Check-in */}
-              <div className="p-3 rounded-xl bg-admin-bg border border-admin-border">
-                <p className="text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-1">Check-in Time</p>
+            {/* 2x2 Grid: In, Out, Late, Early */}
+            <div className="grid grid-cols-2 gap-2 mb-2.5">
+              <div className="p-2 rounded-lg bg-admin-bg/80 border border-admin-border/40">
+                <p className="text-[9px] font-bold text-admin-secondary uppercase tracking-wider mb-0.5">Check-in</p>
                 <p className="text-xs font-bold text-emerald-400 font-mono">
                   {formatTime(selectedCellModal.record?.login_time)}
                 </p>
               </div>
 
-              {/* Check-out */}
-              <div className="p-3 rounded-xl bg-admin-bg border border-admin-border">
-                <p className="text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-1">Check-out Time</p>
+              <div className="p-2 rounded-lg bg-admin-bg/80 border border-admin-border/40">
+                <p className="text-[9px] font-bold text-admin-secondary uppercase tracking-wider mb-0.5">Check-out</p>
                 <p className="text-xs font-bold text-blue-400 font-mono">
                   {formatTime(selectedCellModal.record?.logout_time)}
                 </p>
               </div>
 
-              {/* Late Arrival */}
-              <div className="p-3 rounded-xl bg-admin-bg border border-admin-border">
-                <p className="text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-1">Late Arrival</p>
+              <div className="p-2 rounded-lg bg-admin-bg/80 border border-admin-border/40">
+                <p className="text-[9px] font-bold text-admin-secondary uppercase tracking-wider mb-0.5">Late Arrival</p>
                 <p className={`text-xs font-bold ${Number(selectedCellModal.record?.late_minutes || 0) > 0 ? 'text-amber-400' : 'text-admin-muted'}`}>
-                  {Number(selectedCellModal.record?.late_minutes || 0) > 0 ? `${selectedCellModal.record.late_minutes} min late` : 'On Time'}
+                  {Number(selectedCellModal.record?.late_minutes || 0) > 0 ? `${selectedCellModal.record.late_minutes}m Late` : 'On Time'}
                 </p>
               </div>
 
-              {/* Early Departure */}
-              <div className="p-3 rounded-xl bg-admin-bg border border-admin-border">
-                <p className="text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-1">Early Departure</p>
+              <div className="p-2 rounded-lg bg-admin-bg/80 border border-admin-border/40">
+                <p className="text-[9px] font-bold text-admin-secondary uppercase tracking-wider mb-0.5">Early Departure</p>
                 <p className={`text-xs font-bold ${Number(selectedCellModal.record?.early_minutes || 0) > 0 ? 'text-orange-400' : 'text-admin-muted'}`}>
-                  {Number(selectedCellModal.record?.early_minutes || 0) > 0 ? `${selectedCellModal.record.early_minutes} min early` : 'None'}
+                  {Number(selectedCellModal.record?.early_minutes || 0) > 0 ? `${selectedCellModal.record.early_minutes}m Early` : 'None'}
                 </p>
               </div>
             </div>
 
-            {/* Extra Info */}
-            <div className="space-y-2.5 p-3.5 rounded-xl bg-admin-bg/50 border border-admin-border text-xs mb-5">
+            {/* Extra Info: Hours & Permissions */}
+            <div className="space-y-1.5 p-2 rounded-lg bg-admin-bg/40 border border-admin-border/40 text-[11px]">
               <div className="flex justify-between items-center">
-                <span className="text-admin-secondary font-medium">Working Hours:</span>
+                <span className="text-admin-secondary">Working Hours:</span>
                 <span className="font-bold text-admin-text">
                   {selectedCellModal.record ? `${Number(selectedCellModal.record.total_hours || selectedCellModal.record.working_hours || (Number(selectedCellModal.record.total_minutes || 0)/60) || 0).toFixed(1)} hrs` : '—'}
                 </span>
               </div>
               {selectedCellModal.permissionMinutes > 0 && (
                 <div className="flex justify-between items-center">
-                  <span className="text-admin-secondary font-medium">Permission Approved Today:</span>
+                  <span className="text-admin-secondary">Permission Today:</span>
                   <span className="font-bold text-indigo-400">{selectedCellModal.permissionMinutes} min</span>
                 </div>
               )}
               {selectedCellModal.record?.is_wfh && (
                 <div className="flex justify-between items-center">
-                  <span className="text-admin-secondary font-medium">Work Mode:</span>
+                  <span className="text-admin-secondary">Work Mode:</span>
                   <span className="font-bold text-purple-400">Work From Home</span>
                 </div>
               )}
-            </div>
-
-            {/* Modal Actions */}
-            <div className="flex justify-end">
-              <button
-                onClick={() => setSelectedCellModal(null)}
-                className="px-4 py-2 rounded-xl bg-admin-elevated border border-admin-border text-xs font-bold text-admin-text hover:bg-white/10 transition-colors cursor-pointer"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>

@@ -482,7 +482,7 @@ const checkIn = async (req, res) => {
     }
 
     // Calculate attendance status on backend (NEVER trust frontend)
-    const attendanceStatus = await calculateAttendanceStatus(isWFH);
+    let attendanceStatus = await calculateAttendanceStatus(isWFH);
 
     // Log device fingerprint
     const deviceData = await logDeviceFingerprint(employeeCode, req, {
@@ -492,10 +492,18 @@ const checkIn = async (req, res) => {
 
     const sessionId = crypto.randomUUID();
 
-    // Calculate Late with approved permission offset
+    // Shift-aware check-in logic:
+    // Determine if employee is checking in for Morning shift or Afternoon (Second Half) shift
+    const shiftSettings = settings.shiftSettings || {};
+    const lunchStartInMinutes = parseTime(shiftSettings.lunchStartTime || '13:30');
+    const eveningLateAfterInMinutes = parseTime(shiftSettings.eveningLateAfterTime || '14:00');
+
+    const isAfternoonCheckin = currentTimeInMinutes >= lunchStartInMinutes;
+    const effectiveLateCutoff = isAfternoonCheckin ? eveningLateAfterInMinutes : lateTimeInMinutes;
+
     let checkin_status = 'on_time';
     let late_minutes = 0;
-    
+
     // Check if employee has approved permission for today
     const permResult = await pool.query(
       `SELECT COALESCE(SUM(duration_minutes), 0) as permission_minutes
@@ -505,17 +513,23 @@ const checkIn = async (req, res) => {
     );
     const dayPermissionMinutes = parseInt(permResult.rows[0]?.permission_minutes || 0);
 
-    if (currentTimeInMinutes > lateTimeInMinutes) {
-      const rawLate = currentTimeInMinutes - lateTimeInMinutes;
+    if (currentTimeInMinutes > effectiveLateCutoff) {
+      const rawLate = currentTimeInMinutes - effectiveLateCutoff;
       if (dayPermissionMinutes >= rawLate) {
         // Late is fully covered by permission!
         checkin_status = 'on_time';
         late_minutes = 0;
-        attendanceStatus = 'Present';
+        attendanceStatus = isAfternoonCheckin ? 'Half Day' : 'Present';
       } else {
         checkin_status = 'late';
         late_minutes = rawLate - dayPermissionMinutes;
-        attendanceStatus = 'Late';
+        attendanceStatus = isAfternoonCheckin ? 'Half Day' : 'Late';
+      }
+    } else {
+      checkin_status = 'on_time';
+      late_minutes = 0;
+      if (isAfternoonCheckin) {
+        attendanceStatus = 'Half Day';
       }
     }
 

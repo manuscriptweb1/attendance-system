@@ -221,16 +221,21 @@ const calculateAttendanceStatus = async (isWFH) => {
   const localTime = new Date(currentTime.getTime() + (istOffset * 60 * 1000));
   const currentHour = localTime.getUTCHours();
   const currentMinute = localTime.getUTCMinutes();
+  const currentTimeInMinutes = currentHour * 60 + currentMinute;
 
-  const lateMinutesFromMidnight = parseTime(settings.workingHours.lateAfterTime);
-  const lateHour = Math.floor(lateMinutesFromMidnight / 60);
-  const lateMinute = lateMinutesFromMidnight % 60;
+  const shiftSettings = settings.shiftSettings || {};
+  const lunchStartInMinutes = parseTime(shiftSettings.lunchStartTime || '13:30');
+  const eveningLateAfterInMinutes = parseTime(shiftSettings.eveningLateAfterTime || '14:00');
+  const lateMinutesFromMidnight = parseTime(settings.workingHours.lateAfterTime || '09:45');
 
-  let attendanceStatus = 'Present';
+  const isAfternoon = currentTimeInMinutes >= lunchStartInMinutes;
+  const effectiveCutoff = isAfternoon ? eveningLateAfterInMinutes : lateMinutesFromMidnight;
+
+  let attendanceStatus = isAfternoon ? 'Half Day' : 'Present';
 
   // Check if late (applies to ALL employees, both office and WFH)
-  if (currentHour > lateHour || (currentHour === lateHour && currentMinute > lateMinute)) {
-    attendanceStatus = 'Late';
+  if (currentTimeInMinutes > effectiveCutoff) {
+    attendanceStatus = isAfternoon ? 'Half Day' : 'Late';
   }
 
   // Override with WFH status if employee has WFH permission and NOT late

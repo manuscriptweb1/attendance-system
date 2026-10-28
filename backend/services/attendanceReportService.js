@@ -251,39 +251,44 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
            dailyMinutes = Math.max(dailyMinutes, mins);
 
            if (att.login_time || (att.late_minutes !== null && att.late_minutes !== undefined)) {
-             const isLateMinutesDefined = att.late_minutes !== null && att.late_minutes !== undefined;
              const loginMins = att.login_time ? getLocalMinutesFromUTC(att.login_time) : 0;
-             const calculatedLateMins = (loginMins > 0 && loginMins > officeLateTimeInMinutes) ? (loginMins - officeLateTimeInMinutes) : 0;
+             const isAfternoonCheckin = loginMins >= lunchStart;
+             const statusStr = String(att.attendance_status || att.status || '').trim().toLowerCase();
+             const isAbsentStatus = statusStr === 'a' || statusStr === 'absent' || statusStr === 'not mention' || statusStr === 'not mentioned' || statusStr === 'not_mention' || statusStr === 'not_mentioned' || statusStr === '';
 
-             const effectiveLateMins = isLateMinutesDefined ? Math.max(0, Number(att.late_minutes)) : calculatedLateMins;
-             if (effectiveLateMins > 0) {
-               dayRawLateMins = Math.max(dayRawLateMins, effectiveLateMins);
+             // Shift-aware late calculation:
+             // Afternoon check-ins are evaluated against eveningLateAfter (e.g. 14:00), NOT morning 09:45
+             let trueShiftLate = 0;
+             if (loginMins > 0) {
+               if (isAfternoonCheckin) {
+                 if (loginMins > eveningLateAfter) {
+                   trueShiftLate = loginMins - eveningLateAfter;
+                 }
+               } else if (loginMins < morningShiftEnd) {
+                 if (loginMins > morningLateAfter) {
+                   trueShiftLate = loginMins - morningLateAfter;
+                 }
+               }
+             } else if (att.late_minutes !== null && att.late_minutes !== undefined) {
+               const rawDbLate = Math.max(0, Number(att.late_minutes));
+               const isHdStatus = statusStr === 'hd' || statusStr === 'half day' || statusStr === 'half_day' || statusStr === 'halfday';
+               // If it's a Half Day record and rawDbLate exceeds 2 hours (120 mins), it's legacy phantom morning late from old calculation
+               if (isHdStatus && rawDbLate > 120) {
+                 trueShiftLate = 0;
+               } else {
+                 trueShiftLate = rawDbLate;
+               }
+             }
+
+             if (trueShiftLate > 0) {
+               dayRawLateMins = Math.max(dayRawLateMins, trueShiftLate);
              }
              
              // Counted Late Time Logic
-             const statusStr = String(att.attendance_status || att.status || '').trim().toLowerCase();
-             const isAbsentStatus = statusStr === 'a' || statusStr === 'absent' || statusStr === 'not mention' || statusStr === 'not mentioned' || statusStr === 'not_mention' || statusStr === 'not_mentioned' || statusStr === '';
-             
+             // On a Half Day, the missing half-day hours belong to Half Day absence, NOT punctuality late minutes!
              if (!isSun && !isGovH && !isOffH && !isAbsentStatus) {
-               let shiftLate = 0;
-               if (isLateMinutesDefined) {
-                 shiftLate = Math.max(0, Number(att.late_minutes));
-               } else {
-                 if (loginMins < morningShiftEnd) {
-                   if (loginMins > morningLateAfter) {
-                     shiftLate = loginMins - morningLateAfter;
-                   }
-                 } else if (loginMins >= lunchStart && loginMins <= lunchEnd) {
-                   shiftLate = 0;
-                 } else if (loginMins >= eveningShiftStart) {
-                   if (loginMins > eveningLateAfter) {
-                     shiftLate = loginMins - eveningLateAfter;
-                   }
-                 }
-               }
-
-               if (shiftLate > 0) {
-                 dayCountedLateMins = Math.max(dayCountedLateMins, shiftLate);
+               if (trueShiftLate > 0) {
+                 dayCountedLateMins = Math.max(dayCountedLateMins, trueShiftLate);
                }
              }
            }

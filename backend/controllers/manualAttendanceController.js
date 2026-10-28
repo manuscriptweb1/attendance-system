@@ -208,6 +208,11 @@ const createManualAttendance = async (req, res) => {
         }
       }
 
+      if (finalResolvedStatus === 'Half Day') {
+        lateMinutes = 0;
+        checkinStatus = 'on_time';
+      }
+
       let newAttendance;
       if (existingRecord) {
         // Update existing 'Not Mention' record
@@ -415,6 +420,11 @@ const updateManualAttendance = async (req, res) => {
       } else {
         finalResolvedStatus = 'Present';
       }
+    }
+
+    if (finalResolvedStatus === 'Half Day') {
+      lateMinutes = 0;
+      checkinStatus = 'on_time';
     }
 
     // Update attendance

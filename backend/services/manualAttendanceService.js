@@ -254,6 +254,11 @@ const quickCheckOutEmployee = async ({
     }
   }
 
+  if (attendanceStatus === 'Half Day') {
+    lateMinutes = 0;
+    checkinStatus = 'on_time';
+  }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

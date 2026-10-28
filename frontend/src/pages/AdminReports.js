@@ -940,8 +940,8 @@ const AdminReports = () => {
 
                   <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60">
                     <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-0.5">Late Arrival</p>
-                    <p className={`text-xs font-bold ${Number(selectedCellModal.record?.late_minutes || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'}`}>
-                      {Number(selectedCellModal.record?.late_minutes || 0) > 0 ? `${selectedCellModal.record.late_minutes}m Late` : 'On Time'}
+                    <p className={`text-xs font-bold ${selectedCellModal.code === 'HD' ? 'text-slate-400 dark:text-slate-500' : (Number(selectedCellModal.record?.late_minutes || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500')}`}>
+                      {selectedCellModal.code === 'HD' ? 'None (Half Day)' : (Number(selectedCellModal.record?.late_minutes || 0) > 0 ? `${selectedCellModal.record.late_minutes}m Late` : 'On Time')}
                     </p>
                   </div>
 

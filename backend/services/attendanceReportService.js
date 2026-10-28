@@ -125,6 +125,16 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
 
   const employeesResult = await pool.query(employeesQuery, queryParams);
   const employees = employeesResult.rows;
+  // Ensure all Half Day records do not carry late_minutes (Half Day already docks 0.5 salary, late time is not counted)
+  try {
+    await pool.query(
+      `UPDATE attendance 
+       SET late_minutes = 0, checkin_status = 'on_time' 
+       WHERE attendance_status = 'Half Day' AND late_minutes > 0`
+    );
+  } catch (cleanErr) {
+    console.warn('Half Day cleanup error:', cleanErr.message);
+  }
 
   const holidaysResult = await pool.query(
     `SELECT * FROM holidays 
@@ -278,46 +288,48 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
            if (att.login_time || (att.late_minutes !== null && att.late_minutes !== undefined)) {
              const loginMins = att.login_time ? getLocalMinutesFromUTC(att.login_time) : 0;
              const isAfternoonCheckin = loginMins >= lunchStart;
-             const statusStr = String(att.attendance_status || att.status || '').trim().toLowerCase();
-             const isAbsentStatus = statusStr === 'a' || statusStr === 'absent' || statusStr === 'not mention' || statusStr === 'not mentioned' || statusStr === 'not_mention' || statusStr === 'not_mentioned' || statusStr === '';
+              const statusStr = String(att.attendance_status || att.status || '').trim().toLowerCase();
+              const isAbsentStatus = statusStr === 'a' || statusStr === 'absent' || statusStr === 'not mention' || statusStr === 'not mentioned' || statusStr === 'not_mention' || statusStr === 'not_mentioned' || statusStr === '';
+              const isHdStatus = statusStr === 'hd' || statusStr === 'half day' || statusStr === 'half_day' || statusStr === 'halfday';
 
-             // Shift-aware late calculation:
-             // Afternoon check-ins are evaluated against eveningLateAfter (e.g. 14:00), NOT morning 09:45
-             let trueShiftLate = 0;
-             if (loginMins > 0) {
-               if (isAfternoonCheckin) {
-                 if (loginMins > eveningLateAfter) {
-                   trueShiftLate = loginMins - eveningLateAfter;
-                 }
-               } else if (loginMins < morningShiftEnd) {
-                 if (loginMins > morningLateAfter) {
-                   trueShiftLate = loginMins - morningLateAfter;
-                 }
-               }
-             } else if (att.late_minutes !== null && att.late_minutes !== undefined) {
-               const rawDbLate = Math.max(0, Number(att.late_minutes));
-               const isHdStatus = statusStr === 'hd' || statusStr === 'half day' || statusStr === 'half_day' || statusStr === 'halfday';
-               // If it's a Half Day record and rawDbLate exceeds 2 hours (120 mins), it's legacy phantom morning late from old calculation
-               if (isHdStatus && rawDbLate > 120) {
-                 trueShiftLate = 0;
-               } else {
-                 trueShiftLate = rawDbLate;
-               }
-             }
+              // Shift-aware late calculation:
+              // On a Half Day or Absent, late arrival is NOT counted as punctuality late minutes (Half Day already docks 0.5 salary)
+              let trueShiftLate = 0;
+              if (!isHdStatus && !isAbsentStatus) {
+                if (loginMins > 0) {
+                  if (isAfternoonCheckin) {
+                    if (loginMins > eveningLateAfter) {
+                      trueShiftLate = loginMins - eveningLateAfter;
+                    }
+                  } else if (loginMins < morningShiftEnd) {
+                    if (loginMins > morningLateAfter) {
+                      trueShiftLate = loginMins - morningLateAfter;
+                    }
+                  }
+                } else if (att.late_minutes !== null && att.late_minutes !== undefined) {
+                  trueShiftLate = Math.max(0, Number(att.late_minutes));
+                }
+              }
 
-             if (trueShiftLate > 0) {
-               dayRawLateMins = Math.max(dayRawLateMins, trueShiftLate);
-             }
-             
-             // Counted Late Time Logic
-             // On a Half Day, the missing half-day hours belong to Half Day absence, NOT punctuality late minutes!
-             if (!isSun && !isGovH && !isOffH && !isAbsentStatus) {
-               if (trueShiftLate > 0) {
-                 dayCountedLateMins = Math.max(dayCountedLateMins, trueShiftLate);
-               }
-             }
+              if (trueShiftLate > 0) {
+                dayRawLateMins = Math.max(dayRawLateMins, trueShiftLate);
+              }
+              
+              // Counted Late Time Logic
+              // On a Half Day, the missing half-day hours belong to Half Day absence, NOT punctuality late minutes!
+              if (!isSun && !isGovH && !isOffH && !isAbsentStatus && !isHdStatus) {
+                if (trueShiftLate > 0) {
+                  dayCountedLateMins = Math.max(dayCountedLateMins, trueShiftLate);
+                }
+              }
            }
         }
+      }
+
+            // When final code is Half Day (HD), completely zero out late minutes for this day
+      if (finalCode === 'HD') {
+        dayRawLateMins = 0;
+        dayCountedLateMins = 0;
       }
 
       totalLateMinutes += dayRawLateMins;
@@ -369,7 +381,9 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
       if (day <= maxDay) {
         days[day] = {
           code: finalCode,
-          record: finalRecord || (dateRecords ? dateRecords[0] : null),
+          record: (finalCode === 'HD' && (finalRecord || (dateRecords && dateRecords[0]))) 
+            ? { ...(finalRecord || dateRecords[0]), late_minutes: 0 } 
+            : (finalRecord || (dateRecords ? dateRecords[0] : null)),
           permissionMinutes: dayPermissionMinutes,
           absentReason: dayAbsentReason,
           paidLeaveReason: dayPaidLeaveReason,

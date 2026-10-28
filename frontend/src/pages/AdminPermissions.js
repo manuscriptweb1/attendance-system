@@ -587,6 +587,7 @@ const AdminPermissions = () => {
                       <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Date</th>
                       <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Time Range</th>
                       <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Duration</th>
+                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Remaining Balance</th>
                       <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Reason</th>
                       <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap">Actions</th>
                     </tr>
@@ -607,6 +608,19 @@ const AdminPermissions = () => {
                         <td className="px-5 py-4 text-sm font-bold text-indigo-400 whitespace-nowrap">
                           {formatDuration(p.duration_minutes)}
                         </td>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          {p.is_quota_exhausted || (p.remaining_balance_minutes !== undefined && p.remaining_balance_minutes <= 0) ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
+                              Fully Utilized (Full Time Used)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                              {formatDuration(p.remaining_balance_minutes ?? (summary?.monthlyPermissionLimitMinutes ? summary.monthlyPermissionLimitMinutes - p.duration_minutes : 240))} Available
+                            </span>
+                          )}
+                        </td>
                         <td className="px-5 py-4 text-xs text-admin-muted truncate max-w-xs">{p.reason || '—'}</td>
                         <td className="px-5 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-1">
@@ -620,7 +634,7 @@ const AdminPermissions = () => {
                         </td>
                       </tr>
                     )) : (
-                      <tr><td colSpan={6} className="px-5 py-16 text-center text-admin-secondary text-sm">No permissions found for this period.</td></tr>
+                      <tr><td colSpan={7} className="px-5 py-16 text-center text-admin-secondary text-sm">No permissions found for this period.</td></tr>
                     )}
                   </tbody>
                 </table>

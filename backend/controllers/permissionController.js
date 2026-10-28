@@ -1,6 +1,74 @@
 const pool = require('../config/database');
 const { logAdminActivity, MODULE_NAMES } = require('../services/adminActivityService');
 const { getSettingsFromDB, clearSettingsCache } = require('../utils/settingsHelper');
+const { parseTime, getLocalMinutesFromUTC, getOfficeTimes } = require('../utils/timeUtils');
+
+// Synchronize attendance record on the specific permission date
+async function syncAttendanceWithDatePermissions(employeeId, dateStr) {
+  try {
+    if (!employeeId || !dateStr) return;
+
+    // Check if an attendance record exists for this employee on this date
+    const attRes = await pool.query(
+      `SELECT * FROM attendance WHERE employee_id = $1 AND attendance_date = $2`,
+      [employeeId, dateStr]
+    );
+
+    if (attRes.rows.length === 0) return;
+    const att = attRes.rows[0];
+    if (!att.login_time) return; // Not checked in, nothing to offset
+
+    // Get total approved permission minutes for this employee on this exact date
+    const permRes = await pool.query(
+      `SELECT COALESCE(SUM(duration_minutes), 0) as perm_minutes
+       FROM employee_permissions
+       WHERE employee_id = $1 AND permission_date = $2 AND status = 'approved'`,
+      [employeeId, dateStr]
+    );
+    const dayPermissionMinutes = parseInt(permRes.rows[0]?.perm_minutes || 0);
+
+    const settings = await getSettingsFromDB();
+    const officeTimes = getOfficeTimes(settings);
+    const shiftSettings = settings.shiftSettings || {};
+    const lunchStartInMinutes = parseTime(shiftSettings.lunchStartTime || '13:30');
+    const eveningLateAfterInMinutes = parseTime(shiftSettings.eveningLateAfterTime || '14:00');
+    const morningLateAfterInMinutes = officeTimes.lateTime;
+
+    const loginMins = getLocalMinutesFromUTC(att.login_time);
+    const isAfternoonCheckin = loginMins >= lunchStartInMinutes;
+    const effectiveCutoff = isAfternoonCheckin ? eveningLateAfterInMinutes : morningLateAfterInMinutes;
+
+    let checkin_status = 'on_time';
+    let late_minutes = 0;
+    let attendance_status = isAfternoonCheckin ? 'Half Day' : 'Present';
+
+    if (loginMins > effectiveCutoff) {
+      const rawLate = loginMins - effectiveCutoff;
+      if (dayPermissionMinutes >= rawLate) {
+        checkin_status = 'on_time';
+        late_minutes = 0;
+        attendance_status = isAfternoonCheckin ? 'Half Day' : 'Present';
+      } else {
+        checkin_status = 'late';
+        late_minutes = rawLate - dayPermissionMinutes;
+        attendance_status = isAfternoonCheckin ? 'Half Day' : 'Late';
+      }
+    } else {
+      checkin_status = 'on_time';
+      late_minutes = 0;
+      attendance_status = isAfternoonCheckin ? 'Half Day' : (att.is_wfh ? 'Work From Home' : 'Present');
+    }
+
+    await pool.query(
+      `UPDATE attendance 
+       SET checkin_status = $1, late_minutes = $2, attendance_status = $3, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $4`,
+      [checkin_status, late_minutes, attendance_status, att.id]
+    );
+  } catch (err) {
+    console.error('syncAttendanceWithDatePermissions error:', err);
+  }
+}
 
 const formatDuration = (mins) => {
   const total = Number(mins || 0);
@@ -34,7 +102,72 @@ const getPermissions = async (req, res) => {
     query += ' ORDER BY employee_permissions.permission_date DESC, from_time DESC';
 
     const result = await pool.query(query, values);
-    res.json({ success: true, permissions: result.rows });
+
+    // Fetch monthly permission limit from settings
+    const settings = await getSettingsFromDB();
+    const limitMinutes = settings.permissions?.monthlyPermissionLimitMinutes || 240;
+
+    // Aggregate total used permission minutes per employee, month, and year
+    let aggQuery = `
+      SELECT employee_id, 
+             EXTRACT(MONTH FROM permission_date) as m, 
+             EXTRACT(YEAR FROM permission_date) as y, 
+             COALESCE(SUM(duration_minutes), 0) as total_used_minutes
+      FROM employee_permissions
+      WHERE status = 'approved'
+    `;
+    const aggValues = [];
+    let aggParamCount = 1;
+
+    if (month && year) {
+      aggQuery += ` AND EXTRACT(MONTH FROM permission_date) = $${aggParamCount} AND EXTRACT(YEAR FROM permission_date) = $${aggParamCount + 1}`;
+      aggValues.push(month, year);
+      aggParamCount += 2;
+    }
+
+    if (employee_id) {
+      aggQuery += ` AND employee_id = $${aggParamCount}`;
+      aggValues.push(employee_id);
+      aggParamCount++;
+    }
+
+    aggQuery += ` GROUP BY employee_id, EXTRACT(MONTH FROM permission_date), EXTRACT(YEAR FROM permission_date)`;
+
+    const aggResult = await pool.query(aggQuery, aggValues);
+    const quotaMap = {};
+    aggResult.rows.forEach(row => {
+      const key = `${row.employee_id}__${parseInt(row.m)}__${parseInt(row.y)}`;
+      quotaMap[key] = parseInt(row.total_used_minutes || 0);
+    });
+
+    const enhancedPermissions = result.rows.map(r => {
+      let pMonth = parseInt(month);
+      let pYear = parseInt(year);
+      if (r.permission_date) {
+        const parts = String(r.permission_date).split('-');
+        if (parts.length >= 2) {
+          pYear = parseInt(parts[0]);
+          pMonth = parseInt(parts[1]);
+        }
+      }
+      const key = `${r.employee_id}__${pMonth}__${pYear}`;
+      const usedMins = quotaMap[key] || 0;
+      const remainingMins = Math.max(0, limitMinutes - usedMins);
+      const isExhausted = usedMins >= limitMinutes;
+
+      return {
+        ...r,
+        monthly_limit_minutes: limitMinutes,
+        monthly_used_minutes: usedMins,
+        remaining_balance_minutes: remainingMins,
+        is_quota_exhausted: isExhausted,
+        formatted_remaining: formatDuration(remainingMins),
+        formatted_used: formatDuration(usedMins),
+        formatted_limit: formatDuration(limitMinutes)
+      };
+    });
+
+    res.json({ success: true, permissions: enhancedPermissions });
   } catch (error) {
     console.error('Get permissions error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -210,6 +343,9 @@ const createPermission = async (req, res) => {
       ipAddress: req.ip
     });
 
+    // Synchronize attendance record on this exact permission date (if checked in)
+    await syncAttendanceWithDatePermissions(employee_id, permission_date);
+
     res.json({ success: true, permission: perm });
   } catch (error) {
     console.error('Create permission error:', error);
@@ -303,6 +439,13 @@ const updatePermission = async (req, res) => {
       ipAddress: req.ip
     });
 
+    // Synchronize attendance records on both new and previous permission dates
+    const oldDateStr = new Date(oldData.permission_date).toISOString().split('T')[0];
+    await syncAttendanceWithDatePermissions(newData.employee_id, permission_date);
+    if (oldDateStr !== permission_date) {
+      await syncAttendanceWithDatePermissions(oldData.employee_id, oldDateStr);
+    }
+
     res.json({ success: true, permission: newData });
   } catch (error) {
     console.error('Update permission error:', error);
@@ -376,6 +519,9 @@ const deletePermission = async (req, res) => {
       oldData,
       ipAddress: req.ip
     });
+
+    // Synchronize attendance record on this deleted permission date
+    await syncAttendanceWithDatePermissions(oldData.employee_id, oldDateStr);
 
     res.json({ success: true, message: 'Deleted successfully' });
   } catch (error) {

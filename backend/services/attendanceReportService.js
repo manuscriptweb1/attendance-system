@@ -338,23 +338,16 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
     const totalHours = Number((monthlyTotalMinutes / 60).toFixed(1));
     const totalPermissionMinutes = permissionsMap[emp.employeeCode] || 0;
     
-    // Apply Monthly Permission Absorption:
-    // If an employee took approved permission in the month, that permission allowance covers late time!
-    const netCountedLateMinutes = Math.max(0, totalCountedLateMinutes - totalPermissionMinutes);
-
-    // If all counted late time is absorbed by permission, lateCount becomes 0 and present increases!
-    let effectiveLateCount = lateCount;
-    if (totalPermissionMinutes > 0) {
-      if (netCountedLateMinutes === 0 && totalCountedLateMinutes > 0) {
-        present += lateCount;
-        effectiveLateCount = 0;
-      }
-    }
+    // Strict Date-Matched Permission Policy:
+    // Approved permissions ONLY satisfy late time on the EXACT SAME DATE they were granted for.
+    // Permissions created for other dates DO NOT reduce late time on a different day.
+    // totalCountedLateMinutes is already the exact sum of daily net late minutes!
+    const netCountedLateMinutes = totalCountedLateMinutes;
+    const effectiveLateCount = lateCount;
 
     // Counted Late + Permission Time:
-    // When late time is covered by permission, it shows the permission time (e.g. 50 min)!
-    // When late time exceeds permission, it shows permission time + excess late time (e.g. 50m + 20m = 70m)!
-    const countedLateAndPermissionMinutes = totalPermissionMinutes + netCountedLateMinutes;
+    // Total net counted late + total approved permission taken in the month
+    const countedLateAndPermissionMinutes = totalCountedLateMinutes + totalPermissionMinutes;
     const totalActualLateMinutes = totalLateMinutes;
     const totalLateAndPermissionMinutes = countedLateAndPermissionMinutes;
 

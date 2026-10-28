@@ -189,7 +189,9 @@ const exportMonthlyAttendanceReport = async (req, res) => {
       const matrixRow = matrixRows.find(m => m.employeeCode === row.employeeCode);
       const countedLate = Number(row.totalCountedLateMinutes || 0);
       const permTime = Number(row.totalPermissionMinutes || 0);
-      const countedLateAndPerm = countedLate + permTime;
+      const countedLateAndPerm = Number(row.countedLateAndPermissionMinutes !== undefined 
+        ? row.countedLateAndPermissionMinutes 
+        : (countedLate + permTime));
 
       const rowData = { 
         ...row,

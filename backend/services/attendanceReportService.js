@@ -257,7 +257,7 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
 
              const effectiveLateMins = isLateMinutesDefined ? Math.max(0, Number(att.late_minutes)) : calculatedLateMins;
              if (effectiveLateMins > 0) {
-               totalLateMinutes += effectiveLateMins;
+               dayRawLateMins = Math.max(dayRawLateMins, effectiveLateMins);
              }
              
              // Counted Late Time Logic
@@ -265,25 +265,25 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
              const isAbsentStatus = statusStr === 'a' || statusStr === 'absent' || statusStr === 'not mention' || statusStr === 'not mentioned' || statusStr === 'not_mention' || statusStr === 'not_mentioned' || statusStr === '';
              
              if (!isSun && !isGovH && !isOffH && !isAbsentStatus) {
-               let dailyCountedLate = 0;
+               let shiftLate = 0;
                if (isLateMinutesDefined) {
-                 dailyCountedLate = Math.max(0, Number(att.late_minutes));
+                 shiftLate = Math.max(0, Number(att.late_minutes));
                } else {
                  if (loginMins < morningShiftEnd) {
                    if (loginMins > morningLateAfter) {
-                     dailyCountedLate = loginMins - morningLateAfter;
+                     shiftLate = loginMins - morningLateAfter;
                    }
                  } else if (loginMins >= lunchStart && loginMins <= lunchEnd) {
-                   dailyCountedLate = 0;
+                   shiftLate = 0;
                  } else if (loginMins >= eveningShiftStart) {
                    if (loginMins > eveningLateAfter) {
-                     dailyCountedLate = loginMins - eveningLateAfter;
+                     shiftLate = loginMins - eveningLateAfter;
                    }
                  }
                }
 
-               if (dailyCountedLate > 0) {
-                 totalCountedLateMinutes += dailyCountedLate;
+               if (shiftLate > 0) {
+                 dayCountedLateMins = Math.max(dayCountedLateMins, shiftLate);
                }
              }
            }
@@ -292,21 +292,18 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
 
       totalLateMinutes += dayRawLateMins;
 
-      // Apply Permission Offset to Late Arrival:
-      // Permission covers/absorbs late minutes on this day
-      let netDayCountedLate = 0;
-      if (dayCountedLateMins > 0) {
+      // Apply Permission Offset to Late Arrival on this day:
+      let netDayCountedLate = dayCountedLateMins;
+      if (dayPermissionMinutes > 0 && dayCountedLateMins > 0) {
         netDayCountedLate = Math.max(0, dayCountedLateMins - dayPermissionMinutes);
       }
       totalCountedLateMinutes += netDayCountedLate;
 
-      // If late was fully covered by permission, convert status to Present (P)
-      if (finalCode === 'L') {
-        if (dayPermissionMinutes >= dayCountedLateMins && dayCountedLateMins > 0) {
-          finalCode = 'P';
-        } else if (dayPermissionMinutes > 0 && dayCountedLateMins === 0) {
-          finalCode = 'P';
-        }
+      // If late was fully covered by permission on this day, convert status to Present (P)
+      if (finalCode === 'L' && dayPermissionMinutes >= dayCountedLateMins && dayCountedLateMins > 0) {
+        finalCode = 'P';
+      } else if (finalCode === 'L' && dayPermissionMinutes > 0 && dayCountedLateMins === 0) {
+        finalCode = 'P';
       }
 
       // If Half Day was due to early departure or arrival, and covered by permission:
@@ -336,12 +333,25 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
     const totalHours = Number((monthlyTotalMinutes / 60).toFixed(1));
     const totalPermissionMinutes = permissionsMap[emp.employeeCode] || 0;
     
-    // Legacy mapping (if any frontend uses it still)
-    const totalLateAndPermissionMinutes = totalLateMinutes + totalPermissionMinutes;
-    
-    // New fields
+    // Apply Monthly Permission Absorption:
+    // If an employee took approved permission in the month, that permission allowance covers late time!
+    const netCountedLateMinutes = Math.max(0, totalCountedLateMinutes - totalPermissionMinutes);
+
+    // If all counted late time is absorbed by permission, lateCount becomes 0 and present increases!
+    let effectiveLateCount = lateCount;
+    if (totalPermissionMinutes > 0) {
+      if (netCountedLateMinutes === 0 && totalCountedLateMinutes > 0) {
+        present += lateCount;
+        effectiveLateCount = 0;
+      }
+    }
+
+    // Counted Late + Permission Time:
+    // When late time is covered by permission, it shows the permission time (e.g. 50 min)!
+    // When late time exceeds permission, it shows permission time + excess late time (e.g. 50m + 20m = 70m)!
+    const countedLateAndPermissionMinutes = totalPermissionMinutes + netCountedLateMinutes;
     const totalActualLateMinutes = totalLateMinutes;
-    const countedLateAndPermissionMinutes = totalCountedLateMinutes + totalPermissionMinutes;
+    const totalLateAndPermissionMinutes = countedLateAndPermissionMinutes;
 
     matrixRows.push({
       id: emp.id,
@@ -360,10 +370,10 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
       absent,
       halfDay,
       holiday: holidayCount,
-      lateCount,
+      lateCount: effectiveLateCount,
       totalLateMinutes,
       totalActualLateMinutes,
-      totalCountedLateMinutes,
+      totalCountedLateMinutes: netCountedLateMinutes,
       totalPermissionMinutes,
       totalLateAndPermissionMinutes,
       countedLateAndPermissionMinutes,

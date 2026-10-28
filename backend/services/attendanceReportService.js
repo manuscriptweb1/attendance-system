@@ -15,6 +15,7 @@ function normalizeAttendanceStatus(status) {
   if (s === 'hd' || s === 'half day' || s === 'half_day' || s === 'halfday') return 'Half Day';
   if (s === 'a' || s === 'absent') return 'Absent';
   if (s === 'wfh' || s === 'work from home' || s === 'work_from_home') return 'Work From Home';
+  if (s === 'pl' || s === 'paid leave' || s === 'paid_leave' || s === 'paidleave') return 'Paid Leave';
   if (
     s === 'not mention' ||
     s === 'not mentioned' ||
@@ -32,6 +33,7 @@ function getFinalAttendanceCode(record, isSun, isGovH, isOffH) {
   if (isGovH) return 'GH';
 
   if (!record) return '-';
+  if (record.validation_method === 'Paid Leave') return 'PL';
 
   const status = normalizeAttendanceStatus(record.attendance_status || record.status);
 
@@ -40,6 +42,7 @@ function getFinalAttendanceCode(record, isSun, isGovH, isOffH) {
   if (status === 'Half Day') return 'HD';
   if (status === 'Absent') return 'A';
   if (status === 'Work From Home') return 'P';
+  if (status === 'Paid Leave') return 'PL';
   if (status === 'Not Mention') return '-';
 
   return '-';
@@ -163,6 +166,28 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
     }
     permissionsByEmpAndDay[empCode][day] = (permissionsByEmpAndDay[empCode][day] || 0) + duration;
   });
+
+  // Fetch paid leaves for the month
+  let paidLeavesByEmpAndDay = {};
+  try {
+    const paidLeavesResult = await pool.query(
+      `SELECT employee_id, EXTRACT(DAY FROM leave_date) as day, reason_category, reason_notes, total_hours
+       FROM paid_leaves
+       WHERE EXTRACT(MONTH FROM leave_date) = $1 
+         AND EXTRACT(YEAR FROM leave_date) = $2`,
+      [month, year]
+    );
+    paidLeavesResult.rows.forEach(pl => {
+      const empCode = pl.employee_id;
+      const day = parseInt(pl.day, 10);
+      if (!paidLeavesByEmpAndDay[empCode]) {
+        paidLeavesByEmpAndDay[empCode] = {};
+      }
+      paidLeavesByEmpAndDay[empCode][day] = pl;
+    });
+  } catch (err) {
+    console.warn('Paid leaves fetch error in attendanceReportService:', err.message);
+  }
 
   const daysInMonth = new Date(year, month, 0).getDate();
   const today = new Date();
@@ -316,16 +341,48 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
         finalCode = 'P';
       }
 
+            // Paid leave & absent details
+      const dayPaidLeave = (paidLeavesByEmpAndDay[emp.employeeCode] && paidLeavesByEmpAndDay[emp.employeeCode][day]) || null;
+      let dayAbsentReason = null;
+      if (finalCode === 'A' || finalCode === 'Absent') {
+        if (finalRecord && finalRecord.absent_reason) {
+          dayAbsentReason = finalRecord.absent_reason;
+        } else if (dateRecords && dateRecords.length > 0) {
+          const r = dateRecords.find(x => x.absent_reason);
+          if (r) dayAbsentReason = r.absent_reason;
+        }
+      }
+
+      let dayPaidLeaveReason = null;
+      if (finalCode === 'PL' || (finalRecord && finalRecord.validation_method === 'Paid Leave')) {
+        if (dayPaidLeave) {
+          dayPaidLeaveReason = dayPaidLeave.reason_category + (dayPaidLeave.reason_notes ? ' - ' + dayPaidLeave.reason_notes : '');
+        } else if (finalRecord && finalRecord.absent_reason) {
+          dayPaidLeaveReason = finalRecord.absent_reason;
+        } else {
+          dayPaidLeaveReason = 'Approved Paid Leave';
+        }
+      }
+
+      const dayHoliday = holidayMap[day] || null;
+
       if (day <= maxDay) {
         days[day] = {
           code: finalCode,
           record: finalRecord || (dateRecords ? dateRecords[0] : null),
-          permissionMinutes: dayPermissionMinutes
+          permissionMinutes: dayPermissionMinutes,
+          absentReason: dayAbsentReason,
+          paidLeaveReason: dayPaidLeaveReason,
+          holidayInfo: dayHoliday ? {
+            title: dayHoliday.holiday_title || dayHoliday.name || dayHoliday.title || 'Official Holiday',
+            type: dayHoliday.holiday_type || dayHoliday.type || 'Holiday',
+            note: dayHoliday.holiday_note || dayHoliday.description || dayHoliday.notes || ''
+          } : null
         };
       }
       
       // Only count hours if employee actually worked and is not Absent
-      if (['P', 'L', 'HD', 'WFH', 'S', 'OH', 'GH'].includes(finalCode)) {
+      if (['P', 'L', 'HD', 'WFH', 'S', 'OH', 'GH', 'PL'].includes(finalCode)) {
         monthlyTotalMinutes += dailyMinutes;
       }
 
@@ -333,7 +390,7 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
       if (finalCode === 'A') absent++;
       else if (finalCode === 'HD') halfDay++;
       else if (finalCode === 'L') lateCount++;
-      else if (finalCode === 'P') present++;
+      else if (finalCode === 'P' || finalCode === 'PL') present++;
     }
 
     const totalHours = Number((monthlyTotalMinutes / 60).toFixed(1));
@@ -453,7 +510,7 @@ async function buildMonthlyPayroll(month, year, targetEmployeeId = null) {
       const codeData = days[day];
       const code = codeData ? codeData.code || codeData : null;
 
-      if (code === 'S' || code === 'GH' || code === 'OH') {
+      if (code === 'S' || code === 'GH' || code === 'OH' || code === 'PL') {
         holidayDays++;
         fullPaidDays++;
       } else if (code === 'P' || code === 'L' || code === 'Late') {

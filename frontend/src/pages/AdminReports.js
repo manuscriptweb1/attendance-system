@@ -7,7 +7,7 @@ import AdminToast from '../components/AdminToast';
 import { getReportSnapshot, generateMonthlyAttendanceReport, exportMonthlyAttendanceReport } from '../services/api';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateMonthYear } from '../utils/dateValidation';
-import { FiDownload, FiFileText, FiRefreshCw, FiX, FiCalendar, FiClock, FiUser, FiInfo } from 'react-icons/fi';
+import { FiDownload, FiFileText, FiRefreshCw, FiX, FiCalendar, FiClock, FiUser, FiInfo, FiAlertCircle, FiCheckCircle, FiSun } from 'react-icons/fi';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { sortEmployeeRows } from '../utils/sorting';
@@ -99,6 +99,7 @@ const AdminReports = () => {
       case 'L': return 'Late Arrival';
       case 'HD': return 'Half Day';
       case 'A': return 'Absent';
+      case 'PL': return 'Paid Leave';
       case 'S': return 'Sunday';
       case 'OH': return 'Office Holiday';
       case 'GH': return 'Government Holiday';
@@ -113,6 +114,7 @@ const AdminReports = () => {
       case 'L': return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
       case 'HD': return 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30';
       case 'A': return 'bg-rose-500/15 text-rose-400 border-rose-500/30';
+      case 'PL': return 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border-teal-500/30';
       case 'S': return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
       case 'OH': return 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30';
       case 'GH': return 'bg-purple-500/15 text-purple-400 border-purple-500/30';
@@ -140,9 +142,46 @@ const AdminReports = () => {
 
     const details = emp.details && emp.details[d] ? emp.details[d] : null;
 
+    // Determine special status reasons
+    let absentReason = details?.absentReason || details?.record?.absent_reason || null;
+    if (!absentReason && (displayCode === 'A' || displayCode === 'Absent')) {
+      const match = (absentTable || []).find(a => 
+        (String(a.employeeId || '').toLowerCase() === String(emp.employee_id || emp.employeeCode || emp.id || '').toLowerCase() || 
+         String(a.employeeName || '').toLowerCase() === String(emp.name || '').toLowerCase()) &&
+        new Date(a.date).getDate() === d
+      );
+      if (match && match.reason && match.reason !== '-') {
+        absentReason = match.reason;
+      }
+    }
+
+    let paidLeaveReason = details?.paidLeaveReason || null;
+    if (!paidLeaveReason && (displayCode === 'PL' || details?.record?.validation_method === 'Paid Leave')) {
+      if (details?.paidLeave) {
+        paidLeaveReason = details.paidLeave.reason_category + (details.paidLeave.reason_notes ? ' - ' + details.paidLeave.reason_notes : '');
+      } else if (details?.record?.absent_reason) {
+        paidLeaveReason = details.record.absent_reason;
+      } else {
+        paidLeaveReason = 'Approved Paid Leave';
+      }
+    }
+
+    let holidayInfo = details?.holidayInfo || null;
+    if (!holidayInfo && (displayCode === 'OH' || displayCode === 'GH' || displayCode === 'S')) {
+      const match = (holidayTable || []).find(h => new Date(h.date).getDate() === d);
+      if (match) {
+        holidayInfo = {
+          title: match.title || match.name || 'Official Holiday',
+          type: match.type || 'Holiday',
+          note: match.description || match.note || ''
+        };
+      }
+    }
+
     // Popover sizing & upside positioning with arrow anchor
+    const isSpecialStatus = ['A', 'PL', 'S', 'OH', 'GH'].includes(displayCode);
     const cardWidth = 320;
-    const cardHeight = 265;
+    const cardHeight = isSpecialStatus ? 185 : 265;
     const cellCenterX = rect.left + rect.width / 2;
     const left = Math.max(12, Math.min(window.innerWidth - cardWidth - 12, cellCenterX - cardWidth / 2));
     const arrowLeft = Math.max(16, Math.min(cardWidth - 16, cellCenterX - left));
@@ -162,6 +201,9 @@ const AdminReports = () => {
       formattedDate,
       record: details ? details.record : null,
       permissionMinutes: details ? details.permissionMinutes : 0,
+      absentReason,
+      paidLeaveReason,
+      holidayInfo,
       coords: {
         top,
         left,
@@ -682,6 +724,7 @@ const AdminReports = () => {
               <div className="flex flex-wrap gap-6">
                 <div className="flex items-center gap-2"><span className={getAttendanceStatusClass('P')}>P</span> <span className="text-xs font-medium text-admin-text">Present</span></div>
                 <div className="flex items-center gap-2"><span className={getAttendanceStatusClass('A')}>A</span> <span className="text-xs font-medium text-admin-text">Absent</span></div>
+                <div className="flex items-center gap-2"><span className={getAttendanceStatusClass('PL')}>PL</span> <span className="text-xs font-medium text-admin-text">Paid Leave</span></div>
                 <div className="flex items-center gap-2"><span className={getAttendanceStatusClass('HD')}>HD</span> <span className="text-xs font-medium text-admin-text">Half Day</span></div>
                 <div className="flex items-center gap-2"><span className={getAttendanceStatusClass('S')}>S</span> <span className="text-xs font-medium text-admin-text">Sunday</span></div>
                 <div className="flex items-center gap-2"><span className={getAttendanceStatusClass('OH')}>OH</span> <span className="text-xs font-medium text-admin-text">Office Holiday</span></div>
@@ -771,9 +814,9 @@ const AdminReports = () => {
           onClick={() => setSelectedCellModal(null)}
         >
           {/* Subtle backdrop catch-all */}
-          <div className="absolute inset-0 bg-black/25 backdrop-blur-[1px] transition-opacity" />
+          <div className="absolute inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-[0.5px] transition-opacity" />
 
-          {/* Upside Anchored Popover Card */}
+          {/* Upside Anchored Popover Card - Solid Normal Light Theme Background with Dark Mode Support */}
           <div 
             style={{
               position: 'fixed',
@@ -781,95 +824,158 @@ const AdminReports = () => {
               left: `${selectedCellModal.coords.left}px`,
               width: '320px'
             }}
-            className="bg-admin-surface/98 backdrop-blur-md border border-admin-border rounded-2xl p-4 shadow-2xl z-50 animate-fadeIn text-admin-text select-none"
+            className="bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 shadow-2xl z-50 animate-fadeIn text-slate-800 dark:text-slate-100 select-none"
             onClick={e => e.stopPropagation()}
           >
             {/* Downward pointing arrow beak pointing directly at clicked attendance pill */}
             <div 
               style={{ left: `${selectedCellModal.coords.arrowLeft}px` }}
-              className="absolute -bottom-2 -translate-x-1/2 w-4 h-4 bg-admin-surface border-r border-b border-admin-border rotate-45 pointer-events-none"
+              className="absolute -bottom-2 -translate-x-1/2 w-4 h-4 bg-white dark:bg-[#1e293b] border-r border-b border-slate-200 dark:border-slate-700/80 rotate-45 pointer-events-none"
             />
 
             {/* Header */}
-            <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-admin-border/50">
+            <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-200 dark:border-slate-700/60">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-7 h-7 rounded-lg bg-admin-bg border border-admin-border flex items-center justify-center text-admin-accent font-black text-xs shrink-0">
+                <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center font-black text-xs shrink-0 text-slate-700 dark:text-slate-200">
                   {selectedCellModal.code}
                 </div>
                 <div className="min-w-0">
-                  <h4 className="text-xs font-bold text-admin-text truncate leading-tight">{selectedCellModal.employeeName}</h4>
-                  <p className="text-[10px] text-admin-secondary font-mono truncate">{selectedCellModal.employeeCode} • {selectedCellModal.department}</p>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate leading-tight">{selectedCellModal.employeeName}</h4>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">{selectedCellModal.employeeCode} • {selectedCellModal.department}</p>
                 </div>
               </div>
 
               <button 
                 onClick={() => setSelectedCellModal(null)}
-                className="w-6 h-6 rounded-md flex items-center justify-center text-admin-secondary hover:text-admin-text hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
+                className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
               >
                 <FiX size={14} />
               </button>
             </div>
 
             {/* Date & Status */}
-            <div className="flex items-center justify-between p-2 rounded-lg bg-admin-bg/80 border border-admin-border/50 mb-2.5">
-              <span className="text-[11px] font-bold text-admin-text truncate">{selectedCellModal.formattedDate}</span>
+            <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 mb-2.5">
+              <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate">{selectedCellModal.formattedDate}</span>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${getStatusBadgeStyle(selectedCellModal.code)}`}>
                 {getStatusLabel(selectedCellModal.code)}
               </span>
             </div>
 
-            {/* 2x2 Grid: In, Out, Late, Early */}
-            <div className="grid grid-cols-2 gap-2 mb-2.5">
-              <div className="p-2 rounded-lg bg-admin-bg/80 border border-admin-border/40">
-                <p className="text-[9px] font-bold text-admin-secondary uppercase tracking-wider mb-0.5">Check-in</p>
-                <p className="text-xs font-bold text-emerald-400 font-mono">
-                  {formatTime(selectedCellModal.record?.login_time)}
-                </p>
-              </div>
-
-              <div className="p-2 rounded-lg bg-admin-bg/80 border border-admin-border/40">
-                <p className="text-[9px] font-bold text-admin-secondary uppercase tracking-wider mb-0.5">Check-out</p>
-                <p className="text-xs font-bold text-blue-400 font-mono">
-                  {formatTime(selectedCellModal.record?.logout_time)}
-                </p>
-              </div>
-
-              <div className="p-2 rounded-lg bg-admin-bg/80 border border-admin-border/40">
-                <p className="text-[9px] font-bold text-admin-secondary uppercase tracking-wider mb-0.5">Late Arrival</p>
-                <p className={`text-xs font-bold ${Number(selectedCellModal.record?.late_minutes || 0) > 0 ? 'text-amber-400' : 'text-admin-muted'}`}>
-                  {Number(selectedCellModal.record?.late_minutes || 0) > 0 ? `${selectedCellModal.record.late_minutes}m Late` : 'On Time'}
-                </p>
-              </div>
-
-              <div className="p-2 rounded-lg bg-admin-bg/80 border border-admin-border/40">
-                <p className="text-[9px] font-bold text-admin-secondary uppercase tracking-wider mb-0.5">Early Departure</p>
-                <p className={`text-xs font-bold ${Number(selectedCellModal.record?.early_minutes || 0) > 0 ? 'text-orange-400' : 'text-admin-muted'}`}>
-                  {Number(selectedCellModal.record?.early_minutes || 0) > 0 ? `${selectedCellModal.record.early_minutes}m Early` : 'None'}
-                </p>
-              </div>
-            </div>
-
-            {/* Extra Info: Hours & Permissions */}
-            <div className="space-y-1.5 p-2 rounded-lg bg-admin-bg/40 border border-admin-border/40 text-[11px]">
-              <div className="flex justify-between items-center">
-                <span className="text-admin-secondary">Working Hours:</span>
-                <span className="font-bold text-admin-text">
-                  {selectedCellModal.record ? `${Number(selectedCellModal.record.total_hours || selectedCellModal.record.working_hours || (Number(selectedCellModal.record.total_minutes || 0)/60) || 0).toFixed(1)} hrs` : '—'}
-                </span>
-              </div>
-              {selectedCellModal.permissionMinutes > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-admin-secondary">Permission Today:</span>
-                  <span className="font-bold text-indigo-400">{selectedCellModal.permissionMinutes} min</span>
+            {/* Conditional Content Based on Attendance Status */}
+            {selectedCellModal.code === 'A' ? (
+              /* ABSENT: Hide check-in/out. Show dedicated Absent Reason banner */
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <FiAlertCircle className="text-rose-500 shrink-0" size={14} />
+                  <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider">
+                    Absent Reason
+                  </span>
                 </div>
-              )}
-              {selectedCellModal.record?.is_wfh && (
-                <div className="flex justify-between items-center">
-                  <span className="text-admin-secondary">Work Mode:</span>
-                  <span className="font-bold text-purple-400">Work From Home</span>
+                <p className="text-xs text-rose-900 dark:text-rose-100 font-medium leading-relaxed bg-white/80 dark:bg-rose-900/20 p-2 rounded-lg border border-rose-100 dark:border-rose-900/40">
+                  {selectedCellModal.absentReason || 'No specific reason recorded'}
+                </p>
+              </div>
+            ) : (selectedCellModal.code === 'PL' || selectedCellModal.record?.validation_method === 'Paid Leave') ? (
+              /* PAID LEAVE: Show dedicated Paid Leave banner with category & notes */
+              <div className="p-3 rounded-xl bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-900/50">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <FiCheckCircle className="text-teal-600 dark:text-teal-400 shrink-0" size={14} />
+                  <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300 uppercase tracking-wider">
+                    Paid Leave Approved
+                  </span>
                 </div>
-              )}
-            </div>
+                <p className="text-xs text-teal-900 dark:text-teal-100 font-medium leading-relaxed bg-white/80 dark:bg-teal-900/20 p-2 rounded-lg border border-teal-100 dark:border-teal-900/40">
+                  {selectedCellModal.paidLeaveReason || 'Paid Leave'}
+                </p>
+              </div>
+            ) : selectedCellModal.code === 'S' ? (
+              /* SUNDAY: Show Weekly Off */
+              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <FiSun className="text-amber-500 shrink-0" size={14} />
+                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider">
+                    Weekly Off
+                  </span>
+                </div>
+                <p className="text-xs text-amber-900 dark:text-amber-100 font-medium">
+                  Sunday - Official Weekly Holiday
+                </p>
+              </div>
+            ) : (selectedCellModal.code === 'OH' || selectedCellModal.code === 'GH') ? (
+              /* OFFICE / GOVT HOLIDAY: Show Holiday details */
+              <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <FiCalendar className="text-blue-500 shrink-0" size={14} />
+                  <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">
+                    {selectedCellModal.holidayInfo?.type || (selectedCellModal.code === 'GH' ? 'Government Holiday' : 'Office Holiday')}
+                  </span>
+                </div>
+                <p className="text-xs font-bold text-blue-900 dark:text-blue-100">
+                  {selectedCellModal.holidayInfo?.title || 'Official Holiday'}
+                </p>
+                {selectedCellModal.holidayInfo?.note && (
+                  <p className="text-[11px] text-blue-700 dark:text-blue-300 mt-1">
+                    {selectedCellModal.holidayInfo.note}
+                  </p>
+                )}
+              </div>
+            ) : (
+              /* PRESENT, LATE, HALF DAY, WFH: Show full check-in/out and punctuality metrics */
+              <>
+                {/* 2x2 Grid: In, Out, Late, Early */}
+                <div className="grid grid-cols-2 gap-2 mb-2.5">
+                  <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60">
+                    <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-0.5">Check-in</p>
+                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                      {formatTime(selectedCellModal.record?.login_time)}
+                    </p>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60">
+                    <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-0.5">Check-out</p>
+                    <p className="text-xs font-bold text-blue-600 dark:text-blue-400 font-mono">
+                      {formatTime(selectedCellModal.record?.logout_time)}
+                    </p>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60">
+                    <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-0.5">Late Arrival</p>
+                    <p className={`text-xs font-bold ${Number(selectedCellModal.record?.late_minutes || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                      {Number(selectedCellModal.record?.late_minutes || 0) > 0 ? `${selectedCellModal.record.late_minutes}m Late` : 'On Time'}
+                    </p>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60">
+                    <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-0.5">Early Departure</p>
+                    <p className={`text-xs font-bold ${Number(selectedCellModal.record?.early_minutes || 0) > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                      {Number(selectedCellModal.record?.early_minutes || 0) > 0 ? `${selectedCellModal.record.early_minutes}m Early` : 'None'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Extra Info: Hours & Permissions */}
+                <div className="space-y-1.5 p-2 rounded-lg bg-slate-50/70 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/50 text-[11px]">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 dark:text-slate-400">Working Hours:</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-100">
+                      {selectedCellModal.record ? `${Number(selectedCellModal.record.total_hours || selectedCellModal.record.working_hours || (Number(selectedCellModal.record.total_minutes || 0)/60) || 0).toFixed(1)} hrs` : '—'}
+                    </span>
+                  </div>
+                  {selectedCellModal.permissionMinutes > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500 dark:text-slate-400">Permission Today:</span>
+                      <span className="font-bold text-indigo-600 dark:text-indigo-400">{selectedCellModal.permissionMinutes} min</span>
+                    </div>
+                  )}
+                  {selectedCellModal.record?.is_wfh && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500 dark:text-slate-400">Work Mode:</span>
+                      <span className="font-bold text-purple-600 dark:text-purple-400">Work From Home</span>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

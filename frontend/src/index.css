@@ -1518,6 +1518,11 @@ body.admin-theme-dark .clear-range-cancel-btn,
   color: #9a3412;
 }
 
+.status-paidleave, .matrix-status-paidleave {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
 .status-none, .matrix-status-none {
   background: #f1f5f9;
   color: #64748b;
@@ -1560,6 +1565,12 @@ body.admin-theme-dark .clear-range-cancel-btn,
   color: #d8b4fe;
 }
 
+
+.dark-theme .status-paidleave, [data-theme="dark"] .status-paidleave, .dark .status-paidleave,
+.dark-theme .matrix-status-paidleave, [data-theme="dark"] .matrix-status-paidleave, .dark .matrix-status-paidleave {
+  background: rgba(20, 184, 166, 0.25);
+  color: #5eead4;
+}
 .dark-theme .status-late, [data-theme="dark"] .status-late, .dark .status-late,
 .dark-theme .matrix-status-late, [data-theme="dark"] .matrix-status-late, .dark .matrix-status-late {
   background: rgba(249, 115, 22, 0.25);

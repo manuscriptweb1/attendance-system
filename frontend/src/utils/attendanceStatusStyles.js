@@ -14,6 +14,8 @@ export const getAttendanceStatusClass = (status) => {
       return "status-office-holiday attendance-matrix-badge";
     case "GH":
       return "status-government-holiday attendance-matrix-badge";
+    case "PL":
+      return "status-paidleave attendance-matrix-badge";
     default:
       return "status-none attendance-matrix-badge";
   }

@@ -24,7 +24,10 @@ const getMonthlyAttendanceReport = async (req, res) => {
           detailsMap[d] = m.days && m.days[d] ? {
             code: m.days[d].code,
             permissionMinutes: m.days[d].permissionMinutes || 0,
-            record: m.days[d].record || null
+            record: m.days[d].record || null,
+            absentReason: m.days[d].absentReason || (m.days[d].record ? m.days[d].record.absent_reason : null),
+            paidLeaveReason: m.days[d].paidLeaveReason || null,
+            holidayInfo: m.days[d].holidayInfo || null
           } : null;
         }
         return {
@@ -94,7 +97,10 @@ const generateMonthlyAttendanceReport = async (req, res) => {
           detailsMap[d] = m.days && m.days[d] ? {
             code: m.days[d].code,
             permissionMinutes: m.days[d].permissionMinutes || 0,
-            record: m.days[d].record || null
+            record: m.days[d].record || null,
+            absentReason: m.days[d].absentReason || (m.days[d].record ? m.days[d].record.absent_reason : null),
+            paidLeaveReason: m.days[d].paidLeaveReason || null,
+            holidayInfo: m.days[d].holidayInfo || null
           } : null;
         }
         return {

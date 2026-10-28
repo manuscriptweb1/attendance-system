@@ -7,7 +7,7 @@ import AdminToast from '../components/AdminToast';
 import { getReportSnapshot, generateMonthlyAttendanceReport, exportMonthlyAttendanceReport } from '../services/api';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateMonthYear } from '../utils/dateValidation';
-import { FiDownload, FiFileText, FiRefreshCw } from 'react-icons/fi';
+import { FiDownload, FiFileText, FiRefreshCw, FiX, FiCalendar, FiClock, FiUser, FiInfo } from 'react-icons/fi';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { sortEmployeeRows } from '../utils/sorting';
@@ -76,6 +76,67 @@ const AdminReports = () => {
       return 'P';
     }
     return status;
+  };
+
+  const [selectedCellModal, setSelectedCellModal] = useState(null);
+
+  const formatTime = (isoOrTime) => {
+    if (!isoOrTime) return '—';
+    try {
+      const d = new Date(isoOrTime);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      }
+      return String(isoOrTime);
+    } catch {
+      return String(isoOrTime);
+    }
+  };
+
+  const getStatusLabel = (code) => {
+    switch (code) {
+      case 'P': return 'Present';
+      case 'L': return 'Late Arrival';
+      case 'HD': return 'Half Day';
+      case 'A': return 'Absent';
+      case 'S': return 'Sunday';
+      case 'OH': return 'Office Holiday';
+      case 'GH': return 'Government Holiday';
+      case 'WFH': return 'Work From Home';
+      default: return 'No Record';
+    }
+  };
+
+  const getStatusBadgeStyle = (code) => {
+    switch (code) {
+      case 'P': return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+      case 'L': return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+      case 'HD': return 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30';
+      case 'A': return 'bg-rose-500/15 text-rose-400 border-rose-500/30';
+      case 'S': return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
+      case 'OH': return 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30';
+      case 'GH': return 'bg-purple-500/15 text-purple-400 border-purple-500/30';
+      default: return 'bg-slate-500/15 text-slate-400 border-slate-500/30';
+    }
+  };
+
+  const handleCellClick = (emp, d, displayCode) => {
+    const dateObj = new Date(year, month - 1, d);
+    const options = { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' };
+    const formattedDate = dateObj.toLocaleDateString('en-US', options);
+
+    const details = emp.details && emp.details[d] ? emp.details[d] : null;
+
+    setSelectedCellModal({
+      employeeName: emp.name,
+      employeeCode: emp.employee_id || emp.employeeCode || emp.id || 'N/A',
+      department: emp.department || 'General',
+      day: d,
+      code: displayCode,
+      formattedDate,
+      record: details ? details.record : null,
+      permissionMinutes: details ? details.permissionMinutes : 0
+    });
   };
   
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
@@ -475,23 +536,23 @@ const AdminReports = () => {
                 <h3 className="text-xs font-bold text-admin-text uppercase tracking-wider">Preview: {new Date(0, month-1).toLocaleString('default', { month: 'long' })} {year}</h3>
                 <span className="text-[10px] font-bold text-admin-secondary uppercase tracking-widest">{reportData.length} Records</span>
               </div>
-              <div className="table-responsive dark-scroll">
-                <table className="reports-summary-table min-w-full divide-y divide-white/[0.04]">
-                  <thead className="bg-admin-bg sticky top-0 z-10 shadow-sm">
+              <div className="table-responsive dark-scroll max-h-[62vh] overflow-y-auto rounded-xl border border-admin-border/50">
+                <table className="reports-summary-table min-w-full border-separate border-spacing-0 divide-y divide-white/[0.04]">
+                  <thead className="bg-admin-bg sticky top-0 z-20 shadow-sm">
                     <tr>
-                      <th style={{ width: '70px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Emp ID</th>
-                      <th style={{ width: '140px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Name</th>
-                      <th style={{ width: '110px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Department</th>
-                      <th style={{ width: '60px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Present</th>
-                      <th style={{ width: '60px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Absent</th>
-                      <th style={{ width: '70px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Half Day</th>
-                      <th style={{ width: '60px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Holiday</th>
-                      <th style={{ width: '70px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Late Count</th>
-                      {!hideActualLateTime && <th style={{ width: '100px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Actual Late Time</th>}
-                      <th style={{ width: '100px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Counted Late Time</th>
-                      <th style={{ width: '110px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Total Permission Time</th>
-                      <th style={{ width: '120px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Counted Late + Permission Time</th>
-                      <th style={{ width: '80px' }} className="text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-10">Total Hours</th>
+                      <th style={{ width: '70px' }} className="px-4 py-3.5 text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-20 border-b border-admin-border/50 whitespace-nowrap">Emp ID</th>
+                      <th style={{ width: '140px' }} className="px-4 py-3.5 text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-20 border-b border-admin-border/50 whitespace-nowrap">Name</th>
+                      <th style={{ width: '110px' }} className="px-4 py-3.5 text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-20 border-b border-admin-border/50 whitespace-nowrap">Department</th>
+                      <th style={{ width: '60px' }} className="px-4 py-3.5 text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-20 border-b border-admin-border/50 whitespace-nowrap">Present</th>
+                      <th style={{ width: '60px' }} className="px-4 py-3.5 text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-20 border-b border-admin-border/50 whitespace-nowrap">Absent</th>
+                      <th style={{ width: '70px' }} className="px-4 py-3.5 text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-20 border-b border-admin-border/50 whitespace-nowrap">Half Day</th>
+                      <th style={{ width: '60px' }} className="px-4 py-3.5 text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-20 border-b border-admin-border/50 whitespace-nowrap">Holiday</th>
+                      <th style={{ width: '70px' }} className="px-4 py-3.5 text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-20 border-b border-admin-border/50 whitespace-nowrap">Late Count</th>
+                      {!hideActualLateTime && <th style={{ width: '100px' }} className="px-4 py-3.5 text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-20 border-b border-admin-border/50 whitespace-nowrap">Actual Late Time</th>}
+                      <th style={{ width: '100px' }} className="px-4 py-3.5 text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-20 border-b border-admin-border/50 whitespace-nowrap">Counted Late Time</th>
+                      <th style={{ width: '110px' }} className="px-4 py-3.5 text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-20 border-b border-admin-border/50 whitespace-nowrap">Total Permission Time</th>
+                      <th style={{ width: '120px' }} className="px-4 py-3.5 text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-20 border-b border-admin-border/50 whitespace-nowrap">Counted Late + Permission Time</th>
+                      <th style={{ width: '80px' }} className="px-4 py-3.5 text-left font-bold text-admin-secondary uppercase tracking-wider bg-admin-bg sticky top-0 z-20 border-b border-admin-border/50 whitespace-nowrap">Total Hours</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
@@ -540,13 +601,13 @@ const AdminReports = () => {
               <div className="p-4 border-b border-admin-border bg-admin-elevated flex justify-between items-center">
                 <h3 className="text-xs font-bold text-admin-text uppercase tracking-wider">Daily Attendance</h3>
               </div>
-              <div className="table-responsive dark-scroll">
-                <table className="min-w-full divide-y divide-white/[0.04]">
-                  <thead className="bg-admin-bg sticky top-0 z-10 shadow-sm">
+              <div className="table-responsive dark-scroll max-h-[62vh] overflow-auto rounded-xl border border-admin-border/50">
+                <table className="min-w-full border-separate border-spacing-0 divide-y divide-white/[0.04]">
+                  <thead className="bg-admin-bg sticky top-0 z-20 shadow-sm">
                     <tr>
-                      <th className="px-5 py-4 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap sticky left-0 bg-admin-bg z-20">Employee</th>
+                      <th className="px-5 py-3.5 text-left text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap sticky top-0 left-0 bg-admin-bg z-30 border-b border-r border-admin-border/50">Employee</th>
                       {matrixData.days.map(d => (
-                        <th key={d} className="px-2 py-4 text-center text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-10">{d}</th>
+                        <th key={d} className="px-2.5 py-3.5 text-center text-[10px] font-bold text-admin-secondary uppercase tracking-widest whitespace-nowrap bg-admin-bg sticky top-0 z-20 border-b border-admin-border/50">{d}</th>
                       ))}
                     </tr>
                   </thead>
@@ -555,15 +616,20 @@ const AdminReports = () => {
                       const sortedMatrix = [...matrixData.employees].sort((a, b) => a.name.localeCompare(b.name));
                       return sortedMatrix.map((emp, i) => (
                         <tr key={i} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors">
-                          <td className="px-5 py-3.5 text-xs font-bold text-admin-text whitespace-nowrap sticky left-0 bg-admin-surface z-10 border-r border-admin-border/50">
+                          <td className="px-5 py-3 text-xs font-bold text-admin-text whitespace-nowrap sticky left-0 bg-admin-surface z-10 border-r border-b border-admin-border/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]">
                             {emp.name}
                           </td>
                           {matrixData.days.map(d => {
                             const originalCode = emp.days[d];
                             const displayCode = getReportDisplayStatus(originalCode);
                             return (
-                              <td key={d} className="px-2 py-3.5 text-center whitespace-nowrap">
-                                <span className={getAttendanceStatusClass(displayCode)}>
+                              <td 
+                                key={d} 
+                                onClick={() => handleCellClick(emp, d, displayCode)}
+                                className="px-2 py-3 text-center whitespace-nowrap border-b border-admin-border/30 cursor-pointer hover:bg-admin-accent/15 transition-all group"
+                                title={`Click to view attendance details for ${emp.name} on day ${d}`}
+                              >
+                                <span className={`${getAttendanceStatusClass(displayCode)} group-hover:scale-110 group-hover:shadow-md transition-all inline-block cursor-pointer`}>
                                   {displayCode}
                                 </span>
                               </td>
@@ -667,6 +733,118 @@ const AdminReports = () => {
           )}
         </div>
       </div>
+      {/* Interactive Status Detail Card Modal */}
+      {selectedCellModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setSelectedCellModal(null)}
+        >
+          <div 
+            className="bg-admin-surface border border-admin-border rounded-2xl max-w-md w-full p-6 shadow-clay-admin animate-scaleUp relative"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button 
+              onClick={() => setSelectedCellModal(null)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-admin-secondary hover:text-admin-text hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <FiX size={18} />
+            </button>
+
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl bg-admin-bg border border-admin-border flex items-center justify-center text-admin-accent font-black text-sm">
+                {selectedCellModal.code}
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-admin-text">{selectedCellModal.employeeName}</h4>
+                <p className="text-xs text-admin-secondary font-mono">{selectedCellModal.employeeCode} • {selectedCellModal.department}</p>
+              </div>
+            </div>
+
+            {/* Date & Status Banner */}
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-admin-bg border border-admin-border mb-4">
+              <div>
+                <p className="text-[10px] font-bold text-admin-secondary uppercase tracking-wider">Date</p>
+                <p className="text-xs font-bold text-admin-text mt-0.5">{selectedCellModal.formattedDate}</p>
+              </div>
+              <div>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusBadgeStyle(selectedCellModal.code)}`}>
+                  {getStatusLabel(selectedCellModal.code)}
+                </span>
+              </div>
+            </div>
+
+            {/* Details Grid */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              {/* Check-in */}
+              <div className="p-3 rounded-xl bg-admin-bg border border-admin-border">
+                <p className="text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-1">Check-in Time</p>
+                <p className="text-xs font-bold text-emerald-400 font-mono">
+                  {formatTime(selectedCellModal.record?.login_time)}
+                </p>
+              </div>
+
+              {/* Check-out */}
+              <div className="p-3 rounded-xl bg-admin-bg border border-admin-border">
+                <p className="text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-1">Check-out Time</p>
+                <p className="text-xs font-bold text-blue-400 font-mono">
+                  {formatTime(selectedCellModal.record?.logout_time)}
+                </p>
+              </div>
+
+              {/* Late Arrival */}
+              <div className="p-3 rounded-xl bg-admin-bg border border-admin-border">
+                <p className="text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-1">Late Arrival</p>
+                <p className={`text-xs font-bold ${Number(selectedCellModal.record?.late_minutes || 0) > 0 ? 'text-amber-400' : 'text-admin-muted'}`}>
+                  {Number(selectedCellModal.record?.late_minutes || 0) > 0 ? `${selectedCellModal.record.late_minutes} min late` : 'On Time'}
+                </p>
+              </div>
+
+              {/* Early Departure */}
+              <div className="p-3 rounded-xl bg-admin-bg border border-admin-border">
+                <p className="text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-1">Early Departure</p>
+                <p className={`text-xs font-bold ${Number(selectedCellModal.record?.early_minutes || 0) > 0 ? 'text-orange-400' : 'text-admin-muted'}`}>
+                  {Number(selectedCellModal.record?.early_minutes || 0) > 0 ? `${selectedCellModal.record.early_minutes} min early` : 'None'}
+                </p>
+              </div>
+            </div>
+
+            {/* Extra Info */}
+            <div className="space-y-2.5 p-3.5 rounded-xl bg-admin-bg/50 border border-admin-border text-xs mb-5">
+              <div className="flex justify-between items-center">
+                <span className="text-admin-secondary font-medium">Working Hours:</span>
+                <span className="font-bold text-admin-text">
+                  {selectedCellModal.record ? `${Number(selectedCellModal.record.total_hours || selectedCellModal.record.working_hours || (Number(selectedCellModal.record.total_minutes || 0)/60) || 0).toFixed(1)} hrs` : '—'}
+                </span>
+              </div>
+              {selectedCellModal.permissionMinutes > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-admin-secondary font-medium">Permission Approved Today:</span>
+                  <span className="font-bold text-indigo-400">{selectedCellModal.permissionMinutes} min</span>
+                </div>
+              )}
+              {selectedCellModal.record?.is_wfh && (
+                <div className="flex justify-between items-center">
+                  <span className="text-admin-secondary font-medium">Work Mode:</span>
+                  <span className="font-bold text-purple-400">Work From Home</span>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex justify-end">
+              <button
+                onClick={() => setSelectedCellModal(null)}
+                className="px-4 py-2 rounded-xl bg-admin-elevated border border-admin-border text-xs font-bold text-admin-text hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ClearDataModal 
         isOpen={showClearModal}
         onClose={() => setShowClearModal(false)}

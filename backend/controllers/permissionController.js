@@ -2,6 +2,7 @@ const pool = require('../config/database');
 const { logAdminActivity, MODULE_NAMES } = require('../services/adminActivityService');
 const { getSettingsFromDB, clearSettingsCache } = require('../utils/settingsHelper');
 const { parseTime, getLocalMinutesFromUTC, getOfficeTimes } = require('../utils/timeUtils');
+const { buildMonthlyAttendanceMatrixAndSummary } = require('../services/attendanceReportService');
 
 // Synchronize attendance record on the specific permission date
 async function syncAttendanceWithDatePermissions(employeeId, dateStr) {
@@ -107,38 +108,52 @@ const getPermissions = async (req, res) => {
     const settings = await getSettingsFromDB();
     const limitMinutes = settings.permissions?.monthlyPermissionLimitMinutes || 240;
 
-    // Aggregate total used permission minutes per employee, month, and year
-    let aggQuery = `
-      SELECT employee_id, 
-             EXTRACT(MONTH FROM permission_date) as m, 
-             EXTRACT(YEAR FROM permission_date) as y, 
-             COALESCE(SUM(duration_minutes), 0) as total_used_minutes
-      FROM employee_permissions
-      WHERE status = 'approved'
-    `;
-    const aggValues = [];
-    let aggParamCount = 1;
-
+    // Unified SaaS Allowance Calculation:
+    // Combines Counted Late Time + Approved Permission Time against the 4-hour limit!
+    const monthYearPairs = new Set();
     if (month && year) {
-      aggQuery += ` AND EXTRACT(MONTH FROM permission_date) = $${aggParamCount} AND EXTRACT(YEAR FROM permission_date) = $${aggParamCount + 1}`;
-      aggValues.push(month, year);
-      aggParamCount += 2;
+      monthYearPairs.add(`${parseInt(month)}__${parseInt(year)}`);
+    } else {
+      result.rows.forEach(r => {
+        if (r.permission_date) {
+          const parts = String(r.permission_date).split('-');
+          if (parts.length >= 2) {
+            monthYearPairs.add(`${parseInt(parts[1])}__${parseInt(parts[0])}`);
+          }
+        }
+      });
+      if (monthYearPairs.size === 0) {
+        const now = new Date();
+        monthYearPairs.add(`${now.getMonth() + 1}__${now.getFullYear()}`);
+      }
     }
 
-    if (employee_id) {
-      aggQuery += ` AND employee_id = $${aggParamCount}`;
-      aggValues.push(employee_id);
-      aggParamCount++;
-    }
-
-    aggQuery += ` GROUP BY employee_id, EXTRACT(MONTH FROM permission_date), EXTRACT(YEAR FROM permission_date)`;
-
-    const aggResult = await pool.query(aggQuery, aggValues);
     const quotaMap = {};
-    aggResult.rows.forEach(row => {
-      const key = `${row.employee_id}__${parseInt(row.m)}__${parseInt(row.y)}`;
-      quotaMap[key] = parseInt(row.total_used_minutes || 0);
-    });
+    for (const myStr of monthYearPairs) {
+      const [m, y] = myStr.split('__').map(Number);
+      try {
+        const report = await buildMonthlyAttendanceMatrixAndSummary(m, y, employee_id || null);
+        if (report && report.summaryRows) {
+          report.summaryRows.forEach(s => {
+            const countedLate = Number(s.totalCountedLateMinutes || 0);
+            const permMins = Number(s.totalPermissionMinutes || 0);
+            const totalUsed = Number(s.countedLateAndPermissionMinutes !== undefined 
+              ? s.countedLateAndPermissionMinutes 
+              : (countedLate + permMins));
+            
+            quotaMap[`${s.employeeCode}__${m}__${y}`] = {
+              countedLateMinutes: countedLate,
+              permissionMinutes: permMins,
+              totalUsedMinutes: totalUsed,
+              remainingMinutes: Math.max(0, limitMinutes - totalUsed),
+              isExhausted: totalUsed >= limitMinutes
+            };
+          });
+        }
+      } catch (err) {
+        console.error(`Error calculating unified allowance for ${m}/${y}:`, err);
+      }
+    }
 
     const enhancedPermissions = result.rows.map(r => {
       let pMonth = parseInt(month);
@@ -151,18 +166,24 @@ const getPermissions = async (req, res) => {
         }
       }
       const key = `${r.employee_id}__${pMonth}__${pYear}`;
-      const usedMins = quotaMap[key] || 0;
-      const remainingMins = Math.max(0, limitMinutes - usedMins);
-      const isExhausted = usedMins >= limitMinutes;
+      const q = quotaMap[key] || {
+        countedLateMinutes: 0,
+        permissionMinutes: Number(r.duration_minutes || 0),
+        totalUsedMinutes: Number(r.duration_minutes || 0),
+        remainingMinutes: Math.max(0, limitMinutes - Number(r.duration_minutes || 0)),
+        isExhausted: Number(r.duration_minutes || 0) >= limitMinutes
+      };
 
       return {
         ...r,
         monthly_limit_minutes: limitMinutes,
-        monthly_used_minutes: usedMins,
-        remaining_balance_minutes: remainingMins,
-        is_quota_exhausted: isExhausted,
-        formatted_remaining: formatDuration(remainingMins),
-        formatted_used: formatDuration(usedMins),
+        monthly_used_minutes: q.totalUsedMinutes,
+        permission_minutes: q.permissionMinutes,
+        counted_late_minutes: q.countedLateMinutes,
+        remaining_balance_minutes: q.remainingMinutes,
+        is_quota_exhausted: q.isExhausted,
+        formatted_remaining: formatDuration(q.remainingMinutes),
+        formatted_used: formatDuration(q.totalUsedMinutes),
         formatted_limit: formatDuration(limitMinutes)
       };
     });
@@ -229,18 +250,36 @@ const getEmployeePermissionQuota = async (req, res) => {
     const settings = await getSettingsFromDB();
     const limitMinutes = settings.permissions?.monthlyPermissionLimitMinutes || 240;
 
-    const usedResult = await pool.query(
-      `SELECT COALESCE(SUM(duration_minutes), 0) as used_minutes
-       FROM employee_permissions
-       WHERE employee_id = $1 
-         AND EXTRACT(MONTH FROM permission_date) = $2
-         AND EXTRACT(YEAR FROM permission_date) = $3
-         AND status = 'approved'`,
-      [employeeId, m, y]
-    );
+    let countedLateMinutes = 0;
+    let permissionMinutes = 0;
+    let totalUsedMinutes = 0;
 
-    const usedMinutes = parseInt(usedResult.rows[0].used_minutes || 0);
-    const remainingMinutes = Math.max(0, limitMinutes - usedMinutes);
+    try {
+      const report = await buildMonthlyAttendanceMatrixAndSummary(m, y, employeeId);
+      if (report && report.summaryRows && report.summaryRows.length > 0) {
+        const s = report.summaryRows[0];
+        countedLateMinutes = Number(s.totalCountedLateMinutes || 0);
+        permissionMinutes = Number(s.totalPermissionMinutes || 0);
+        totalUsedMinutes = Number(s.countedLateAndPermissionMinutes !== undefined 
+          ? s.countedLateAndPermissionMinutes 
+          : (countedLateMinutes + permissionMinutes));
+      }
+    } catch (err) {
+      console.error('getEmployeePermissionQuota report error:', err);
+      const usedResult = await pool.query(
+        `SELECT COALESCE(SUM(duration_minutes), 0) as used_minutes
+         FROM employee_permissions
+         WHERE employee_id = $1 
+           AND EXTRACT(MONTH FROM permission_date) = $2
+           AND EXTRACT(YEAR FROM permission_date) = $3
+           AND status = 'approved'`,
+        [employeeId, m, y]
+      );
+      permissionMinutes = parseInt(usedResult.rows[0]?.used_minutes || 0);
+      totalUsedMinutes = permissionMinutes;
+    }
+
+    const remainingMinutes = Math.max(0, limitMinutes - totalUsedMinutes);
 
     res.json({
       success: true,
@@ -248,11 +287,13 @@ const getEmployeePermissionQuota = async (req, res) => {
       month: m,
       year: y,
       limitMinutes,
-      usedMinutes,
+      usedMinutes: totalUsedMinutes,
+      permissionMinutes,
+      countedLateMinutes,
       remainingMinutes,
-      isExhausted: usedMinutes >= limitMinutes,
+      isExhausted: totalUsedMinutes >= limitMinutes,
       formattedLimit: formatDuration(limitMinutes),
-      formattedUsed: formatDuration(usedMinutes),
+      formattedUsed: formatDuration(totalUsedMinutes),
       formattedRemaining: formatDuration(remainingMinutes)
     });
   } catch (error) {

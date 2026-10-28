@@ -18,14 +18,22 @@ const getMonthlyAttendanceReport = async (req, res) => {
       days,
       employees: matrixRows.map(m => {
         const daysMap = {};
+        const detailsMap = {};
         for (let d = 1; d <= daysInMonth; d++) {
-          daysMap[d] = m.days[d] ? m.days[d].code : '-';
+          daysMap[d] = m.days && m.days[d] ? m.days[d].code : '-';
+          detailsMap[d] = m.days && m.days[d] ? {
+            code: m.days[d].code,
+            permissionMinutes: m.days[d].permissionMinutes || 0,
+            record: m.days[d].record || null
+          } : null;
         }
         return {
           employee_id: m.employeeCode,
+          employeeCode: m.employeeCode,
           name: m.employeeName,
-          department: m.department,
-          days: daysMap
+          department: m.department || 'General',
+          days: daysMap,
+          details: detailsMap
         };
       })
     };
@@ -80,14 +88,22 @@ const generateMonthlyAttendanceReport = async (req, res) => {
       days,
       employees: matrixRows.map(m => {
         const daysMap = {};
+        const detailsMap = {};
         for (let d = 1; d <= daysInMonth; d++) {
-          daysMap[d] = m.days[d] ? m.days[d].code : '-';
+          daysMap[d] = m.days && m.days[d] ? m.days[d].code : '-';
+          detailsMap[d] = m.days && m.days[d] ? {
+            code: m.days[d].code,
+            permissionMinutes: m.days[d].permissionMinutes || 0,
+            record: m.days[d].record || null
+          } : null;
         }
         return {
           employee_id: m.employeeCode,
+          employeeCode: m.employeeCode,
           name: m.employeeName,
-          department: m.department,
-          days: daysMap
+          department: m.department || 'General',
+          days: daysMap,
+          details: detailsMap
         };
       })
     };

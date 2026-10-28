@@ -319,7 +319,8 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
       if (day <= maxDay) {
         days[day] = {
           code: finalCode,
-          record: finalRecord || (dateRecords ? dateRecords[0] : null)
+          record: finalRecord || (dateRecords ? dateRecords[0] : null),
+          permissionMinutes: dayPermissionMinutes
         };
       }
       

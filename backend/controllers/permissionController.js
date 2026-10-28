@@ -1,5 +1,15 @@
 const pool = require('../config/database');
 const { logAdminActivity, MODULE_NAMES } = require('../services/adminActivityService');
+const { getSettingsFromDB, clearSettingsCache } = require('../utils/settingsHelper');
+
+const formatDuration = (mins) => {
+  const total = Number(mins || 0);
+  if (!total || total <= 0) return '0 min';
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h <= 0) return `${m} min`;
+  return `${h}h ${String(m).padStart(2, '0')}m`;
+};
 
 // Get all permissions (optionally filtered by month, year, employee_id)
 const getPermissions = async (req, res) => {
@@ -185,12 +195,6 @@ const createPermission = async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
       [employee_id, employee_name, department_name, permission_date, from_time, to_time, duration_minutes, reason, numericAdminId, req.user?.username || 'Admin']
     );
-
-    const formatDuration = (mins) => {
-      const h = Math.floor(mins / 60);
-      const m = mins % 60;
-      return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`;
-    };
 
     const perm = result.rows[0];
     const logDesc = `Created permission for ${employee_name} (${employee_id}) on ${permission_date} from ${from_time} to ${to_time}. Reason: ${reason}. Duration: ${formatDuration(duration_minutes)}`;

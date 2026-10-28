@@ -492,14 +492,31 @@ const checkIn = async (req, res) => {
 
     const sessionId = crypto.randomUUID();
 
-    // Calculate Late
-    
+    // Calculate Late with approved permission offset
     let checkin_status = 'on_time';
     let late_minutes = 0;
     
+    // Check if employee has approved permission for today
+    const permResult = await pool.query(
+      `SELECT COALESCE(SUM(duration_minutes), 0) as permission_minutes
+       FROM employee_permissions 
+       WHERE employee_id = $1 AND permission_date = $2 AND status = 'approved'`,
+      [employeeCode, today]
+    );
+    const dayPermissionMinutes = parseInt(permResult.rows[0]?.permission_minutes || 0);
+
     if (currentTimeInMinutes > lateTimeInMinutes) {
+      const rawLate = currentTimeInMinutes - lateTimeInMinutes;
+      if (dayPermissionMinutes >= rawLate) {
+        // Late is fully covered by permission!
+        checkin_status = 'on_time';
+        late_minutes = 0;
+        attendanceStatus = 'Present';
+      } else {
         checkin_status = 'late';
-        late_minutes = currentTimeInMinutes - lateTimeInMinutes;
+        late_minutes = rawLate - dayPermissionMinutes;
+        attendanceStatus = 'Late';
+      }
     }
 
     // Insert or update attendance
@@ -1752,21 +1769,31 @@ const processCheckout = async (attendance, checkoutTimeStr, userReq = null, chec
     let attendanceStatus = attendance.attendance_status;
     let finalCheckoutStatus = 'On Time';
     
-    // Handle Early Checkout status logic
-    if (attendance.has_early_checkout_permission) {
+    // Handle Early Checkout status logic (Check both explicit flag and approved employee_permissions)
+    let hasApprovedPerm = false;
+    try {
+      const attDateStr = new Date(attendance.attendance_date).toISOString().split('T')[0];
+      const permRes = await pool.query(
+        `SELECT COALESCE(SUM(duration_minutes), 0) as perm_minutes
+         FROM employee_permissions 
+         WHERE (employee_id = $1 OR employee_id = $2) AND permission_date = $3 AND status = 'approved'`,
+        [String(empData.employee_id || ''), String(empData.id || ''), attDateStr]
+      );
+      if (parseInt(permRes.rows[0]?.perm_minutes || 0) > 0) {
+        hasApprovedPerm = true;
+      }
+    } catch (e) {
+      console.error('Error checking checkout permission:', e);
+    }
+
+    if (attendance.has_early_checkout_permission || hasApprovedPerm) {
       // With permission, they get Present status, and no early minutes penalty
       earlyMinutes = 0;
       finalCheckoutStatus = 'Early (Permitted)';
       
       // Upgrade Half Day back to Present if they had early checkout permission
       if (attendanceStatus === 'Half Day') {
-         // Only upgrade if they weren't Late (which also causes Half Day)
-         const lateResult = await pool.query("SELECT setting_value FROM settings WHERE setting_key = 'late_threshold_minutes'");
-         const lateThreshold = lateResult.rows.length > 0 ? parseInt(lateResult.rows[0].setting_value) : 15;
-         
-         if (lateMinutes <= lateThreshold) {
-           attendanceStatus = 'Present';
-         }
+        attendanceStatus = 'Present';
       }
     } else {
       // Normal logic

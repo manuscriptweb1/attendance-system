@@ -2148,3 +2148,8 @@ INSERT INTO pdf_template_settings (id, company_name, logo_path, logo_width, logo
 SELECT 1, 'Manuscript Technomedia LLP', NULL, 32, 32, 17.0, 'Manuscript Technomedia LLP, Reg. Office. No. 22, 3rd Cross, Vivekananda Nagar, Bangalore-33, Karnataka, India.'
 WHERE NOT EXISTS (SELECT 1 FROM pdf_template_settings WHERE id = 1);
 
+
+-- Migration: 15_add_monthly_permission_limit.sql
+-- Description: Adds monthly_permission_limit_minutes column to settings table
+ALTER TABLE settings 
+ADD COLUMN IF NOT EXISTS monthly_permission_limit_minutes INTEGER DEFAULT 240;

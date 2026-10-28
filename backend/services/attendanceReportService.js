@@ -138,20 +138,30 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
   const summaryRows = [];
   const attendanceData = [];
 
-  // Fetch approved permissions for the month
+  // Fetch approved permissions for the month (both total and detailed day-by-day)
   const permissionsResult = await pool.query(
-    `SELECT employee_id, SUM(duration_minutes) as total_duration
+    `SELECT employee_id, EXTRACT(DAY FROM permission_date) as day, duration_minutes
      FROM employee_permissions
      WHERE EXTRACT(MONTH FROM permission_date) = $1 
        AND EXTRACT(YEAR FROM permission_date) = $2
-       AND status = 'approved'
-     GROUP BY employee_id`,
+       AND status = 'approved'`,
     [month, year]
   );
   
   const permissionsMap = {};
+  const permissionsByEmpAndDay = {};
+
   permissionsResult.rows.forEach(p => {
-    permissionsMap[p.employee_id] = parseInt(p.total_duration || 0);
+    const empCode = p.employee_id;
+    const day = parseInt(p.day);
+    const duration = parseInt(p.duration_minutes || 0);
+
+    permissionsMap[empCode] = (permissionsMap[empCode] || 0) + duration;
+
+    if (!permissionsByEmpAndDay[empCode]) {
+      permissionsByEmpAndDay[empCode] = {};
+    }
+    permissionsByEmpAndDay[empCode][day] = (permissionsByEmpAndDay[empCode][day] || 0) + duration;
   });
 
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -214,10 +224,13 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
 
       // 3. Evaluate attendance
       const dateRecords = attByDate[day];
+      const dayPermissionMinutes = (permissionsByEmpAndDay[emp.employeeCode] && permissionsByEmpAndDay[emp.employeeCode][day]) || 0;
       
       let finalCode = '';
       let finalRecord = null;
       let dailyMinutes = 0;
+      let dayRawLateMins = 0;
+      let dayCountedLateMins = 0;
 
       if (!dateRecords || dateRecords.length === 0) {
         finalCode = getFinalAttendanceCode(null, isSun, isGovH, isOffH);
@@ -275,6 +288,30 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
              }
            }
         }
+      }
+
+      totalLateMinutes += dayRawLateMins;
+
+      // Apply Permission Offset to Late Arrival:
+      // Permission covers/absorbs late minutes on this day
+      let netDayCountedLate = 0;
+      if (dayCountedLateMins > 0) {
+        netDayCountedLate = Math.max(0, dayCountedLateMins - dayPermissionMinutes);
+      }
+      totalCountedLateMinutes += netDayCountedLate;
+
+      // If late was fully covered by permission, convert status to Present (P)
+      if (finalCode === 'L') {
+        if (dayPermissionMinutes >= dayCountedLateMins && dayCountedLateMins > 0) {
+          finalCode = 'P';
+        } else if (dayPermissionMinutes > 0 && dayCountedLateMins === 0) {
+          finalCode = 'P';
+        }
+      }
+
+      // If Half Day was due to early departure or arrival, and covered by permission:
+      if (finalCode === 'HD' && dayPermissionMinutes > 0) {
+        finalCode = 'P';
       }
 
       if (day <= maxDay) {

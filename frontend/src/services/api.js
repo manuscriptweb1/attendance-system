@@ -394,6 +394,8 @@ export const createPermission = (data) => api.post('/permissions', data);
 export const updatePermission = (id, data) => api.put(`/permissions/${id}`, data);
 export const deletePermission = (id) => api.delete(`/permissions/${id}`);
 export const clearPermissionRange = (data) => api.delete('/permissions/clear-range', { data });
+export const getEmployeePermissionQuota = (employeeId, params) => api.get(`/permissions/quota/${employeeId}`, { params });
+export const updatePermissionLimit = (data) => api.put('/permissions/limit', data);
 
 // --- Manual Attendance ---
 export const getEmployeesForManualAttendance = (params) => api.get('/manual-attendance/employees', { params });

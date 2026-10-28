@@ -173,7 +173,9 @@ const AdminReports = () => {
       const hoursStr = displayTotalHours % 1 === 0 ? displayTotalHours.toString() : displayTotalHours.toFixed(1);
       const countedLate = Number(r.totalCountedLateMinutes || 0);
       const permTime = Number(r.totalPermissionMinutes || 0);
-      return [r.employeeCode, r.employeeName, r.department, r.present, r.absent, r.halfDay, r.holiday, r.lateCount, formatLateTime(countedLate), formatLateTime(permTime), formatLateTime(countedLate + permTime), hoursStr];
+      const combinedTime = Number(r.countedLateAndPermissionMinutes !== undefined ? r.countedLateAndPermissionMinutes : (countedLate + permTime));
+      const displayLate = r.lateCount > 0 ? r.lateCount : '-';
+      return [r.employeeCode, r.employeeName, r.department, r.present, r.absent, r.halfDay, r.holiday, displayLate, formatLateTime(countedLate), formatLateTime(permTime), formatLateTime(combinedTime), hoursStr];
     });
 
     autoTable(doc, {
@@ -497,7 +499,7 @@ const AdminReports = () => {
                       const sortedData = sortEmployeeRows(reportData, sortBy);
                       return sortedData.map(r => {
                         const displayPresent = treatLateAsPresent ? (r.present + (r.lateCount || 0)) : r.present;
-                        const displayLateCount = (treatLateAsPresent && r.lateCount > 0) ? '-' : r.lateCount;
+                        const displayLateCount = treatLateAsPresent ? '-' : (r.lateCount > 0 ? r.lateCount : '-');
                         
                         return (
                         <tr key={r.employeeCode} className="admin-table-row hover:bg-admin-elevated/[0.02] transition-colors">

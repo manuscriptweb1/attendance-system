@@ -66,6 +66,11 @@ const getSettings = async (req, res) => {
       adminAssistant: {
         enabled: dbSettings.admin_assistant_enabled !== undefined ? Boolean(dbSettings.admin_assistant_enabled) : false
       },
+      permissions: {
+        monthlyPermissionLimitMinutes: dbSettings.monthly_permission_limit_minutes != null 
+          ? parseInt(dbSettings.monthly_permission_limit_minutes) 
+          : 240
+      },
       messages: {
         locationPermissionTitle: "Location Permission Required",
         locationPermissionMessage: "This app needs access to your location to verify your attendance. Please allow location access to continue.",
@@ -126,12 +131,18 @@ const updateSettings = async (req, res) => {
       eveningLateAfterTime,
       eveningShiftEndTime,
       admin_assistant_enabled,
-      adminAssistantEnabled
+      adminAssistantEnabled,
+      monthly_permission_limit_minutes,
+      monthlyPermissionLimitMinutes
     } = req.body;
 
     const isAssistantEnabled = admin_assistant_enabled !== undefined 
       ? Boolean(admin_assistant_enabled) 
       : (adminAssistantEnabled !== undefined ? Boolean(adminAssistantEnabled) : false);
+
+    const permissionLimitVal = monthly_permission_limit_minutes !== undefined 
+      ? parseInt(monthly_permission_limit_minutes) 
+      : (monthlyPermissionLimitMinutes !== undefined ? parseInt(monthlyPermissionLimitMinutes) : null);
 
     // Validation
     if (!latitude || !longitude || !allowedRadius || !lateAfterTime) {
@@ -238,6 +249,7 @@ const updateSettings = async (req, res) => {
         evening_late_after_time = $25,
         evening_shift_end_time = $26,
         admin_assistant_enabled = $27,
+        monthly_permission_limit_minutes = COALESCE($28, monthly_permission_limit_minutes),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = (SELECT id FROM settings ORDER BY id LIMIT 1)
       RETURNING *
@@ -270,7 +282,8 @@ const updateSettings = async (req, res) => {
       eveningShiftStartTime || '14:00',
       eveningLateAfterTime || '14:00',
       eveningShiftEndTime || '17:30',
-      isAssistantEnabled
+      isAssistantEnabled,
+      permissionLimitVal
     ];
 
     const result = await pool.query(updateQuery, values);

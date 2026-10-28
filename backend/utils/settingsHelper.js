@@ -66,6 +66,11 @@ async function getSettingsFromDB() {
       electronDesktop: {
         enabled: dbSettings.electron_desktop_enabled !== false,
         validationMode: dbSettings.electron_desktop_validation_mode || 'trusted_device_and_network'
+      },
+      permissions: {
+        monthlyPermissionLimitMinutes: dbSettings.monthly_permission_limit_minutes != null 
+          ? parseInt(dbSettings.monthly_permission_limit_minutes) 
+          : 240
       }
     };
 

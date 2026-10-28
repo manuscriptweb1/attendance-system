@@ -51,16 +51,69 @@ const getPermissionSummary = async (req, res) => {
       `SELECT COUNT(*) as today_count FROM employee_permissions WHERE permission_date = CURRENT_DATE`
     );
 
+    // 3. Settings Monthly Limit
+    const settings = await getSettingsFromDB();
+    const limitMinutes = settings.permissions?.monthlyPermissionLimitMinutes || 240;
+
     const summary = {
       totalRecords: parseInt(recordsResult.rows[0].total_records),
       employeesWithPermission: parseInt(recordsResult.rows[0].employees_with_permission),
       totalPermissionMinutes: parseInt(recordsResult.rows[0].total_minutes),
-      todayCount: parseInt(todayResult.rows[0].today_count)
+      todayCount: parseInt(todayResult.rows[0].today_count),
+      monthlyPermissionLimitMinutes: limitMinutes
     };
 
     res.json({ success: true, summary });
   } catch (error) {
     console.error('Get permission summary error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// Get monthly permission quota status for a specific employee
+const getEmployeePermissionQuota = async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const { month, year } = req.query;
+
+    if (!employeeId) {
+      return res.status(400).json({ success: false, message: 'Employee ID required' });
+    }
+
+    const m = month ? parseInt(month) : (new Date().getMonth() + 1);
+    const y = year ? parseInt(year) : new Date().getFullYear();
+
+    const settings = await getSettingsFromDB();
+    const limitMinutes = settings.permissions?.monthlyPermissionLimitMinutes || 240;
+
+    const usedResult = await pool.query(
+      `SELECT COALESCE(SUM(duration_minutes), 0) as used_minutes
+       FROM employee_permissions
+       WHERE employee_id = $1 
+         AND EXTRACT(MONTH FROM permission_date) = $2
+         AND EXTRACT(YEAR FROM permission_date) = $3
+         AND status = 'approved'`,
+      [employeeId, m, y]
+    );
+
+    const usedMinutes = parseInt(usedResult.rows[0].used_minutes || 0);
+    const remainingMinutes = Math.max(0, limitMinutes - usedMinutes);
+
+    res.json({
+      success: true,
+      employeeId,
+      month: m,
+      year: y,
+      limitMinutes,
+      usedMinutes,
+      remainingMinutes,
+      isExhausted: usedMinutes >= limitMinutes,
+      formattedLimit: formatDuration(limitMinutes),
+      formattedUsed: formatDuration(usedMinutes),
+      formattedRemaining: formatDuration(remainingMinutes)
+    });
+  } catch (error) {
+    console.error('Get employee permission quota error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -84,6 +137,44 @@ const createPermission = async (req, res) => {
 
     if (duration_minutes <= 0) {
       return res.status(400).json({ success: false, message: 'To time must be greater than from time' });
+    }
+
+    // Extract month and year from permission_date (YYYY-MM-DD)
+    const dateParts = permission_date.split('-');
+    const pYear = parseInt(dateParts[0]);
+    const pMonth = parseInt(dateParts[1]);
+
+    // Check monthly quota (Option A: Hard limit check)
+    const settings = await getSettingsFromDB();
+    const limitMinutes = settings.permissions?.monthlyPermissionLimitMinutes || 240;
+
+    const usedResult = await pool.query(
+      `SELECT COALESCE(SUM(duration_minutes), 0) as used_minutes
+       FROM employee_permissions
+       WHERE employee_id = $1 
+         AND EXTRACT(MONTH FROM permission_date) = $2
+         AND EXTRACT(YEAR FROM permission_date) = $3
+         AND status = 'approved'`,
+      [employee_id, pMonth, pYear]
+    );
+
+    const usedMinutes = parseInt(usedResult.rows[0].used_minutes || 0);
+    const remainingMinutes = Math.max(0, limitMinutes - usedMinutes);
+
+    if (usedMinutes >= limitMinutes) {
+      return res.status(400).json({
+        success: false,
+        message: `Monthly permission limit reached (${formatDuration(limitMinutes)}). ${employee_name || 'Employee'} has already used ${formatDuration(usedMinutes)} this month.`,
+        code: 'PERMISSION_LIMIT_REACHED'
+      });
+    }
+
+    if (duration_minutes > remainingMinutes) {
+      return res.status(400).json({
+        success: false,
+        message: `Requested permission (${formatDuration(duration_minutes)}) exceeds remaining monthly allowance (${formatDuration(remainingMinutes)} remaining of ${formatDuration(limitMinutes)}).`,
+        code: 'PERMISSION_DURATION_EXCEEDS_REMAINING'
+      });
     }
 
     // Insert into DB
@@ -148,6 +239,44 @@ const updatePermission = async (req, res) => {
       return res.status(400).json({ success: false, message: 'To time must be greater than from time' });
     }
 
+    const dateParts = permission_date.split('-');
+    const pYear = parseInt(dateParts[0]);
+    const pMonth = parseInt(dateParts[1]);
+
+    // Check monthly quota excluding this record
+    const settings = await getSettingsFromDB();
+    const limitMinutes = settings.permissions?.monthlyPermissionLimitMinutes || 240;
+
+    const usedResult = await pool.query(
+      `SELECT COALESCE(SUM(duration_minutes), 0) as used_minutes
+       FROM employee_permissions
+       WHERE employee_id = $1 
+         AND id != $2
+         AND EXTRACT(MONTH FROM permission_date) = $3
+         AND EXTRACT(YEAR FROM permission_date) = $4
+         AND status = 'approved'`,
+      [oldData.employee_id, id, pMonth, pYear]
+    );
+
+    const otherUsedMinutes = parseInt(usedResult.rows[0].used_minutes || 0);
+    const remainingMinutes = Math.max(0, limitMinutes - otherUsedMinutes);
+
+    if (otherUsedMinutes >= limitMinutes) {
+      return res.status(400).json({
+        success: false,
+        message: `Monthly permission limit reached (${formatDuration(limitMinutes)}). Employee has already used ${formatDuration(otherUsedMinutes)} in other permissions this month.`,
+        code: 'PERMISSION_LIMIT_REACHED'
+      });
+    }
+
+    if (duration_minutes > remainingMinutes) {
+      return res.status(400).json({
+        success: false,
+        message: `Updated duration (${formatDuration(duration_minutes)}) exceeds remaining monthly allowance (${formatDuration(remainingMinutes)} remaining of ${formatDuration(limitMinutes)}).`,
+        code: 'PERMISSION_DURATION_EXCEEDS_REMAINING'
+      });
+    }
+
     const result = await pool.query(
       `UPDATE employee_permissions 
        SET permission_date = $1, from_time = $2, to_time = $3, duration_minutes = $4, reason = $5, updated_at = CURRENT_TIMESTAMP
@@ -176,6 +305,45 @@ const updatePermission = async (req, res) => {
     if (error.code === '23505') { // Unique violation
       return res.status(400).json({ success: false, message: 'Permission record already exists for this exact time' });
     }
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+const updatePermissionLimit = async (req, res) => {
+  try {
+    const { limitMinutes } = req.body;
+    const mins = parseInt(limitMinutes);
+    if (isNaN(mins) || mins <= 0) {
+      return res.status(400).json({ success: false, message: 'Limit minutes must be a valid positive number' });
+    }
+
+    await pool.query(
+      `UPDATE settings 
+       SET monthly_permission_limit_minutes = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = (SELECT id FROM settings ORDER BY id LIMIT 1)`,
+      [mins]
+    );
+
+    clearSettingsCache();
+
+    await logAdminActivity({
+      adminId: req.user?.id,
+      adminName: req.user?.username || 'Admin',
+      adminEmail: req.user?.email || '',
+      actionType: 'UPDATE_PERMISSION_LIMIT',
+      moduleName: MODULE_NAMES.PERMISSIONS || 'Permissions',
+      description: `Updated monthly permission limit to ${formatDuration(mins)} (${mins} minutes)`,
+      ipAddress: req.ip
+    });
+
+    res.json({
+      success: true,
+      limitMinutes: mins,
+      formattedLimit: formatDuration(mins),
+      message: `Monthly permission limit updated to ${formatDuration(mins)}`
+    });
+  } catch (error) {
+    console.error('Update permission limit error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -267,8 +435,10 @@ const clearPermissionRange = async (req, res) => {
 module.exports = {
   getPermissions,
   getPermissionSummary,
+  getEmployeePermissionQuota,
   createPermission,
   updatePermission,
+  updatePermissionLimit,
   deletePermission,
   clearPermissionRange
 };

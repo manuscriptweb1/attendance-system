@@ -7,11 +7,21 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { Spinner } from '../components/Loader';
 import ClearDataModal from '../components/ClearDataModal';
 import { toDateInputValue, formatDisplayDate } from '../utils/dateUtils';
-import { getPermissions, getPermissionSummary, createPermission, updatePermission, deletePermission, clearPermissionRange, getAllEmployees } from '../services/api';
+import { 
+  getPermissions, 
+  getPermissionSummary, 
+  getEmployeePermissionQuota,
+  createPermission, 
+  updatePermission, 
+  updatePermissionLimit,
+  deletePermission, 
+  clearPermissionRange, 
+  getAllEmployees 
+} from '../services/api';
 import { formatDate } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateMonthYear } from '../utils/dateValidation';
-import { FiPlus, FiEdit, FiTrash2, FiClock, FiUsers, FiFileText, FiX, FiSearch, FiCheckCircle } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiTrash2, FiClock, FiUsers, FiFileText, FiX, FiSearch, FiCheckCircle, FiSliders, FiAlertCircle } from 'react-icons/fi';
 
 const formatDuration = (minutes) => {
   const total = Number(minutes || 0);
@@ -37,6 +47,12 @@ const AdminPermissions = () => {
   const [showClearModal, setShowClearModal] = useState(false);
   const [clearLoading, setClearLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [employeeQuota, setEmployeeQuota] = useState(null);
+  const [quotaLoading, setQuotaLoading] = useState(false);
+  const [limitHours, setLimitHours] = useState(4);
+  const [limitMinutesInput, setLimitMinutesInput] = useState(0);
+  const [savingLimit, setSavingLimit] = useState(false);
   
   const [formData, setFormData] = useState({ 
     id: '', employee_id: '', permission_date: '', from_time: '', to_time: '', reason: ''
@@ -72,6 +88,67 @@ const AdminPermissions = () => {
     };
   }, []);
 
+  const fetchEmployeeQuota = async (empId, permDate) => {
+    if (!empId) {
+      setEmployeeQuota(null);
+      return;
+    }
+    try {
+      setQuotaLoading(true);
+      const targetDate = permDate ? new Date(permDate) : new Date();
+      const m = isNaN(targetDate.getMonth()) ? (new Date().getMonth() + 1) : (targetDate.getMonth() + 1);
+      const y = isNaN(targetDate.getFullYear()) ? new Date().getFullYear() : targetDate.getFullYear();
+      
+      const res = await getEmployeePermissionQuota(empId, { month: m, year: y });
+      if (res.data?.success) {
+        setEmployeeQuota(res.data);
+      }
+    } catch (err) {
+      console.error('Error fetching employee quota:', err);
+    } finally {
+      setQuotaLoading(false);
+    }
+  };
+
+  const handleUpdateLimit = async (e) => {
+    e.preventDefault();
+    const totalMinutes = (parseInt(limitHours || 0) * 60) + parseInt(limitMinutesInput || 0);
+    if (totalMinutes <= 0) {
+      setAlertDialog({
+        isOpen: true,
+        title: 'Invalid Limit',
+        message: 'Monthly permission limit must be greater than 0 minutes.',
+        type: 'danger'
+      });
+      return;
+    }
+
+    try {
+      setSavingLimit(true);
+      const res = await updatePermissionLimit({ limitMinutes: totalMinutes });
+      if (res.data?.success) {
+        setShowLimitModal(false);
+        setToastConfig({ message: res.data.message || 'Limit updated successfully', type: 'success' });
+        fetchData();
+      }
+    } catch (err) {
+      setAlertDialog({
+        isOpen: true,
+        title: 'Error',
+        message: getErrorMessage(err, 'Failed to update monthly limit'),
+        type: 'danger'
+      });
+    } finally {
+      setSavingLimit(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showModal && formData.employee_id) {
+      fetchEmployeeQuota(formData.employee_id, formData.permission_date);
+    }
+  }, [showModal, formData.employee_id, formData.permission_date]);
+
   const fetchData = async () => {
     const errorMsg = validateMonthYear(month, year);
     if (errorMsg) {
@@ -89,7 +166,12 @@ const AdminPermissions = () => {
       ]);
       
       if (permRes.data.success) setPermissions(permRes.data.permissions);
-      if (sumRes.data.success) setSummary(sumRes.data.summary);
+      if (sumRes.data.success) {
+        setSummary(sumRes.data.summary);
+        const totalLimit = sumRes.data.summary?.monthlyPermissionLimitMinutes || 240;
+        setLimitHours(Math.floor(totalLimit / 60));
+        setLimitMinutesInput(totalLimit % 60);
+      }
       if (empRes.data.success) {
         // active employees only
         setEmployees(empRes.data.employees.filter(e => e.status?.toLowerCase() === 'active'));
@@ -127,6 +209,38 @@ const AdminPermissions = () => {
     if (toTotal <= fromTotal) {
       setAlertDialog({ isOpen: true, title: 'Validation Error', message: 'To Time must be after From Time.', type: 'error' });
       return;
+    }
+
+    const durationMinutes = toTotal - fromTotal;
+
+    // Real-time Option A Quota Validation
+    if (employeeQuota) {
+      let remainingForThisAction = employeeQuota.remainingMinutes;
+      if (editMode) {
+        const originalPerm = permissions.find(p => p.id === formData.id);
+        const originalDuration = originalPerm ? parseInt(originalPerm.duration_minutes || 0) : 0;
+        remainingForThisAction += originalDuration;
+      }
+
+      if (employeeQuota.isExhausted && !editMode) {
+        setAlertDialog({
+          isOpen: true,
+          title: 'Monthly Limit Reached',
+          message: `Monthly permission limit reached (${employeeQuota.formattedLimit || '4h 00m'}). ${formData.employee_name || 'This employee'} has already used ${employeeQuota.formattedUsed || 'all allowance'} this month.`,
+          type: 'danger'
+        });
+        return;
+      }
+
+      if (durationMinutes > remainingForThisAction) {
+        setAlertDialog({
+          isOpen: true,
+          title: 'Duration Exceeds Remaining Allowance',
+          message: `Requested permission (${formatDuration(durationMinutes)}) exceeds remaining monthly allowance (${formatDuration(remainingForThisAction)} remaining of ${employeeQuota.formattedLimit || '4h 00m'}).`,
+          type: 'danger'
+        });
+        return;
+      }
     }
 
     try {
@@ -432,12 +546,13 @@ const AdminPermissions = () => {
           </div>
 
           {summary && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 animate-fadeInUp stagger-3">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 animate-fadeInUp stagger-3">
               {[
                 { label: 'Total Records', value: summary.totalRecords, icon: FiFileText, color: 'text-indigo-400', bg: 'bg-indigo-500/10 border-indigo-500/20' },
                 { label: 'Employees', value: summary.employeesWithPermission, icon: FiUsers, color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
                 { label: 'Total Time', value: formatDuration(summary.totalPermissionMinutes), icon: FiClock, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20', isString: true },
-                { label: "Today's Permissions", value: summary.todayCount, icon: FiClock, color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' }
+                { label: "Today's Permissions", value: summary.todayCount, icon: FiClock, color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' },
+                { label: 'Monthly Allowance', value: formatDuration(summary.monthlyPermissionLimitMinutes || 240), icon: FiSliders, color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20', isLimit: true }
               ].map((stat, i) => (
                 <div key={i} className="bg-admin-surface border border-admin-border rounded-2xl p-4 shadow-clay-admin flex flex-col items-center text-center hover:-translate-y-1 transition-transform">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center border mb-3 ${stat.bg} ${stat.color}`}>
@@ -445,6 +560,14 @@ const AdminPermissions = () => {
                   </div>
                   <p className="text-[10px] font-bold text-admin-secondary uppercase tracking-wider mb-1">{stat.label}</p>
                   <p className={`text-xl font-extrabold ${stat.color}`}>{stat.value}</p>
+                  {stat.isLimit && (
+                    <button 
+                      onClick={() => setShowLimitModal(true)} 
+                      className="mt-2 text-[10px] font-bold text-purple-400 hover:text-purple-300 underline cursor-pointer"
+                    >
+                      Edit Limit
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -519,6 +642,73 @@ const AdminPermissions = () => {
         onConfirm={handleClearPermissions}
         loading={clearLoading}
       />
+
+      {showLimitModal && (
+        <div className="fixed inset-0 bg-admin-overlay backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-admin-elevated border border-admin-border rounded-2xl shadow-clay-admin-modal w-full max-w-md animate-scale-in">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-admin-border">
+              <div className="flex items-center gap-2">
+                <FiSliders className="text-purple-400" />
+                <h2 className="text-base font-bold text-admin-text">Company Monthly Permission Limit</h2>
+              </div>
+              <button onClick={() => setShowLimitModal(false)} className="text-admin-secondary hover:text-admin-text"><FiX size={18} /></button>
+            </div>
+            <form onSubmit={handleUpdateLimit} className="p-6 space-y-4">
+              <p className="text-xs text-admin-muted leading-relaxed">
+                Set the default maximum monthly permission allowance for all active employees. By default, this is 4 hours (240 minutes) per month.
+              </p>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Hours</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={limitHours}
+                    onChange={(e) => setLimitHours(e.target.value)}
+                    className="admin-input"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Minutes</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="59"
+                    value={limitMinutesInput}
+                    onChange={(e) => setLimitMinutesInput(e.target.value)}
+                    className="admin-input"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="text-xs font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 p-2.5 rounded-xl">
+                Total monthly allowance: {(parseInt(limitHours || 0) * 60) + parseInt(limitMinutesInput || 0)} minutes ({formatDuration((parseInt(limitHours || 0) * 60) + parseInt(limitMinutesInput || 0))})
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowLimitModal(false)}
+                  className="admin-btn-neutral rounded-xl px-4 py-2 text-sm font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingLimit}
+                  className="px-5 py-2 text-sm font-semibold bg-purple-600 hover:bg-purple-500 text-white rounded-xl shadow-clay transition-all duration-200"
+                >
+                  {savingLimit ? 'Saving...' : 'Save Limit'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 bg-admin-overlay backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -714,6 +904,40 @@ const AdminPermissions = () => {
                   </div>
                 )}
               </div>
+
+              {/* Monthly Quota Status Card */}
+              {formData.employee_id && (
+                <div className="sm:col-span-2">
+                  {quotaLoading ? (
+                    <div className="flex items-center gap-2 text-xs text-admin-muted py-2">
+                      <Spinner size={14} color="blue" /> Checking monthly allowance...
+                    </div>
+                  ) : employeeQuota ? (
+                    <div className={`p-3.5 rounded-xl border ${
+                      employeeQuota.isExhausted && !editMode
+                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                        : 'bg-admin-bg/60 border-admin-border/80 text-admin-secondary'
+                    }`}>
+                      <div className="flex items-center justify-between text-xs font-medium flex-wrap gap-2">
+                        <span>Allowance: <strong className="text-white">{employeeQuota.formattedLimit}</strong></span>
+                        <span>Used this month: <strong className="text-white">{employeeQuota.formattedUsed}</strong></span>
+                        <span>
+                          Available Balance: <strong className={employeeQuota.remainingMinutes <= 0 ? 'text-rose-400' : 'text-emerald-400'}>
+                            {employeeQuota.formattedRemaining}
+                          </strong>
+                        </span>
+                      </div>
+
+                      {employeeQuota.isExhausted && !editMode && (
+                        <div className="mt-2 text-xs font-semibold text-rose-400 flex items-center gap-1.5">
+                          <FiAlertCircle size={15} /> Cannot create permission: This employee has already used the entire monthly limit ({employeeQuota.formattedLimit}).
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-semibold text-admin-secondary uppercase tracking-wider mb-2">Date *</label>
                 <input type="date" name="permission_date" value={formData.permission_date} onChange={handleInputChange} required className="admin-input" />

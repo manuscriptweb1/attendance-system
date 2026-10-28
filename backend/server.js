@@ -182,6 +182,21 @@ app.listen(PORT, '0.0.0.0', async () => {
   
   // Seed emergency admin if needed
   await seedEmergencyAdmin();
+
+  // Ensure monthly_permission_limit_minutes exists in settings table
+  try {
+    await pool.query(`
+      ALTER TABLE settings 
+      ADD COLUMN IF NOT EXISTS monthly_permission_limit_minutes INTEGER DEFAULT 240;
+    `);
+    await pool.query(`
+      UPDATE settings 
+      SET monthly_permission_limit_minutes = 240 
+      WHERE monthly_permission_limit_minutes IS NULL;
+    `);
+  } catch (migErr) {
+    console.error('Settings migration check:', migErr.message);
+  }
   
   // Run auto-checkout check every minute
   cron.schedule('* * * * *', async () => {

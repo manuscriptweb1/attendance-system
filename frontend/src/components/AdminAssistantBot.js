@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getSettings, executeBotCommand, downloadAllPayslips, downloadSinglePayslip, getBotCapabilities } from '../services/api';
-import { FiX, FiSend, FiCpu, FiExternalLink, FiRotateCcw } from 'react-icons/fi';
+import { FiX, FiSend, FiCpu, FiExternalLink, FiRotateCcw, FiTrash2 } from 'react-icons/fi';
 import './AdminAssistantBot.css';
 
 const LOGO_PATH = `${process.env.PUBLIC_URL || ''}/favicon/favicon-96x96.png`;
@@ -70,15 +70,81 @@ const findMatchingAction = (query, caps) => {
   return matched;
 };
 
+// Reusable option chips. Every bot reply offers a few of these as "related options".
+const SUGGESTION = {
+  todaySummary: { label: '📊 Today Summary', command: 'today attendance summary' },
+  absentToday: { label: '🚫 Absent Today', command: 'who is absent today' },
+  lateToday: { label: '⏰ Late Today', command: 'who is late today' },
+  presentToday: { label: '✅ Present Today', command: 'who is present today' },
+  stillWorking: { label: '🕒 Still Working', command: 'who is still working' },
+  onLeave: { label: '🌴 On Leave Today', command: 'who is on leave today' },
+  permissionsToday: { label: '🎫 Permissions Today', command: 'permissions today' },
+  consistentLate: { label: '📈 Consistently Late', command: 'who is consistently late this month' },
+  frequentAbsent: { label: '📉 Frequently Absent', command: 'who is frequently absent this month' },
+  monthReport: { label: '📊 This Month Report', command: 'show this month report' },
+  calcPayroll: { label: '💰 Calculate Payroll', command: 'prompt_calculate_payroll' },
+  downloadPayslips: { label: '📄 Download Payslips', command: 'prompt_download_payslips' },
+  openPayroll: { label: '💳 Open Payroll', command: 'open payroll' },
+  payslipHelp: { label: '📄 Payslip Help', command: 'help_payslip' },
+  holidayHelp: { label: '🌴 Holiday Help', command: 'help_holiday' },
+  openHolidays: { label: '🔗 Open Holidays', command: 'open holidays' },
+  searchEmployee: { label: '🔍 Search Employee', command: 'prompt_search_employee' },
+  attendanceHelp: { label: '⏱ Attendance Help', command: 'help_mark_attendance' },
+  openManualAttendance: { label: '🔗 Manual Attendance', command: 'open manual attendance' },
+  pageHelp: { label: '🔗 Page Help', command: 'help_navigation' },
+  help: { label: '❓ All Commands', command: 'help' },
+  cancel: { label: 'Cancel', command: 'cancel', variant: 'cancel' }
+};
+
+const TOPIC_SUGGESTIONS = {
+  general: [SUGGESTION.todaySummary, SUGGESTION.absentToday, SUGGESTION.lateToday, SUGGESTION.consistentLate],
+  today_summary: [SUGGESTION.absentToday, SUGGESTION.lateToday, SUGGESTION.presentToday],
+  today_absent: [SUGGESTION.lateToday, SUGGESTION.frequentAbsent, SUGGESTION.onLeave],
+  today_late: [SUGGESTION.consistentLate, SUGGESTION.absentToday, SUGGESTION.permissionsToday],
+  today_list: [SUGGESTION.todaySummary, SUGGESTION.absentToday, SUGGESTION.lateToday],
+  insights_late: [SUGGESTION.frequentAbsent, SUGGESTION.lateToday, SUGGESTION.monthReport],
+  insights_absent: [SUGGESTION.consistentLate, SUGGESTION.absentToday, SUGGESTION.monthReport],
+  insights_half_day: [SUGGESTION.consistentLate, SUGGESTION.frequentAbsent, SUGGESTION.monthReport],
+  report: [SUGGESTION.consistentLate, SUGGESTION.frequentAbsent, SUGGESTION.calcPayroll],
+  payroll: [SUGGESTION.downloadPayslips, SUGGESTION.monthReport, SUGGESTION.openPayroll],
+  payslip: [SUGGESTION.calcPayroll, SUGGESTION.openPayroll],
+  holiday: [SUGGESTION.openHolidays, SUGGESTION.holidayHelp],
+  attendance_action: [SUGGESTION.todaySummary, SUGGESTION.absentToday, SUGGESTION.lateToday],
+  employee: [SUGGESTION.searchEmployee, SUGGESTION.todaySummary],
+  navigation: [SUGGESTION.todaySummary, SUGGESTION.help],
+  help: [SUGGESTION.todaySummary, SUGGESTION.consistentLate, SUGGESTION.absentToday],
+  conversation: [SUGGESTION.todaySummary, SUGGESTION.absentToday, SUGGESTION.lateToday, SUGGESTION.help],
+  error: [SUGGESTION.todaySummary, SUGGESTION.help]
+};
+
+const getTopicSuggestions = (topic) => TOPIC_SUGGESTIONS[topic] || TOPIC_SUGGESTIONS.general;
+
+const ABSENT_REASON_OPTIONS = [
+  { label: 'Sick Leave', command: 'Sick Leave' },
+  { label: 'Personal Reason', command: 'Personal Reason' },
+  { label: 'Not Informed', command: 'Not Informed' },
+  SUGGESTION.cancel
+];
+
+const SIGNATURE_OPTIONS = [
+  { label: 'With Signature', command: '1' },
+  { label: 'Without Signature', command: '2' },
+  SUGGESTION.cancel
+];
+
 const INITIAL_QUICK_ACTIONS = [
-  { label: '❓ Help / Commands', command: 'help' },
+  { label: '📊 Today Summary', command: 'today attendance summary' },
+  { label: '🚫 Absent Today', command: 'who is absent today' },
+  { label: '⏰ Late Today', command: 'who is late today' },
+  { label: '📈 Consistently Late', command: 'who is consistently late this month' },
+  { label: '📉 Frequently Absent', command: 'who is frequently absent this month' },
   { label: '📊 Report Summary', command: 'show report' },
+  { label: '❓ Help / Commands', command: 'help' },
   { label: '⏱ Attendance Help', command: 'help_mark_attendance' },
   { label: '📄 Payslip Help', command: 'help_payslip' },
   { label: '💰 Payroll Help', command: 'help_payroll' },
   { label: '🌴 Holiday Help', command: 'help_holiday' },
   { label: '🔗 Page Help', command: 'help_navigation' },
-  { label: '📊 Today Summary', command: 'today attendance summary' },
   { label: '💳 Open Payroll', command: 'open payroll' }
 ];
 
@@ -91,6 +157,232 @@ const formatLateTime = (minutes) => {
   return `${hours}h ${String(mins).padStart(2, "0")}m`;
 };
 
+const getTimeStr = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+const WELCOME_TEXT = 'Hi, I am your MTM Admin Assistant.\nAsk me about today\'s attendance, late or absent details, who is consistently late, reports, payroll, payslips, or holidays. Choose an option below or type your question.';
+
+const createWelcomeMessage = () => ({
+  id: `welcome-${Date.now()}`,
+  sender: 'bot',
+  text: WELCOME_TEXT,
+  showQuickActions: true,
+  time: getTimeStr()
+});
+
+// Chat history lives in sessionStorage (same lifetime as the admin login session, cleared on logout)
+const CHAT_STORAGE_PREFIX = 'mtm_admin_assistant_chat_';
+const MAX_STORED_MESSAGES = 60;
+
+const loadChatHistory = (key) => {
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    const valid = parsed.filter((m) => m && m.type !== 'loading' && (m.sender === 'bot' || m.sender === 'user'));
+    return valid.length > 0 ? valid : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const saveChatHistory = (key, msgs) => {
+  try {
+    const toStore = msgs.filter((m) => m.type !== 'loading').slice(-MAX_STORED_MESSAGES);
+    sessionStorage.setItem(key, JSON.stringify(toStore));
+  } catch (e) {
+    // Storage full or blocked: chat keeps working in memory
+  }
+};
+
+const removeChatHistory = (key) => {
+  try {
+    sessionStorage.removeItem(key);
+  } catch (e) {}
+};
+
+const CLEAR_CHAT_RE = /^(?:clear|delete|reset|remove)\s*(?:the\s+)?(?:chat|conversation|history|messages|all\s+messages|chat\s+history)?$/;
+
+// Commands that perform an action; these never go through the question/details detector
+const ACTION_VERB_RE = /^(?:mark|put|make|check|checkin|checkout|create|add|delete|remove|calculate|download|send|email|export|open|go\s+to|navigate|take\s+me|generate|payslip)\b/;
+
+// Basic Hinglish -> English normalisation used only for understanding questions
+const HINGLISH_RULES = [
+  [/\b(?:is|iss|ye|yeh)\s+(?:mahine|mahina|month)\b/g, ' this month '],
+  [/\b(?:pichle|pichhle|pichla|pichhla)\s+(?:mahine|mahina|month)\b/g, ' last month '],
+  [/\b(?:mahine|mahina)\b/g, ' month '],
+  [/\b(?:aaj|aj)\b/g, ' today '],
+  [/\babhi\b/g, ' now '],
+  [/\b(?:baar\s*-?\s*baar|bar\s*-?\s*bar|hamesha|humesha|rozana|roz|har\s+din|aksar)\b/g, ' frequently '],
+  [/\b(?:sabse|sab\s+se)\s+(?:zyada|jyada|jada)\b/g, ' most '],
+  [/\b(?:der\s+se|derse|lait|leyt)\b/g, ' late '],
+  [/\b(?:nahi|nahin|nai|nhi)\s+(?:aaya|aaye|aayi|aya|aye|ayi|aata|aate|aati|aa\s+raha|aa\s+rahe|aa\s+rahi)\b/g, ' absent '],
+  [/\b(?:gair|ghair)\s*-?\s*(?:hazir|haazir)\b/g, ' absent '],
+  [/\b(?:chutti|chhutti|chuti|chhuti)\b/g, ' leave '],
+  [/\b(?:hazir|haazir|maujood|mojood)\b/g, ' present '],
+  [/\b(?:hazri|haziri|hajri|haajri)\b/g, ' attendance '],
+  [/\b(?:kaun|kon|koun|kaon)\b/g, ' who '],
+  [/\b(?:kitne|kitni|kitna)\b/g, ' how many '],
+  [/\b(?:dikhao|dikhado|dikha|batao|bata|bataiye|bataye|dikhaiye|bolo)\b/g, ' show '],
+  [/\b(?:tankhwah|tankha|pagaar|pagar)\b/g, ' salary '],
+  [/\b(?:log|logo|logon|wale|wala|wali|hai|hain|tha|thi|ka|ki|ke|ko|mein|me|main|par|pe|kya|hua|hue|raha|rahe|rahi|aate|aata|aati|aaye|aaya|aayi|aane|aana|karte|karta|karti|hote|hota|hoti|gaya|gaye|gayi|se)\b/g, ' ']
+];
+
+const normalizeIntentText = (lowerCmd) => {
+  let text = ` ${String(lowerCmd || '').replace(/[?!.,;:]+/g, ' ')} `;
+  HINGLISH_RULES.forEach(([re, replacement]) => {
+    text = text.replace(re, replacement);
+  });
+  return text.replace(/\s+/g, ' ').trim();
+};
+
+const LATE_WORD_RE = /\b(?:late|lateness|latecomers?|late\s*comers?|delayed|tardy)\b/;
+const ABSENT_WORD_RE = /\b(?:absent|absents|absence|absences|absentees?|absenteeism|not\s+came|did\s*n[o']?t\s+come|not\s+come|not\s+coming)\b/;
+const HALF_DAY_WORD_RE = /\bhalf[\s-]?days?\b/;
+const PRESENT_WORD_RE = /\b(?:present|came|arrived|in\s+office)\b/;
+const WORKING_WORD_RE = /\b(?:still\s+working|working\s+now|currently\s+working|who\s+is\s+working|not\s+checked\s*-?\s*out|not\s+check\s*-?\s*out)\b/;
+const CHECKED_OUT_WORD_RE = /\b(?:checked\s*-?\s*out|left\s+office|gone\s+home|went\s+home)\b/;
+const LEAVE_WORD_RE = /\b(?:on\s+leave|leave|leaves|paid\s+leave|vacation)\b/;
+const PERMISSION_WORD_RE = /\bpermissions?\b/;
+const NOT_MARKED_WORD_RE = /\b(?:not\s+marked|not\s+mention(?:ed)?|unmarked|not\s+checked\s*-?\s*in|no\s+attendance|yet\s+to\s+come|not\s+yet\s+come)\b/;
+const PATTERN_WORD_RE = /\b(?:consistent(?:ly)?|frequent(?:ly)?|regular(?:ly)?|always|often|mostly|most|habitual(?:ly)?|repeated(?:ly)?|again\s+and\s+again|many\s+times|every\s*day|daily|top|ranking|rank|highest|maximum|max|monthly|month|weekly|week|history|times|trend|pattern|analysis|days|reports?)\b/;
+const DETAIL_WORD_RE = /\b(?:details?|records?|info|information|list|summary|data)\b/;
+const TODAY_WORD_RE = /\b(?:today|now|currently|so\s+far)\b/;
+const PERIOD_WORD_RE = /\b(?:this|last|previous|current)\s+month\b|\b20\d{2}\b/;
+
+const MONTH_SHORT = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const MONTH_TOKEN_RE = /\b(january|february|march|april|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)\b/;
+// "may" is also an ordinary English word, so only treat it as a month in a clear month context
+const MAY_MONTH_RE = /\b(?:in|for|of|during)\s+may\b|\bmay\s+(?:20\d{2}|report|payroll|payslips?|month|salary|attendance)\b/;
+
+const findMonthInText = (lower) => {
+  const match = String(lower || '').match(MONTH_TOKEN_RE);
+  if (match) return MONTH_SHORT.indexOf(match[1].substring(0, 3)) + 1;
+  if (MAY_MONTH_RE.test(lower)) return 5;
+  return null;
+};
+
+const INTENT_STOP_WORDS = new Set(`
+who whom whose which what when where why how is are was were be been being am has have had do does did done
+the a an of for to in on at by from with about into than then there here this that these those it its
+last previous current next month months monthly week weeks weekly year years today now currently so far yet
+show me give get list tell find check see view display fetch bring provide want need know let
+please pls plz kindly sir madam maam bro bhai ji
+all any every each everyone everybody someone anyone anybody somebody employee employees staff people person persons
+member members team teams emp emps worker workers ones one guys name names
+late lateness latecomer latecomers comer comers coming came come arrived arrive arrival arrivals delayed delay tardy
+absent absents absence absences absentee absentees absenteeism not didnt didn't did reason reasons
+half day days halfday halfdays present working still checked check out in office leave leaves on paid vacation
+permission permissions marked unmarked mention mentioned entry entries left gone went home yet
+consistent consistently frequent frequently regular regularly always often mostly most habitual habitually repeated
+repeatedly again many times time every daily top ranking rank ranked highest high maximum max more less over above least
+details detail record records info information summary data report reports history trend trends pattern patterns
+analysis count total number numbers and or but also too very much my our your his her their i we you he she they them us
+attendance status
+`.trim().split(/\s+/));
+
+// Removes the "question words" and leaves what is probably an employee name or code
+const MONTH_ONLY_TOKEN_RE = new RegExp(`^(?:${MONTH_TOKEN_RE.source.replace(/\\b/g, '')}|may)$`);
+
+// Works token by token so employee codes like "MTM-01" or "EMP-2024" stay intact
+const extractEmployeeQuery = (text) => String(text || '')
+  .split(/\s+/)
+  .map((token) => token.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, ''))
+  .filter((token) => token
+    && !INTENT_STOP_WORDS.has(token)
+    && !MONTH_ONLY_TOKEN_RE.test(token)
+    && !/^20\d{2}$/.test(token)
+    && !/^\d{1,2}\+?$/.test(token))
+  .join(' ')
+  .trim();
+
+const parseThreshold = (text) => {
+  const atLeast = text.match(/\b(\d{1,2})\s*(?:\+|or\s+more|or\s+above|times?\s+or\s+more)/) || text.match(/\b(?:at\s*least|atleast|minimum|min)\s+(\d{1,2})\b/);
+  if (atLeast) return parseInt(atLeast[1], 10);
+  const moreThan = text.match(/\b(?:more\s+than|above|over)\s+(\d{1,2})\b/);
+  if (moreThan) return parseInt(moreThan[1], 10) + 1;
+  return undefined;
+};
+
+/**
+ * Understands late / absent / half-day questions.
+ * Returns { kind: 'insights' | 'today', metrics, employeeQuery, ... } or null.
+ */
+const detectAttendanceQuestion = (text) => {
+  const metrics = [];
+  if (LATE_WORD_RE.test(text)) metrics.push('late');
+  if (ABSENT_WORD_RE.test(text)) metrics.push('absent');
+  if (HALF_DAY_WORD_RE.test(text)) metrics.push('half_day');
+  if (metrics.length === 0) return null;
+
+  const employeeQuery = extractEmployeeQuery(text);
+  const hasToday = TODAY_WORD_RE.test(text);
+  const hasPeriod = !!findMonthInText(text) || PERIOD_WORD_RE.test(text);
+  const hasPattern = PATTERN_WORD_RE.test(text);
+  const hasDetailWord = DETAIL_WORD_RE.test(text);
+
+  const wantsMonthAnalysis = !hasToday && (hasPattern || hasPeriod || (hasDetailWord && !!employeeQuery));
+  if (wantsMonthAnalysis) {
+    return { kind: 'insights', metrics, employeeQuery, threshold: parseThreshold(text) };
+  }
+  return { kind: 'today', metrics, employeeQuery };
+};
+
+// Understands "who is present / still working / on leave / ..." questions for today
+const detectTodayListQuestion = (text) => {
+  const hasPeriod = !!findMonthInText(text) || PERIOD_WORD_RE.test(text);
+  let status = null;
+  if (WORKING_WORD_RE.test(text)) status = 'working';
+  else if (NOT_MARKED_WORD_RE.test(text)) status = 'not_marked';
+  else if (CHECKED_OUT_WORD_RE.test(text)) status = 'checked_out';
+  else if (PERMISSION_WORD_RE.test(text) && (TODAY_WORD_RE.test(text) || /\bwho\b/.test(text))) status = 'permission';
+  else if (LEAVE_WORD_RE.test(text) && !hasPeriod) status = 'leave';
+  else if (PRESENT_WORD_RE.test(text)) status = 'present';
+  if (!status) return null;
+  return { status, hasPeriod, employeeQuery: extractEmployeeQuery(text) };
+};
+
+const FALLBACK_RULES = [
+  { re: /\b(?:late|lateness|delay|punctual|punctuality|timing)\b/, items: [SUGGESTION.lateToday, SUGGESTION.consistentLate] },
+  { re: /\b(?:absent|absence|missing|leave)\b/, items: [SUGGESTION.absentToday, SUGGESTION.frequentAbsent] },
+  { re: /\b(?:consistent|consistently|frequent|frequently|regular|regularly|habit|pattern)\b/, items: [SUGGESTION.consistentLate, SUGGESTION.frequentAbsent] },
+  { re: /\b(?:present|attendance|status|today|came|working)\b/, items: [SUGGESTION.todaySummary, SUGGESTION.presentToday] },
+  { re: /\b(?:payroll|salary|pay|wage|wages|deduction|lop|ctc)\b/, items: [SUGGESTION.calcPayroll, SUGGESTION.openPayroll] },
+  { re: /\b(?:payslips?|slips?)\b/, items: [SUGGESTION.downloadPayslips, SUGGESTION.payslipHelp] },
+  { re: /\b(?:holidays?|vacation|festival|sunday)\b/, items: [SUGGESTION.holidayHelp, SUGGESTION.openHolidays] },
+  { re: /\b(?:reports?|monthly|month|summary|analysis|performance)\b/, items: [SUGGESTION.monthReport, SUGGESTION.consistentLate] },
+  { re: /\b(?:employees?|staff|person|contact|phone|email|mobile|details)\b/, items: [SUGGESTION.searchEmployee] },
+  { re: /\b(?:check|checkin|checkout|mark|punch|entry)\b/, items: [SUGGESTION.attendanceHelp, SUGGESTION.openManualAttendance] },
+  { re: /\b(?:page|open|go|navigate|menu|screen|settings)\b/, items: [SUGGESTION.pageHelp] }
+];
+
+const getFallbackSuggestions = (text) => {
+  const picked = [];
+  FALLBACK_RULES.forEach((rule) => {
+    if (!rule.re.test(text)) return;
+    rule.items.forEach((item) => {
+      if (!picked.some((p) => p.command === item.command)) picked.push(item);
+    });
+  });
+  if (picked.length === 0) {
+    return { matched: false, items: [...TOPIC_SUGGESTIONS.general, SUGGESTION.help] };
+  }
+  return { matched: true, items: picked.slice(0, 4) };
+};
+
+const METRIC_WORD = { late: 'late', absent: 'absent', half_day: 'half day' };
+
+const getEmployeeSuggestions = (code, monthName, year) => {
+  const period = monthName && year ? ` ${monthName} ${year}` : '';
+  return [
+    { label: `📈 Late details ${code}`, command: `late details for ${code}${period}` },
+    { label: `📉 Absent details ${code}`, command: `absent details for ${code}${period}` },
+    { label: `📊 Report ${code}`, command: `show report for ${code}${period}` }
+  ];
+};
+
+const getApiErrorMessage = (err, fallback) => err?.response?.data?.message || fallback;
+
 const DEFAULT_CONVERSATION = {
   greetings: {
     patterns: ["hi", "hello", "hey", "good morning", "good afternoon", "good evening"],
@@ -101,12 +393,12 @@ const DEFAULT_CONVERSATION = {
     response: "I am doing well and ready to help you with attendance, payroll, reports, payslips, and admin tasks."
   },
   thanks: {
-    patterns: ["thanks", "thank you", "thank you bot"],
-    response: "You're welcome!"
+    patterns: ["thanks", "thank you", "thank you bot", "thx", "shukriya", "dhanyavad"],
+    response: "You're welcome! Let me know what you would like to check next."
   },
   acknowledgement: {
-    patterns: ["ok", "okay", "fine", "good", "done"],
-    response: "Okay."
+    patterns: ["ok", "okay", "fine", "good", "done", "theek hai", "thik hai", "accha"],
+    response: "Sure. What would you like to check next?"
   },
   bye: {
     patterns: ["bye", "goodbye", "see you"],
@@ -174,16 +466,13 @@ const parseHolidayDate = (text) => {
   const dmyMatch = text.match(/\b(0?[1-9]|[12]\d|3[01])[/ -](0?[1-9]|1[0-2])[/ -](20\d{2})\b/);
   if (dmyMatch) return `${dmyMatch[3]}-${String(dmyMatch[2]).padStart(2, '0')}-${String(dmyMatch[1]).padStart(2, '0')}`;
 
-  const monthNames = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
-  for (let i = 0; i < monthNames.length; i++) {
-    const mName = monthNames[i];
-    if (lower.includes(mName) || lower.includes(mName.substring(0, 3))) {
-      const dayMatch = text.match(/\b(0?[1-9]|[12]\d|3[01])\b/);
-      const yearMatch = text.match(/\b(20\d{2})\b/);
-      const dVal = dayMatch ? parseInt(dayMatch[1]) : 1;
-      const yVal = yearMatch ? parseInt(yearMatch[1]) : now.getFullYear();
-      return `${yVal}-${String(i + 1).padStart(2, '0')}-${String(dVal).padStart(2, '0')}`;
-    }
+  const monthNum = findMonthInText(lower);
+  if (monthNum) {
+    const dayMatch = text.match(/\b(0?[1-9]|[12]\d|3[01])\b/);
+    const yearMatch = text.match(/\b(20\d{2})\b/);
+    const dVal = dayMatch ? parseInt(dayMatch[1]) : 1;
+    const yVal = yearMatch ? parseInt(yearMatch[1]) : now.getFullYear();
+    return `${yVal}-${String(monthNum).padStart(2, '0')}-${String(dVal).padStart(2, '0')}`;
   }
 
   return null;
@@ -218,13 +507,7 @@ const parseMonthYearFromText = (text) => {
   }
 
   if (!month) {
-    for (let i = 0; i < MONTH_NAMES.length; i++) {
-      const mName = MONTH_NAMES[i];
-      if (lower.includes(mName) || lower.includes(mName.substring(0, 3))) {
-        month = i + 1;
-        break;
-      }
-    }
+    month = findMonthInText(lower);
   }
 
   return { month, year };
@@ -378,7 +661,7 @@ const getClampedPanelPosition = (btnPos) => {
 };
 
 const AdminAssistantBot = () => {
-  const { isAdmin, hasPermission, hasPageAccess } = useAuth();
+  const { isAdmin, hasPermission, hasPageAccess, user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -505,15 +788,34 @@ const AdminAssistantBot = () => {
     } catch (err) {}
   };
 
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: 'bot',
-      text: 'Hi, I am your MTM Admin Assistant.\nI can help you navigate to any admin page, search employees, view today\'s absent/late list, calculate payroll, and download payslips directly.',
-      showQuickActions: true,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }
-  ]);
+  const [messages, setMessages] = useState(() => [createWelcomeMessage()]);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [historyLoadedKey, setHistoryLoadedKey] = useState(null);
+
+  const adminIdentity = user ? (user.id ?? user.email ?? user.username ?? null) : null;
+  const chatStorageKey = adminIdentity !== null && adminIdentity !== undefined ? `${CHAT_STORAGE_PREFIX}${adminIdentity}` : null;
+
+  // Restore this admin's conversation after a page refresh
+  useEffect(() => {
+    if (!chatStorageKey) return;
+    setMessages(loadChatHistory(chatStorageKey) || [createWelcomeMessage()]);
+    setPendingAction(null);
+    setConfirmClear(false);
+    setHistoryLoadedKey(chatStorageKey);
+  }, [chatStorageKey]);
+
+  useEffect(() => {
+    if (!chatStorageKey || historyLoadedKey !== chatStorageKey) return;
+    saveChatHistory(chatStorageKey, messages);
+  }, [messages, chatStorageKey, historyLoadedKey]);
+
+  const handleClearChat = () => {
+    if (chatStorageKey) removeChatHistory(chatStorageKey);
+    setPendingAction(null);
+    setConfirmClear(false);
+    setInputVal('');
+    setMessages([createWelcomeMessage()]);
+  };
 
   const messagesEndRef = useRef(null);
 
@@ -568,14 +870,20 @@ const AdminAssistantBot = () => {
   }, [messages, isOpen, pendingAction]);
 
   const addMessage = (sender, text, extraProps = {}) => {
+    const props = { ...extraProps };
+    // Every bot reply carries related options, unless it is waiting for a specific answer
+    if (sender === 'bot' && !props.showQuickActions && props.suggestions === undefined) {
+      const isPrompt = props.showConfirmationOptions || props.showMonthPicker || props.promptOptions || props.cardType === 'candidate_selection';
+      props.suggestions = isPrompt ? [] : getTopicSuggestions(props.topic);
+    }
     setMessages((prev) => [
       ...prev,
       {
         id: Date.now() + Math.random(),
         sender,
         text,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        ...extraProps
+        time: getTimeStr(),
+        ...props
       }
     ]);
   };
@@ -606,7 +914,8 @@ const AdminAssistantBot = () => {
     if (navResult.intent === 'UNKNOWN_PAGE') {
       addMessage(
         'bot',
-        'I could not find that admin page.\nYou can ask me to open:\nDashboard, Employees, Departments, Attendance, Permissions, Manual Attendance, Absent Reasons, Holidays, Payroll, Expenses, Reports, Settings, Activity Logs, Database Monitor, Trusted Devices, Admin Management.'
+        'That page name did not match an admin page.\nYou can ask me to open:\nDashboard, Employees, Departments, Attendance, Permissions, Manual Attendance, Absent Reasons, Holidays, Payroll, Expenses, Reports, Settings, Activity Logs, Database Monitor, Trusted Devices, Admin Management.',
+        { suggestions: [SUGGESTION.pageHelp, SUGGESTION.help] }
       );
       return;
     }
@@ -614,11 +923,11 @@ const AdminAssistantBot = () => {
     const allowed = hasPermission ? hasPermission(navResult.permission, 'can_view') : (hasPageAccess ? hasPageAccess(navResult.permission) : true);
 
     if (!allowed) {
-      addMessage('bot', `You do not have permission to open ${navResult.label}.`);
+      addMessage('bot', `You do not have permission to open ${navResult.label}. Please contact your super admin for access.`, { topic: 'navigation' });
       return;
     }
 
-    addMessage('bot', `Opening ${navResult.label} page...`);
+    addMessage('bot', `Opening ${navResult.label} page...`, { topic: 'navigation' });
     executeBotCommand('log_navigation', { targetPage: navResult.label, path: navResult.route }).catch((err) => console.error('Navigation log error:', err));
     setTimeout(() => {
       navigate(navResult.route);
@@ -634,16 +943,17 @@ const AdminAssistantBot = () => {
       if (res.data?.success) {
         addMessage('bot', res.data.message, {
           cardType: 'payroll_result',
-          data: res.data.data
+          data: res.data.data,
+          topic: 'payroll'
         });
         return true;
       } else {
-        addMessage('bot', `Payroll calculation failed: ${res.data?.message || 'Server error'}`);
+        addMessage('bot', res.data?.message || 'Payroll could not be calculated right now. Please try again.', { topic: 'payroll' });
         return false;
       }
     } catch (err) {
       removeLoadingMessage(loadingId);
-      addMessage('bot', `Payroll calculation failed: ${err.response?.data?.message || err.message || 'Unknown error'}`);
+      addMessage('bot', getApiErrorMessage(err, 'Payroll could not be calculated right now. Please try again.'), { topic: 'payroll' });
       return false;
     } finally {
       setProcessing(false);
@@ -661,7 +971,8 @@ const AdminAssistantBot = () => {
       triggerBrowserDownload(response.data, filename);
       addMessage('bot', `Payslip download started for ${mName} ${year} (${signature ? 'With Signature' : 'Without Signature'}).`, {
         cardType: 'download_success',
-        filename
+        filename,
+        topic: 'payslip'
       });
       return true;
     } catch (err) {
@@ -679,7 +990,7 @@ const AdminAssistantBot = () => {
           errMsg = err.response.data.message;
         }
       }
-      addMessage('bot', `Payslip download failed: ${errMsg}`);
+      addMessage('bot', `Payslips could not be downloaded: ${errMsg}`, { topic: 'payslip' });
       return false;
     } finally {
       setProcessing(false);
@@ -698,7 +1009,8 @@ const AdminAssistantBot = () => {
       triggerBrowserDownload(response.data, filename);
       addMessage('bot', `Payslip download started for ${label}, ${mName} ${year} (${signature ? 'With Signature' : 'Without Signature'}).`, {
         cardType: 'download_success',
-        filename
+        filename,
+        topic: 'payslip'
       });
       return true;
     } catch (err) {
@@ -716,11 +1028,189 @@ const AdminAssistantBot = () => {
           errMsg = err.response.data.message;
         }
       }
-      addMessage('bot', errMsg);
+      addMessage('bot', errMsg, { topic: 'payslip' });
       return false;
     } finally {
       setProcessing(false);
     }
+  };
+
+  // Runs one backend query with a loading bubble; returns the response body on success
+  const runBotQuery = async (action, payload, loadingText, errorText) => {
+    const loadingId = addLoadingMessage(loadingText);
+    try {
+      const res = await executeBotCommand(action, payload);
+      removeLoadingMessage(loadingId);
+      if (res.data?.success) return res.data;
+      addMessage('bot', res.data?.message || errorText, { topic: 'error' });
+    } catch (err) {
+      removeLoadingMessage(loadingId);
+      addMessage('bot', getApiErrorMessage(err, errorText), { topic: 'error' });
+    }
+    return null;
+  };
+
+  const runAttendanceInsights = async ({ metric, month, year, employeeQuery, threshold }) => {
+    const loadingText = employeeQuery
+      ? 'Checking employee attendance details...'
+      : `Analysing ${metric === 'late' ? 'late arrivals' : metric === 'absent' ? 'absences' : 'half days'}...`;
+    const body = await runBotQuery(
+      'attendance_insights',
+      { metric, month, year, employeeQuery: employeeQuery || null, threshold },
+      loadingText,
+      'The late/absent analysis could not be generated right now. Please try again.'
+    );
+    if (!body) return;
+
+    if (body.type === 'multiple_employees_found') {
+      setPendingAction({ type: 'attendance_insights', step: 'select_candidate', candidates: body.data, metric, month: body.month, year: body.year });
+      addMessage('bot', body.message, { cardType: 'candidate_selection', candidates: body.data });
+    } else if (body.type === 'attendance_insights_employee') {
+      const d = body.data;
+      const code = d.employee.employeeCode;
+      const prevDate = new Date(d.year, d.month - 2, 1);
+      const prevMonthName = getMonthNameStr(prevDate.getMonth() + 1);
+      const otherMetric = metric === 'late' ? 'absent' : 'late';
+      addMessage('bot', body.message, {
+        cardType: 'insights_employee',
+        data: d,
+        scrollToStart: true,
+        suggestions: [
+          { label: `${otherMetric === 'late' ? '📈 Late' : '📉 Absent'} details ${code}`, command: `${otherMetric} details for ${code} ${d.monthName} ${d.year}` },
+          { label: `⏮ ${prevMonthName} ${prevDate.getFullYear()}`, command: `${METRIC_WORD[metric]} details for ${code} ${prevMonthName} ${prevDate.getFullYear()}` },
+          { label: `📊 Report ${code}`, command: `show report for ${code} ${d.monthName} ${d.year}` }
+        ]
+      });
+    } else {
+      addMessage('bot', body.message, { cardType: 'insights_ranking', data: body.data, topic: `insights_${metric}`, scrollToStart: true });
+    }
+  };
+
+  const runTodayList = async (status) => {
+    if (status === 'late') {
+      const body = await runBotQuery('today_late', {}, "Checking today's late arrivals...", "Today's late list could not be loaded right now. Please try again.");
+      if (body) addMessage('bot', body.message, { cardType: 'today_late', data: body.data, topic: 'today_late' });
+      return;
+    }
+    if (status === 'absent' || status === 'not_marked') {
+      const body = await runBotQuery('today_absent', {}, "Checking today's absent employees...", "Today's absent list could not be loaded right now. Please try again.");
+      if (body) addMessage('bot', body.message, { cardType: 'today_absent', data: body.data, topic: 'today_absent' });
+      return;
+    }
+    const listStatus = status === 'half_day' ? 'half_day' : status;
+    const body = await runBotQuery('today_status_list', { status: listStatus }, "Checking today's attendance...", 'This list could not be loaded right now. Please try again.');
+    if (body) addMessage('bot', body.message, { cardType: 'today_list', data: body.data, topic: 'today_list' });
+  };
+
+  // "Is Bilal late today?" -> show Bilal's attendance for today; falls back to the full list
+  const runEmployeeTodayStatus = async (query, fallbackStatuses) => {
+    const body = await runBotQuery('search_employee', { query }, 'Searching employee details...', 'Employee search could not be completed right now. Please try again.');
+    if (!body) return;
+    const employees = body.data || [];
+    if (employees.length > 0) {
+      const single = employees.length === 1 ? employees[0] : null;
+      addMessage('bot', `Today's attendance for "${query}":`, {
+        cardType: 'employee_search',
+        employees,
+        suggestions: single ? getEmployeeSuggestions(single.employeeCode) : getTopicSuggestions('employee')
+      });
+      return;
+    }
+    addMessage('bot', `No employee matched "${query}", so here is the full list for today.`, { suggestions: [] });
+    for (const status of fallbackStatuses) {
+      await runTodayList(status);
+    }
+  };
+
+  /**
+   * Answers attendance questions such as "who is consistently late", "absent", "aaj kaun late hai",
+   * "late details for MTM-01", "who is still working". Returns true when the question was handled.
+   */
+  const handleAttendanceQuestion = async (text) => {
+    const question = detectAttendanceQuestion(text);
+    if (question) {
+      if (question.kind === 'insights') {
+        const { month, year } = parseMonthYearFromText(text);
+        for (const metric of question.metrics) {
+          await runAttendanceInsights({ metric, month: month || undefined, year: month ? year : undefined, employeeQuery: question.employeeQuery, threshold: question.threshold });
+        }
+        return true;
+      }
+      if (question.employeeQuery) {
+        await runEmployeeTodayStatus(question.employeeQuery, question.metrics);
+        return true;
+      }
+      for (const metric of question.metrics) {
+        await runTodayList(metric);
+      }
+      return true;
+    }
+
+    const listQuestion = detectTodayListQuestion(text);
+    if (listQuestion) {
+      if (listQuestion.status === 'present' && listQuestion.hasPeriod) {
+        // "present days for Bilal in October" is a monthly report question
+        const { month, year } = parseMonthYearFromText(text);
+        const period = month ? ` ${getMonthNameStr(month)} ${year}` : ' this month';
+        await processUserCommand(listQuestion.employeeQuery ? `show report for ${listQuestion.employeeQuery}${period}` : `show${period} report`);
+        return true;
+      }
+      if (listQuestion.employeeQuery && ['present', 'working', 'checked_out', 'not_marked'].includes(listQuestion.status)) {
+        await runEmployeeTodayStatus(listQuestion.employeeQuery, [listQuestion.status]);
+        return true;
+      }
+      await runTodayList(listQuestion.status);
+      return true;
+    }
+    return false;
+  };
+
+  const askForEmployee = (type) => {
+    const verb = { mark_today_checkin: 'check in', mark_today_checkout: 'check out', mark_today_absent: 'mark absent' }[type] || 'select';
+    setPendingAction({ type, step: 'ask_employee' });
+    addMessage('bot', `Which employee should I ${verb}? Type the employee name or ID.`, { promptOptions: [SUGGESTION.cancel] });
+  };
+
+  // Moves a check-in / check-out / absent action forward once the employee is known
+  const proceedWithEmployee = (type, emp) => {
+    const empCodeStr = emp.employeeCode || emp.employee_id || emp.code;
+    if (type === 'mark_today_checkin' || type === 'mark_today_attendance') {
+      const confirmMsg = `Mark today check-in for ${empCodeStr} - ${emp.name} using current time? Please confirm.`;
+      setPendingAction({ type: 'mark_today_checkin', step: 'confirm', employee: emp, employeeId: empCodeStr, employeeName: emp.name, date: 'today', awaitingConfirmation: true, confirmationText: confirmMsg, prompt: confirmMsg });
+      addMessage('bot', confirmMsg, { showConfirmationOptions: true });
+      return;
+    }
+    if (type === 'mark_today_checkout') {
+      const confirmMsg = `Mark check-out for ${empCodeStr} - ${emp.name} using current time? Please confirm.`;
+      setPendingAction({ type: 'mark_today_checkout', step: 'confirm', employee: emp, employeeId: empCodeStr, employeeName: emp.name, date: 'today', awaitingConfirmation: true, confirmationText: confirmMsg, prompt: confirmMsg });
+      addMessage('bot', confirmMsg, { showConfirmationOptions: true });
+      return;
+    }
+    if (type === 'mark_today_absent') {
+      setPendingAction({ type: 'mark_today_absent', step: 'ask_reason', employee: emp, employeeId: empCodeStr, employeeName: emp.name });
+      addMessage('bot', `What is the absent reason for ${empCodeStr} - ${emp.name}? Choose one below or type your own reason.`, { promptOptions: ABSENT_REASON_OPTIONS });
+    }
+  };
+
+  const startEmployeeAction = async (type, query) => {
+    const body = await runBotQuery('search_employee', { query }, 'Searching employee details...', 'Employee search could not be completed right now. Please try again.');
+    if (!body) return;
+    const employees = body.data || [];
+    if (employees.length === 0) {
+      addMessage('bot', `No employee found for "${query}". Please check the name or employee ID and try again.`, {
+        suggestions: [SUGGESTION.searchEmployee, SUGGESTION.attendanceHelp]
+      });
+      return;
+    }
+    if (employees.length > 1) {
+      setPendingAction({ type, step: 'select_candidate', candidates: employees });
+      addMessage('bot', `I found ${employees.length} employees matching "${query}". Please select one:`, {
+        cardType: 'candidate_selection',
+        candidates: employees
+      });
+      return;
+    }
+    proceedWithEmployee(type, employees[0]);
   };
 
   const handleSelectCandidate = (emp) => {
@@ -738,25 +1228,16 @@ const AdminAssistantBot = () => {
       return;
     }
 
-    if (actionType === 'mark_today_checkin' || actionType === 'mark_today_attendance') {
-      setPendingAction({ type: 'mark_today_checkin', step: 'confirm', employee: emp });
-      addMessage('bot', `Mark today check-in for ${codeStr} - ${emp.name} using current time? Please confirm.`, {
-        showConfirmationOptions: true
-      });
+    if (actionType === 'mark_today_checkin' || actionType === 'mark_today_attendance' || actionType === 'mark_today_checkout' || actionType === 'mark_today_absent') {
+      proceedWithEmployee(actionType, emp);
       return;
     }
 
-    if (actionType === 'mark_today_checkout') {
-      setPendingAction({ type: 'mark_today_checkout', step: 'confirm', employee: emp });
-      addMessage('bot', `Mark check-out for ${codeStr} - ${emp.name} using current time? Please confirm.`, {
-        showConfirmationOptions: true
-      });
-      return;
-    }
-
-    if (actionType === 'mark_today_absent') {
-      setPendingAction({ type: 'mark_today_absent', step: 'ask_reason', employee: emp });
-      addMessage('bot', `Please provide absent reason for ${codeStr} - ${emp.name}.`);
+    if (actionType === 'attendance_insights') {
+      const { metric } = pendingAction;
+      setPendingAction(null);
+      setProcessing(true);
+      runAttendanceInsights({ metric, month: currentMonth, year: currentYear, employeeQuery: codeStr }).finally(() => setProcessing(false));
       return;
     }
 
@@ -787,7 +1268,7 @@ const AdminAssistantBot = () => {
 
     if (lowerCmd === 'prompt_search_employee') {
       setPendingAction({ type: 'search_employee', step: 'ask_query' });
-      addMessage('bot', 'Which employee name or ID should I search?');
+      addMessage('bot', 'Which employee should I search? Type a name, employee ID, email, or mobile number.', { promptOptions: [SUGGESTION.cancel] });
       return;
     }
 
@@ -807,10 +1288,27 @@ const AdminAssistantBot = () => {
       return;
     }
 
+    if (!pendingAction && (lowerCmd === 'cancel' || lowerCmd === 'stop')) {
+      addMessage('bot', 'There is nothing pending right now. What would you like to check next?');
+      return;
+    }
+
     if (pendingAction) {
       if (lowerCmd === 'cancel' || lowerCmd === 'no' || lowerCmd === 'stop') {
         setPendingAction(null);
-        addMessage('bot', 'Action cancelled.');
+        addMessage('bot', 'Cancelled. No changes were made.');
+        return;
+      }
+
+      if (pendingAction.step === 'ask_employee') {
+        const type = pendingAction.type;
+        setPendingAction(null);
+        setProcessing(true);
+        try {
+          await startEmployeeAction(type, cmd);
+        } finally {
+          setProcessing(false);
+        }
         return;
       }
 
@@ -818,21 +1316,16 @@ const AdminAssistantBot = () => {
         const queryVal = cmd;
         setPendingAction(null);
         setProcessing(true);
-        const loadingId = addLoadingMessage('Searching employee details...');
         try {
-          const res = await executeBotCommand('search_employee', { query: queryVal });
-          removeLoadingMessage(loadingId);
-          if (res.data?.success) {
-            addMessage('bot', res.data.message, {
+          const body = await runBotQuery('search_employee', { query: queryVal }, 'Searching employee details...', 'Employee search could not be completed right now. Please try again.');
+          if (body) {
+            const found = body.data || [];
+            addMessage('bot', body.message, {
               cardType: 'employee_search',
-              employees: res.data.data
+              employees: found,
+              suggestions: found.length === 1 ? getEmployeeSuggestions(found[0].employeeCode) : getTopicSuggestions('employee')
             });
-          } else {
-            addMessage('bot', res.data?.message || 'I could not search employees right now. Please try again.');
           }
-        } catch (err) {
-          removeLoadingMessage(loadingId);
-          addMessage('bot', 'I could not search employees right now. Please check employee data or try again.');
         } finally {
           setProcessing(false);
         }
@@ -847,19 +1340,19 @@ const AdminAssistantBot = () => {
           
           if (type === 'calculate_payroll') {
             setPendingAction({ type: 'calculate_payroll', step: 'confirm', month, year });
-            addMessage('bot', `Calculate payroll for ${mName} ${year}? Please confirm.`);
+            addMessage('bot', `Calculate payroll for ${mName} ${year}? Please confirm.`, { showConfirmationOptions: true });
           } else if (type === 'download_payslips') {
             setPendingAction({ type: 'download_payslips', step: 'ask_signature', month, year });
-            addMessage('bot', `Do you want the payslips for ${mName} ${year} with signature or without signature?\n\n1. With Signature\n2. Without Signature`);
+            addMessage('bot', `Do you want the payslips for ${mName} ${year} with signature or without signature?\n\n1. With Signature\n2. Without Signature`, { promptOptions: SIGNATURE_OPTIONS });
           } else if (type === 'calculate_and_download') {
             setPendingAction({ type: 'calculate_and_download', step: 'ask_signature', month, year });
-            addMessage('bot', `Do you want the payslips for ${mName} ${year} with signature or without signature?\n\n1. With Signature\n2. Without Signature`);
+            addMessage('bot', `Do you want the payslips for ${mName} ${year} with signature or without signature?\n\n1. With Signature\n2. Without Signature`, { promptOptions: SIGNATURE_OPTIONS });
           } else if (type === 'download_single_payslip') {
             const emp = pendingAction.employee;
             const empCodeStr = emp.employeeCode || emp.employee_id || emp.code;
             const targetYear = year || new Date().getFullYear();
             setPendingAction({ type: 'download_single_payslip', step: 'ask_signature', employee: emp, month, year: targetYear });
-            addMessage('bot', `Do you want the payslip for ${empCodeStr} - ${emp.name} (${mName} ${targetYear}) with signature or without signature?\n\n1. With Signature\n2. Without Signature`);
+            addMessage('bot', `Do you want the payslip for ${empCodeStr} - ${emp.name} (${mName} ${targetYear}) with signature or without signature?\n\n1. With Signature\n2. Without Signature`, { promptOptions: SIGNATURE_OPTIONS });
           }
           return;
         }
@@ -899,7 +1392,7 @@ const AdminAssistantBot = () => {
         const emp = pendingAction.employee;
         const empCodeStr = emp.employeeCode || emp.employee_id || emp.code;
         const reasonStr = cmd;
-        setPendingAction({ type: 'mark_today_absent', step: 'confirm', employee: emp, reason: reasonStr });
+        setPendingAction({ type: 'mark_today_absent', step: 'confirm', employee: emp, employeeId: empCodeStr, employeeName: emp.name, reason: reasonStr });
         addMessage('bot', `Mark ${empCodeStr} - ${emp.name} as Absent today with reason "${reasonStr}"? Please confirm.`, {
           showConfirmationOptions: true
         });
@@ -913,7 +1406,7 @@ const AdminAssistantBot = () => {
             const titleStr = pendingAction.title;
             if (!titleStr) {
               setPendingAction({ type: 'create_holiday', step: 'ask_title', date: dateStr });
-              addMessage('bot', 'What is the holiday name?');
+              addMessage('bot', 'What is the holiday name?', { promptOptions: [SUGGESTION.cancel] });
             } else {
               setPendingAction({ type: 'create_holiday', step: 'confirm', title: titleStr, date: dateStr });
               addMessage('bot', `Create holiday "${titleStr}" on ${dateStr}? Please confirm.`, {
@@ -922,7 +1415,9 @@ const AdminAssistantBot = () => {
             }
             return;
           } else {
-            addMessage('bot', 'Please enter a valid date (e.g. 15 August 2026 or 2026-08-15 or tomorrow).');
+            addMessage('bot', 'Please enter a valid date, for example 15 August 2026, 2026-08-15, or tomorrow.', {
+              promptOptions: [{ label: 'Tomorrow', command: 'tomorrow' }, SUGGESTION.cancel]
+            });
             return;
           }
         }
@@ -1031,6 +1526,23 @@ const AdminAssistantBot = () => {
         return;
       }
 
+      // 0c. Clear / delete chat
+      if (CLEAR_CHAT_RE.test(lowerCmd)) {
+        setConfirmClear(true);
+        addMessage('bot', 'Tap "Clear" in the bar at the top of this chat to delete the full conversation.', { suggestions: [] });
+        setProcessing(false);
+        return;
+      }
+
+      // 0d. Attendance questions: late / absent / present / leave / patterns (English + basic Hinglish)
+      if (!ACTION_VERB_RE.test(lowerCmd)) {
+        const handled = await handleAttendanceQuestion(normalizeIntentText(lowerCmd));
+        if (handled) {
+          setProcessing(false);
+          return;
+        }
+      }
+
       // 1. Check-Out All Employees
       const isCheckOutAll = lowerCmd.includes('checkout all') || lowerCmd.includes('check out all') || lowerCmd.includes('check-out all') || lowerCmd.includes('checkout everyone') || lowerCmd.includes('check out everyone') || lowerCmd.includes('check-out everyone') || lowerCmd.includes('close attendance for all') || lowerCmd.includes('today checkout for all') || lowerCmd.includes('all employees checkout');
       if (isCheckOutAll) {
@@ -1056,176 +1568,63 @@ const AdminAssistantBot = () => {
       // 2. Single Check-Out Commands
       const isSingleCheckOut = (lowerCmd.includes('check out') || lowerCmd.includes('checkout') || lowerCmd.includes('check-out') || lowerCmd.includes('mark checkout') || lowerCmd.includes('mark check-out')) && !lowerCmd.includes('all') && !lowerCmd.includes('everyone');
       if (isSingleCheckOut) {
-        let query = lowerCmd
-          .replace(/^(?:mark\s+today\s+checkout\s+for|mark\s+today\s+check-out\s+for|mark\s+checkout\s+for|mark\s+check-out\s+for|check[-\s]?out\s+for|check[-\s]?out|checkout\s+for|checkout)\s+/i, '')
-          .replace(/today/gi, '')
-          .replace(/^for\s+/i, '')
+        const query = lowerCmd
+          .replace(/\b(?:mark|today|check[-\s]?out|checkout|for)\b/gi, ' ')
+          .replace(/\s+/g, ' ')
           .trim();
-
         if (query) {
-          const loadingId = addLoadingMessage('Searching employee details...');
-          try {
-            const res = await executeBotCommand('search_employee', { query });
-            removeLoadingMessage(loadingId);
-            if (res.data?.success) {
-              const employees = res.data.data || [];
-              if (employees.length === 0) {
-                addMessage('bot', `No employee found for "${query}".`);
-                setProcessing(false);
-                return;
-              } else if (employees.length === 1) {
-                const emp = employees[0];
-                const empCodeStr = emp.employeeCode || emp.employee_id || emp.code;
-                const confirmMsg = `Mark check-out for ${empCodeStr} - ${emp.name} using current time? Please confirm.`;
-                setPendingAction({
-                  type: 'mark_today_checkout',
-                  step: 'confirm',
-                  employee: emp,
-                  employeeId: empCodeStr,
-                  employeeName: emp.name,
-                  date: 'today',
-                  awaitingConfirmation: true,
-                  confirmationText: confirmMsg,
-                  prompt: confirmMsg
-                });
-                addMessage('bot', confirmMsg, {
-                  showConfirmationOptions: true
-                });
-                setProcessing(false);
-                return;
-              } else {
-                setPendingAction({ type: 'mark_today_checkout', step: 'select_candidate', candidates: employees });
-                addMessage('bot', `I found multiple employees matching "${query}". Please select one:`, {
-                  cardType: 'candidate_selection',
-                  candidates: employees
-                });
-                setProcessing(false);
-                return;
-              }
-            }
-          } catch (err) {
-            removeLoadingMessage(loadingId);
-            addMessage('bot', 'Searching employee details failed.');
-            setProcessing(false);
-            return;
-          }
+          await startEmployeeAction('mark_today_checkout', query);
+        } else {
+          askForEmployee('mark_today_checkout');
         }
+        setProcessing(false);
+        return;
       }
 
       // 3. Single Check-In / Mark Attendance Commands
       const isMarkAttendance = (lowerCmd.includes('mark attendance') || lowerCmd.includes('check in') || lowerCmd.includes('check-in') || lowerCmd.includes('checkin') || lowerCmd.includes('put attendance')) && !lowerCmd.includes('absent') && !lowerCmd.includes('checkout') && !lowerCmd.includes('check out') && !lowerCmd.includes('check-out');
       if (isMarkAttendance) {
-        let query = lowerCmd
-          .replace(/^(?:mark\s+today\s+attendance\s+for|mark\s+attendance\s+for|mark\s+attendance|put\s+attendance\s+for|put\s+attendance|check[-\s]?in\s+for|check[-\s]?in|checkin\s+for|checkin)\s+/i, '')
-          .replace(/today/gi, '')
-          .replace(/^for\s+/i, '')
+        const query = lowerCmd
+          .replace(/\b(?:mark|put|attendance|today|check[-\s]?in|checkin|for)\b/gi, ' ')
+          .replace(/\s+/g, ' ')
           .trim();
-
         if (query) {
-          const loadingId = addLoadingMessage('Searching employee details...');
-          try {
-            const res = await executeBotCommand('search_employee', { query });
-            removeLoadingMessage(loadingId);
-            if (res.data?.success) {
-              const employees = res.data.data || [];
-              if (employees.length === 0) {
-                addMessage('bot', `No employee found for "${query}".`);
-                setProcessing(false);
-                return;
-              } else if (employees.length === 1) {
-                const emp = employees[0];
-                const empCodeStr = emp.employeeCode || emp.employee_id || emp.code;
-                const confirmMsg = `Mark today check-in for ${empCodeStr} - ${emp.name} using current time? Please confirm.`;
-                setPendingAction({
-                  type: 'mark_today_checkin',
-                  step: 'confirm',
-                  employee: emp,
-                  employeeId: empCodeStr,
-                  employeeName: emp.name,
-                  date: 'today',
-                  awaitingConfirmation: true,
-                  confirmationText: confirmMsg,
-                  prompt: confirmMsg
-                });
-                addMessage('bot', confirmMsg, {
-                  showConfirmationOptions: true
-                });
-                setProcessing(false);
-                return;
-              } else {
-                setPendingAction({ type: 'mark_today_checkin', step: 'select_candidate', candidates: employees });
-                addMessage('bot', `I found multiple employees matching "${query}". Please select one:`, {
-                  cardType: 'candidate_selection',
-                  candidates: employees
-                });
-                setProcessing(false);
-                return;
-              }
-            }
-          } catch (err) {
-            removeLoadingMessage(loadingId);
-            addMessage('bot', 'Searching employee details failed.');
-            setProcessing(false);
-            return;
-          }
+          await startEmployeeAction('mark_today_checkin', query);
+        } else {
+          askForEmployee('mark_today_checkin');
         }
+        setProcessing(false);
+        return;
       }
 
-      // 4. Mark Absent Commands
-      const isMarkAbsent = (lowerCmd.includes('mark absent') || lowerCmd.includes('today absent') || lowerCmd.includes('put absent')) && !lowerCmd.includes('who is absent') && !lowerCmd.includes('summary');
+      // 4. Mark Absent Commands ("mark absent for MTM-01", "mark Mohamed Mushraf absent today")
+      const isMarkAbsent = /^(?:mark|put|make)\b.*\babsent\b/.test(lowerCmd);
       if (isMarkAbsent) {
-        let query = lowerCmd
-          .replace(/^(?:mark\s+absent\s+for|mark\s+absent|put\s+absent\s+for|put\s+absent|today\s+absent|absent)\s+/i, '')
-          .replace(/today/gi, '')
-          .replace(/^for\s+/i, '')
+        const query = lowerCmd
+          .replace(/^(?:mark|put|make)\s+/, '')
+          .replace(/\b(?:absent|today|for|as)\b/g, ' ')
+          .replace(/\s+/g, ' ')
           .trim();
-
         if (query) {
-          const loadingId = addLoadingMessage('Searching employee details...');
-          try {
-            const res = await executeBotCommand('search_employee', { query });
-            removeLoadingMessage(loadingId);
-            if (res.data?.success) {
-              const employees = res.data.data || [];
-              if (employees.length === 0) {
-                addMessage('bot', `No employee found for "${query}".`);
-                setProcessing(false);
-                return;
-              } else if (employees.length === 1) {
-                const emp = employees[0];
-                const empCodeStr = emp.employeeCode || emp.employee_id || emp.code;
-                setPendingAction({ type: 'mark_today_absent', step: 'ask_reason', employee: emp, employeeId: empCodeStr, employeeName: emp.name });
-                addMessage('bot', `Please provide absent reason for ${empCodeStr} - ${emp.name}.`);
-                setProcessing(false);
-                return;
-              } else {
-                setPendingAction({ type: 'mark_today_absent', step: 'select_candidate', candidates: employees });
-                addMessage('bot', `I found multiple employees matching "${query}". Please select one:`, {
-                  cardType: 'candidate_selection',
-                  candidates: employees
-                });
-                setProcessing(false);
-                return;
-              }
-            }
-          } catch (err) {
-            removeLoadingMessage(loadingId);
-            addMessage('bot', 'Searching employee details failed.');
-            setProcessing(false);
-            return;
-          }
+          await startEmployeeAction('mark_today_absent', query);
+        } else {
+          askForEmployee('mark_today_absent');
         }
+        setProcessing(false);
+        return;
       }
 
       // 5. Delete Holiday Commands
       const isDeleteHoliday = (lowerCmd.includes('delete holiday') || lowerCmd.includes('remove holiday') || lowerCmd.includes('delete tomorrow holiday') || lowerCmd.includes('remove tomorrow holiday') || (lowerCmd.startsWith('delete ') && lowerCmd.includes('holiday')) || (lowerCmd.startsWith('remove ') && lowerCmd.includes('holiday')));
       if (isDeleteHoliday) {
         const holidayDateStr = parseHolidayDate(cmd);
-        let titleStr = lowerCmd
-          .replace(/delete\s+holiday\s+for|remove\s+holiday\s+for|delete\s+holiday|remove\s+holiday|delete|remove|holiday|on|for|tomorrow|today/gi, '')
-          .replace(/january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec/gi, '')
-          .replace(/\b20\d{2}\b/g, '')
-          .replace(/\b(0?[1-9]|[12]\d|3[01])\b/g, '')
+        let titleStr = cmd
+          .replace(/\b(?:delete\s+holiday\s+for|remove\s+holiday\s+for|delete\s+holiday|remove\s+holiday|delete|remove|holiday|on|for|tomorrow|today)\b/gi, ' ')
+          .replace(/\b(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)\b/gi, ' ')
+          .replace(/\b20\d{2}\b/g, ' ')
+          .replace(/\b\d{4}-\d{1,2}-\d{1,2}\b|\b\d{1,2}[/-]\d{1,2}[/-]\d{4}\b/g, ' ')
+          .replace(/\b(0?[1-9]|[12]\d|3[01])\b/g, ' ')
+          .replace(/\s+/g, ' ')
           .trim();
 
         const loadingId = addLoadingMessage('Searching holiday details...');
@@ -1236,7 +1635,7 @@ const AdminAssistantBot = () => {
             const holidays = searchRes.data.data || [];
             if (holidays.length === 0) {
               const notFoundMsg = holidayDateStr ? `No holiday found for ${holidayDateStr}.` : (titleStr ? `No holiday found matching "${titleStr}".` : 'No holiday found.');
-              addMessage('bot', notFoundMsg);
+              addMessage('bot', notFoundMsg, { topic: 'holiday' });
               setProcessing(false);
               return;
             } else if (holidays.length === 1) {
@@ -1252,19 +1651,19 @@ const AdminAssistantBot = () => {
               setPendingAction({ type: 'delete_holiday', step: 'select_candidate', candidates: holidays });
               addMessage('bot', 'I found multiple holidays. Please select one to delete:', {
                 cardType: 'candidate_selection',
-                candidates: holidays.map(h => ({ id: h.id, name: `${h.holiday_title} (${h.holiday_date})`, employeeCode: h.holiday_type }))
+                candidates: holidays.map(h => ({ ...h, id: h.id, name: `${h.holiday_title} (${h.holiday_date})`, employeeCode: h.holiday_type }))
               });
               setProcessing(false);
               return;
             }
           } else {
-            addMessage('bot', searchRes.data?.message || 'Error searching holiday to delete.');
+            addMessage('bot', searchRes.data?.message || 'Holidays could not be searched right now. Please try again.', { topic: 'holiday' });
             setProcessing(false);
             return;
           }
         } catch (err) {
           removeLoadingMessage(loadingId);
-          addMessage('bot', 'Error searching holiday to delete.');
+          addMessage('bot', getApiErrorMessage(err, 'Holidays could not be searched right now. Please try again.'), { topic: 'holiday' });
           setProcessing(false);
           return;
         }
@@ -1274,29 +1673,33 @@ const AdminAssistantBot = () => {
       const isCreateHoliday = (lowerCmd.includes('create holiday') || lowerCmd.includes('add holiday') || lowerCmd.includes('mark tomorrow as holiday') || lowerCmd.includes('mark holiday'));
       if (isCreateHoliday) {
         const holidayDateStr = parseHolidayDate(cmd);
-        let titleStr = lowerCmd
-          .replace(/create\s+holiday|add\s+holiday|mark\s+tomorrow\s+as\s+holiday|mark\s+holiday|on|for|tomorrow|today/gi, '')
-          .replace(/january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec/gi, '')
-          .replace(/\b20\d{2}\b/g, '')
-          .replace(/\b(0?[1-9]|[12]\d|3[01])\b/g, '')
+        let titleStr = cmd
+          .replace(/\b(?:create\s+holiday|add\s+holiday|mark\s+tomorrow\s+as\s+holiday|mark\s+holiday|on|for|tomorrow|today)\b/gi, ' ')
+          .replace(/\b(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)\b/gi, ' ')
+          .replace(/\b20\d{2}\b/g, ' ')
+          .replace(/\b\d{4}-\d{1,2}-\d{1,2}\b|\b\d{1,2}[/-]\d{1,2}[/-]\d{4}\b/g, ' ')
+          .replace(/\b(0?[1-9]|[12]\d|3[01])\b/g, ' ')
+          .replace(/\s+/g, ' ')
           .trim();
 
         if (!holidayDateStr) {
           setPendingAction({ type: 'create_holiday', step: 'ask_date', title: titleStr || null });
-          addMessage('bot', 'Which date do you want to create the holiday for?');
+          addMessage('bot', 'Which date do you want to create the holiday for? Type a date like 15 August 2026, or choose below.', {
+            promptOptions: [{ label: 'Tomorrow', command: 'tomorrow' }, SUGGESTION.cancel]
+          });
           setProcessing(false);
           return;
         }
 
         if (!titleStr) {
           setPendingAction({ type: 'create_holiday', step: 'ask_title', date: holidayDateStr });
-          addMessage('bot', 'What is the holiday name?');
+          addMessage('bot', 'What is the holiday name?', { promptOptions: [SUGGESTION.cancel] });
           setProcessing(false);
           return;
         }
 
         setPendingAction({ type: 'create_holiday', step: 'confirm', title: titleStr, date: holidayDateStr });
-        addMessage('bot', `Create holiday "${titleStr}" on ${holidayDateStr}? Please confirm.`);
+        addMessage('bot', `Create holiday "${titleStr}" on ${holidayDateStr}? Please confirm.`, { showConfirmationOptions: true });
         setProcessing(false);
         return;
       }
@@ -1307,7 +1710,7 @@ const AdminAssistantBot = () => {
         const targetYear = year || new Date().getFullYear();
         const mName = getMonthNameStr(targetMonth);
         setPendingAction({ type: 'calculate_and_download', step: 'confirm', month: targetMonth, year: targetYear });
-        addMessage('bot', `Calculate payroll and download all payslips for ${mName} ${targetYear}? Please confirm.`);
+        addMessage('bot', `Calculate payroll and download all payslips for ${mName} ${targetYear}? Please confirm.`, { showConfirmationOptions: true });
         setProcessing(false);
         return;
       }
@@ -1317,13 +1720,13 @@ const AdminAssistantBot = () => {
         const { month, year } = parseMonthYearFromText(cmd);
         if (!month) {
           setPendingAction({ type: 'calculate_payroll', step: 'ask_month' });
-          addMessage('bot', 'Which month and year?', { showMonthPicker: true });
+          addMessage('bot', 'Which month and year? Choose below or type one, for example October 2026.', { showMonthPicker: true });
           setProcessing(false);
           return;
         }
         const mName = getMonthNameStr(month);
         setPendingAction({ type: 'calculate_payroll', step: 'confirm', month, year });
-        addMessage('bot', `Calculate payroll for ${mName} ${year}? Please confirm.`);
+        addMessage('bot', `Calculate payroll for ${mName} ${year}? Please confirm.`, { showConfirmationOptions: true });
         setProcessing(false);
         return;
       }
@@ -1335,10 +1738,11 @@ const AdminAssistantBot = () => {
 
         if (!isBulk) {
           let query = lowerCmd
-            .replace(/download\s+payslips?\s+for|download\s+payslips?|download\s+pay\s+slips?\s+for|download\s+pay\s+slips?|get\s+payslips?\s+for|get\s+payslips?|export\s+payslips?\s+for|export\s+payslips?|payslips?\s+for|payslips?|pay\s+slips?\s+for|pay\s+slips?|salary\s+slips?\s+for|salary\s+slips?|download|get|export/gi, '')
-            .replace(/this\s+month|current\s+month|last\s+month|previous\s+month/gi, '')
-            .replace(/january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec/gi, '')
-            .replace(/\b20\d{2}\b/g, '')
+            .replace(/\b(?:download\s+payslips?\s+for|download\s+payslips?|download\s+pay\s+slips?\s+for|download\s+pay\s+slips?|get\s+payslips?\s+for|get\s+payslips?|export\s+payslips?\s+for|export\s+payslips?|payslips?\s+for|payslips?|pay\s+slips?\s+for|pay\s+slips?|salary\s+slips?\s+for|salary\s+slips?|download|get|export)\b/gi, ' ')
+            .replace(/\b(?:this|current|last|previous)\s+month\b/gi, ' ')
+            .replace(/\b(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)\b/gi, ' ')
+            .replace(/\b20\d{2}\b/g, ' ')
+            .replace(/\s+/g, ' ')
             .trim();
 
           if (query) {
@@ -1349,7 +1753,9 @@ const AdminAssistantBot = () => {
               if (res.data?.success) {
                 const employees = res.data.data || [];
                 if (employees.length === 0) {
-                  addMessage('bot', `No employee found for "${query}".`);
+                  addMessage('bot', `No employee found for "${query}". Please check the name or employee ID and try again.`, {
+                    suggestions: [SUGGESTION.searchEmployee, SUGGESTION.downloadPayslips]
+                  });
                   setProcessing(false);
                   return;
                 } else if (employees.length === 1) {
@@ -1366,7 +1772,7 @@ const AdminAssistantBot = () => {
                     const targetYear = year || new Date().getFullYear();
                     const mName = getMonthNameStr(month);
                     setPendingAction({ type: 'download_single_payslip', step: 'ask_signature', employee: emp, month, year: targetYear });
-                    addMessage('bot', `Do you want the payslip for ${empCodeStr} - ${emp.name} (${mName} ${targetYear}) with signature or without signature?\n\n1. With Signature\n2. Without Signature`);
+                    addMessage('bot', `Do you want the payslip for ${empCodeStr} - ${emp.name} (${mName} ${targetYear}) with signature or without signature?\n\n1. With Signature\n2. Without Signature`, { promptOptions: SIGNATURE_OPTIONS });
                     setProcessing(false);
                     return;
                   }
@@ -1382,7 +1788,7 @@ const AdminAssistantBot = () => {
               }
             } catch (err) {
               removeLoadingMessage(loadingId);
-              addMessage('bot', 'Searching employee details failed.');
+              addMessage('bot', getApiErrorMessage(err, 'Employee search could not be completed right now. Please try again.'), { topic: 'error' });
               setProcessing(false);
               return;
             }
@@ -1391,14 +1797,14 @@ const AdminAssistantBot = () => {
 
         if (!month) {
           setPendingAction({ type: 'download_payslips', step: 'ask_month' });
-          addMessage('bot', 'Which month and year?', { showMonthPicker: true });
+          addMessage('bot', 'Which month and year? Choose below or type one, for example October 2026.', { showMonthPicker: true });
           setProcessing(false);
           return;
         }
         const mName = getMonthNameStr(month);
         const targetYear = year || new Date().getFullYear();
         setPendingAction({ type: 'download_payslips', step: 'ask_signature', month, year: targetYear });
-        addMessage('bot', `Do you want the payslips for ${mName} ${targetYear} with signature or without signature?\n\n1. With Signature\n2. Without Signature`);
+        addMessage('bot', `Do you want the payslips for ${mName} ${targetYear} with signature or without signature?\n\n1. With Signature\n2. Without Signature`, { promptOptions: SIGNATURE_OPTIONS });
         setProcessing(false);
         return;
       }
@@ -1465,7 +1871,10 @@ const AdminAssistantBot = () => {
               msgText += `Counted Late + Permission Time: ${formatLateTime(emp.countedLateAndPermissionMinutes)}\n`;
               msgText += `Total Working Hours: ${emp.totalHours || 0}h`;
 
-              addMessage('bot', msgText, { scrollToStart: true });
+              addMessage('bot', msgText, {
+                scrollToStart: true,
+                suggestions: getEmployeeSuggestions(emp.employeeCode, res.data.data.monthName, res.data.data.year).slice(0, 2).concat(SUGGESTION.consistentLate)
+              });
             } else if (type === 'report_summary_all') {
               const employeesList = res.data.data.employees || [];
               let msgText = `Report Summary - ${res.data.data.monthName} ${res.data.data.year}\n\n`;
@@ -1482,7 +1891,7 @@ const AdminAssistantBot = () => {
                 }
               });
 
-              addMessage('bot', msgText, { scrollToStart: true });
+              addMessage('bot', msgText, { scrollToStart: true, topic: 'report' });
             } else if (type === 'multiple_employees_found') {
               const candidates = res.data.data || [];
               setPendingAction({
@@ -1498,11 +1907,11 @@ const AdminAssistantBot = () => {
               });
             }
           } else {
-            addMessage('bot', res.data?.message || 'I could not generate report summary right now.');
+            addMessage('bot', res.data?.message || 'The report summary could not be generated right now. Please try again.', { topic: 'report' });
           }
         } catch (err) {
           removeLoadingMessage(loadingId);
-          addMessage('bot', 'I could not generate report summary right now. Please try again.');
+          addMessage('bot', getApiErrorMessage(err, 'The report summary could not be generated right now. Please try again.'), { topic: 'report' });
         } finally {
           setProcessing(false);
         }
@@ -1525,18 +1934,16 @@ const AdminAssistantBot = () => {
       if (isStrictEmployeeSearch) {
         const searchVal = cmd.replace(/^find employee\s+|^find emp\s+|^search employee\s+|^search emp\s+|^employee details\s+|^show employee\s+|^find staff\s+|^search staff\s+/i, '').trim();
         if (searchVal && searchVal !== 'prompt_search_employee') {
-          const loadingId = addLoadingMessage('Searching employee details...');
           try {
-            const res = await executeBotCommand('search_employee', { query: searchVal });
-            removeLoadingMessage(loadingId);
-            if (res.data?.success) {
-              addMessage('bot', res.data.message, { cardType: 'employee_search', employees: res.data.data });
-            } else {
-              addMessage('bot', res.data?.message || 'I could not search employees right now.');
+            const body = await runBotQuery('search_employee', { query: searchVal }, 'Searching employee details...', 'Employee search could not be completed right now. Please try again.');
+            if (body) {
+              const found = body.data || [];
+              addMessage('bot', body.message, {
+                cardType: 'employee_search',
+                employees: found,
+                suggestions: found.length === 1 ? getEmployeeSuggestions(found[0].employeeCode) : getTopicSuggestions('employee')
+              });
             }
-          } catch (err) {
-            removeLoadingMessage(loadingId);
-            addMessage('bot', 'I could not search employees right now.');
           } finally {
             setProcessing(false);
           }
@@ -1544,41 +1951,16 @@ const AdminAssistantBot = () => {
         }
       }
 
-      if (lowerCmd.includes('absent today') || lowerCmd.includes('who is absent') || lowerCmd.includes('today absent') || lowerCmd === 'absent') {
-        const loadingId = addLoadingMessage("Checking today's attendance summary...");
-        try {
-          const res = await executeBotCommand('today_absent');
-          removeLoadingMessage(loadingId);
-          if (res.data?.success) {
-            addMessage('bot', res.data.message, { cardType: 'today_absent', data: res.data.data });
-          } else {
-            addMessage('bot', res.data?.message || 'I could not fetch absent list.');
-          }
-        } catch (err) {
-          removeLoadingMessage(loadingId);
-          addMessage('bot', 'I could not fetch absent list.');
-        } finally {
-          setProcessing(false);
-        }
+      // Safety net for late / absent wording not caught above (e.g. "check who is absent")
+      if (/\babsent\b/.test(lowerCmd)) {
+        await runTodayList('absent');
+        setProcessing(false);
         return;
       }
 
-      if (lowerCmd.includes('late today') || lowerCmd.includes('who is late') || lowerCmd.includes('today late') || lowerCmd.includes('show late') || lowerCmd === 'late') {
-        const loadingId = addLoadingMessage("Checking today's attendance summary...");
-        try {
-          const res = await executeBotCommand('today_late');
-          removeLoadingMessage(loadingId);
-          if (res.data?.success) {
-            addMessage('bot', res.data.message, { cardType: 'today_late', data: res.data.data });
-          } else {
-            addMessage('bot', res.data?.message || 'I could not fetch late list.');
-          }
-        } catch (err) {
-          removeLoadingMessage(loadingId);
-          addMessage('bot', 'I could not fetch late list.');
-        } finally {
-          setProcessing(false);
-        }
+      if (/\blate\b/.test(lowerCmd)) {
+        await runTodayList('late');
+        setProcessing(false);
         return;
       }
 
@@ -1598,18 +1980,9 @@ const AdminAssistantBot = () => {
         (lowerCmd.includes('today') && lowerCmd.includes('attendance') && !lowerCmd.startsWith('open') && !lowerCmd.startsWith('go to') && !lowerCmd.startsWith('show page') && !lowerCmd.startsWith('navigate'));
 
       if (isTodayAttendanceSummary) {
-        const loadingId = addLoadingMessage("Checking today's attendance summary...");
         try {
-          const res = await executeBotCommand('today_summary');
-          removeLoadingMessage(loadingId);
-          if (res.data?.success) {
-            addMessage('bot', res.data.message, { cardType: 'today_summary', data: res.data.data });
-          } else {
-            addMessage('bot', res.data?.message || 'I could not load summary.');
-          }
-        } catch (err) {
-          removeLoadingMessage(loadingId);
-          addMessage('bot', 'I could not load summary.');
+          const body = await runBotQuery('today_summary', {}, "Checking today's attendance summary...", "Today's attendance summary could not be loaded right now. Please try again.");
+          if (body) addMessage('bot', body.message, { cardType: 'today_summary', data: body.data, topic: 'today_summary' });
         } finally {
           setProcessing(false);
         }
@@ -1628,7 +2001,7 @@ const AdminAssistantBot = () => {
 
       if (isDeveloperQuery && !lowerCmd.startsWith('open') && !lowerCmd.startsWith('go to') && !lowerCmd.startsWith('show page') && !lowerCmd.startsWith('navigate')) {
         const devName = botCapabilities?.botInfo?.developer || botCapabilities?.fallback?.developerResponse || 'Mohamed Mushraf';
-        addMessage('bot', `I was developed by ${devName}.`);
+        addMessage('bot', `I was developed by ${devName}.`, { topic: 'conversation' });
         setProcessing(false);
         return;
       }
@@ -1669,14 +2042,14 @@ const AdminAssistantBot = () => {
           lowerCmd.includes('what command should i give');
 
         if (isGeneralHelp) {
-          addMessage('bot', getGeneralHelpText(botCapabilities), { showQuickActions: false, buttons: [], scrollToStart: true });
+          addMessage('bot', getGeneralHelpText(botCapabilities), { showQuickActions: false, buttons: [], scrollToStart: true, topic: 'help' });
           setProcessing(false);
           return;
         }
 
         const matchedAction = findMatchingAction(lowerCmd, botCapabilities);
         if (matchedAction) {
-          addMessage('bot', getActionHelpText(matchedAction), { showQuickActions: false, buttons: [], scrollToStart: true });
+          addMessage('bot', getActionHelpText(matchedAction), { showQuickActions: false, buttons: [], scrollToStart: true, topic: 'help' });
           setProcessing(false);
           return;
         }
@@ -1685,18 +2058,43 @@ const AdminAssistantBot = () => {
       // --- 5. BASIC CONVERSATION INTENTS (Priority 6) ---
       const convResponse = matchBasicConversation(lowerCmd, botCapabilities);
       if (convResponse) {
-        addMessage('bot', convResponse);
+        addMessage('bot', convResponse, { topic: 'conversation' });
         setProcessing(false);
         return;
       }
 
-      // --- 6. UNKNOWN FALLBACK (Priority 7) ---
-      const fallbackText = botCapabilities?.fallback?.unknown || 'I do not know that. Please ask my developer.';
-      addMessage('bot', fallbackText);
+      // --- 6. UNKNOWN INPUT: never a dead end ---
+      const intentText = normalizeIntentText(lowerCmd);
+
+      // A short input that is only a name or code (e.g. "Bilal", "MTM-01") -> show that employee's details
+      const possibleEmployee = extractEmployeeQuery(intentText);
+      const tokenCount = intentText.split(' ').filter(Boolean).length;
+      if (possibleEmployee && possibleEmployee === intentText && tokenCount <= 3 && /[a-z]/.test(possibleEmployee)) {
+        try {
+          const res = await executeBotCommand('search_employee', { query: cmd });
+          const found = res.data?.success ? (res.data.data || []) : [];
+          if (found.length > 0) {
+            addMessage('bot', `Employee details for "${cmd}":`, {
+              cardType: 'employee_search',
+              employees: found,
+              suggestions: found.length === 1 ? getEmployeeSuggestions(found[0].employeeCode) : getTopicSuggestions('employee')
+            });
+            return;
+          }
+        } catch (searchErr) {
+          // fall through to suggestions
+        }
+      }
+
+      const fallback = getFallbackSuggestions(intentText);
+      const fallbackText = fallback.matched
+        ? (botCapabilities?.fallback?.withSuggestions || 'Here are the closest options for your request. Choose one below:')
+        : (botCapabilities?.fallback?.unknown || 'I could not find an exact match for that. Please choose one of the options below, or type "help" to see everything I can do.');
+      addMessage('bot', fallbackText, { suggestions: fallback.items });
 
     } catch (err) {
       console.error('Command execution error:', err);
-      addMessage('bot', 'I could not process this command.');
+      addMessage('bot', 'This request could not be completed right now. Please try again.', { topic: 'error' });
     } finally {
       setProcessing(false);
     }
@@ -1741,10 +2139,10 @@ const AdminAssistantBot = () => {
           if (res.data?.success) {
             window.dispatchEvent(new CustomEvent('attendanceUpdated'));
           }
-          addMessage('bot', res.data?.message || 'Attendance processed.');
+          addMessage('bot', res.data?.message || 'Attendance processed.', { topic: 'attendance_action' });
         } catch (err) {
           removeLoadingMessage(loadingId);
-          addMessage('bot', 'Failed to mark attendance.');
+          addMessage('bot', getApiErrorMessage(err, 'Attendance could not be marked right now. Please try again.'), { topic: 'attendance_action' });
         }
       } else if (type === 'mark_today_checkout' || type === 'mark_checkout') {
         const empCodeStr = employee?.employeeCode || employee?.employee_id || employee?.code || action.employeeId;
@@ -1755,10 +2153,10 @@ const AdminAssistantBot = () => {
           if (res.data?.success) {
             window.dispatchEvent(new CustomEvent('attendanceUpdated'));
           }
-          addMessage('bot', res.data?.message || 'Check-out processed.');
+          addMessage('bot', res.data?.message || 'Check-out processed.', { topic: 'attendance_action' });
         } catch (err) {
           removeLoadingMessage(loadingId);
-          addMessage('bot', 'Failed to mark check-out.');
+          addMessage('bot', getApiErrorMessage(err, 'Check-out could not be marked right now. Please try again.'), { topic: 'attendance_action' });
         }
       } else if (type === 'checkout_all_employees') {
         const targetDateParam = action.date && action.date !== 'today' ? action.date : null;
@@ -1769,10 +2167,10 @@ const AdminAssistantBot = () => {
           if (res.data?.success) {
             window.dispatchEvent(new CustomEvent('attendanceUpdated'));
           }
-          addMessage('bot', res.data?.message || 'Check-out all processed.');
+          addMessage('bot', res.data?.message || 'Check-out all processed.', { topic: 'attendance_action' });
         } catch (err) {
           removeLoadingMessage(loadingId);
-          addMessage('bot', 'Failed to execute check-out for all employees.');
+          addMessage('bot', getApiErrorMessage(err, 'Check-out for all employees could not be completed right now. Please try again.'), { topic: 'attendance_action' });
         }
       } else if (type === 'mark_today_absent' || type === 'mark_absent_today') {
         const empCodeStr = employee?.employeeCode || employee?.employee_id || employee?.code || action.employeeId;
@@ -1783,20 +2181,20 @@ const AdminAssistantBot = () => {
           if (res.data?.success) {
             window.dispatchEvent(new CustomEvent('attendanceUpdated'));
           }
-          addMessage('bot', res.data?.message || 'Absent marked.');
+          addMessage('bot', res.data?.message || 'Absent marked.', { topic: 'attendance_action' });
         } catch (err) {
           removeLoadingMessage(loadingId);
-          addMessage('bot', 'Failed to mark absent.');
+          addMessage('bot', getApiErrorMessage(err, 'Absent could not be marked right now. Please try again.'), { topic: 'attendance_action' });
         }
       } else if (type === 'create_holiday') {
         const loadingId = addLoadingMessage('Saving holiday details...');
         try {
           const res = await executeBotCommand('create_holiday', { holidayTitle: title, holidayDate: date });
           removeLoadingMessage(loadingId);
-          addMessage('bot', res.data?.message || 'Holiday created.');
+          addMessage('bot', res.data?.message || 'Holiday created.', { topic: 'holiday' });
         } catch (err) {
           removeLoadingMessage(loadingId);
-          addMessage('bot', 'Failed to create holiday.');
+          addMessage('bot', getApiErrorMessage(err, 'The holiday could not be created right now. Please try again.'), { topic: 'holiday' });
         }
       } else if (type === 'delete_holiday') {
         const hId = holiday?.id || action.holidayId;
@@ -1804,10 +2202,10 @@ const AdminAssistantBot = () => {
         try {
           const res = await executeBotCommand('delete_holiday', { holidayId: hId });
           removeLoadingMessage(loadingId);
-          addMessage('bot', res.data?.message || 'Holiday deleted.');
+          addMessage('bot', res.data?.message || 'Holiday deleted.', { topic: 'holiday' });
         } catch (err) {
           removeLoadingMessage(loadingId);
-          addMessage('bot', 'Failed to delete holiday.');
+          addMessage('bot', getApiErrorMessage(err, 'The holiday could not be deleted right now. Please try again.'), { topic: 'holiday' });
         }
       } else if (type === 'calculate_payroll') {
         await runCalculatePayroll(month, year);
@@ -1823,7 +2221,7 @@ const AdminAssistantBot = () => {
       }
     } catch (err) {
       console.error('Bot pending action execution error:', err);
-      addMessage('bot', `Failed to execute action: ${err.response?.data?.message || err.message}`);
+      addMessage('bot', getApiErrorMessage(err, 'This action could not be completed right now. Please try again.'), { topic: 'error' });
     } finally {
       setProcessing(false);
     }
@@ -1834,7 +2232,7 @@ const AdminAssistantBot = () => {
 
     if (!confirmed) {
       setPendingAction(null);
-      addMessage('bot', 'Action cancelled.');
+      addMessage('bot', 'Cancelled. No changes were made.');
       return;
     }
 
@@ -1842,6 +2240,58 @@ const AdminAssistantBot = () => {
   };
 
   if (!shouldRender) return null;
+
+  const lastBotMessageId = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].sender === 'bot' && messages[i].type !== 'loading') return messages[i].id;
+    }
+    return null;
+  })();
+
+  // Answer chips (signature, reason, cancel...) only work while that question is still open
+  const isActivePrompt = (msg) => !!pendingAction && msg.id === lastBotMessageId;
+
+  const renderChips = (items, extraClass = '') => (
+    <div className={`admin-assistant-quick-actions ${extraClass}`}>
+      {items.map((item, idx) => (
+        <button
+          key={`${item.command}-${idx}`}
+          type="button"
+          disabled={processing}
+          onClick={() => handleQuickAction(item)}
+          className={`admin-assistant-quick-btn ${item.variant === 'cancel' ? 'cancel' : ''} ${processing ? 'opacity-50 pointer-events-none' : ''}`}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderPersonLine = (p) => (
+    <span className="admin-assistant-person">
+      <strong>{p.employeeCode}</strong> - {p.name}
+      {p.department && p.department !== 'N/A' ? <span className="admin-assistant-person-dept"> ({p.department})</span> : null}
+    </span>
+  );
+
+  const statusTagClass = (status) => {
+    const s = String(status || '').toLowerCase();
+    if (s === 'late') return 'late';
+    if (s === 'absent') return 'absent';
+    if (s === 'half day') return 'halfday';
+    if (s === 'present' || s === 'approved') return 'present';
+    if (s.includes('leave')) return 'leave';
+    return 'neutral';
+  };
+
+  const SUMMARY_TILES = [
+    { key: 'present', label: 'Present', color: 'green', command: 'who is present today' },
+    { key: 'late', label: 'Late', color: 'amber', command: 'who is late today' },
+    { key: 'absent', label: 'Absent', color: 'red', command: 'who is absent today' },
+    { key: 'halfDay', label: 'Half Day', color: 'purple', command: 'half day today' },
+    { key: 'working', label: 'Working', color: 'blue', command: 'who is still working' },
+    { key: 'notMention', label: 'Not Mention', color: 'gray', command: 'who is not marked today' }
+  ];
 
   return (
     <>
@@ -1921,6 +2371,16 @@ const AdminAssistantBot = () => {
             <div className="admin-assistant-header-actions">
               <button
                 type="button"
+                onClick={() => setConfirmClear((v) => !v)}
+                className="admin-assistant-clear-btn"
+                title="Clear Chat"
+                aria-label="Clear Chat"
+                disabled={processing}
+              >
+                <FiTrash2 size={15} />
+              </button>
+              <button
+                type="button"
                 onClick={handleResetPosition}
                 className="admin-assistant-reset-btn"
                 title="Reset Bot Position"
@@ -1939,6 +2399,21 @@ const AdminAssistantBot = () => {
               </button>
             </div>
           </div>
+
+          {/* Clear Chat Confirmation */}
+          {confirmClear && (
+            <div className="admin-assistant-clear-confirm" role="alertdialog" aria-label="Clear chat confirmation">
+              <span>Delete the full conversation? This cannot be undone.</span>
+              <div className="admin-assistant-clear-confirm-actions">
+                <button type="button" className="admin-assistant-clear-confirm-btn danger" onClick={handleClearChat} disabled={processing}>
+                  Clear
+                </button>
+                <button type="button" className="admin-assistant-clear-confirm-btn" onClick={() => setConfirmClear(false)}>
+                  Keep
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Body */}
           <div className="admin-assistant-body">
@@ -1959,41 +2434,16 @@ const AdminAssistantBot = () => {
                       {msg.text}
 
                       {/* 1. Initial Quick Actions for Welcome Message */}
-                      {msg.showQuickActions && (
-                        <div className="admin-assistant-quick-actions">
-                          {INITIAL_QUICK_ACTIONS.map((qa, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              disabled={processing}
-                              onClick={() => handleQuickAction(qa)}
-                              className={`admin-assistant-quick-btn ${processing ? 'opacity-50 pointer-events-none' : ''}`}
-                            >
-                              {qa.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      {msg.showQuickActions && renderChips(INITIAL_QUICK_ACTIONS)}
 
                       {/* 1b. Custom Per-Message Buttons (e.g. Help Categories) */}
-                      {msg.buttons && msg.buttons.length > 0 && (
-                        <div className="admin-assistant-quick-actions">
-                          {msg.buttons.map((btn, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              disabled={processing}
-                              onClick={() => handleQuickAction(btn)}
-                              className={`admin-assistant-quick-btn ${processing ? 'opacity-50 pointer-events-none' : ''}`}
-                            >
-                              {btn.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      {msg.buttons && msg.buttons.length > 0 && renderChips(msg.buttons)}
+
+                      {/* 1c. Answer options for an open question (reason, signature, cancel...) */}
+                      {msg.promptOptions && msg.promptOptions.length > 0 && isActivePrompt(msg) && renderChips(msg.promptOptions)}
 
                       {/* 2. Month Picker Buttons */}
-                      {msg.showMonthPicker && (
+                      {msg.showMonthPicker && isActivePrompt(msg) && pendingAction.step === 'ask_month' && (
                         <div className="admin-assistant-quick-actions">
                           <button
                             type="button"
@@ -2022,17 +2472,27 @@ const AdminAssistantBot = () => {
                         </div>
                       )}
 
-                      {/* 3. Employee Search Result Cards */}
+                      {/* 3. Employee Search Result Cards (with today's attendance) */}
                       {msg.cardType === 'employee_search' && msg.employees && (
                         <div className="admin-assistant-emp-cards">
                           {msg.employees.map((emp) => (
-                            <div key={emp.id} className="admin-assistant-emp-card">
+                            <div key={emp.id || emp.employeeCode} className="admin-assistant-emp-card">
                               <div className="admin-assistant-emp-header">
                                 <span className="admin-assistant-emp-code">{emp.employeeCode}</span>
-                                <span className={`admin-assistant-emp-status ${emp.status.toLowerCase()}`}>{emp.status}</span>
+                                <span className={`admin-assistant-emp-status ${String(emp.status || 'Active').toLowerCase()}`}>{emp.status || 'Active'}</span>
                               </div>
                               <h4 className="admin-assistant-emp-name">{emp.name}</h4>
                               <p className="admin-assistant-emp-meta">{emp.department} • {emp.designation}</p>
+                              {emp.today && (
+                                <div className="admin-assistant-emp-today">
+                                  <span className="admin-assistant-emp-today-label">Today:</span>
+                                  <span className={`admin-assistant-tag ${statusTagClass(emp.today.status)}`}>{emp.today.status}</span>
+                                  {emp.today.checkIn && <span>In {emp.today.checkIn}</span>}
+                                  {emp.today.checkOut && <span>Out {emp.today.checkOut}</span>}
+                                  {emp.today.lateMinutes > 0 && <span>Late by {formatLateTime(emp.today.lateMinutes)}</span>}
+                                  {emp.today.absentReason && <span>Reason: {emp.today.absentReason}</span>}
+                                </div>
+                              )}
                               <div className="admin-assistant-emp-details">
                                 <p>✉ {emp.email}</p>
                                 <p>📞 {emp.phone}</p>
@@ -2050,67 +2510,94 @@ const AdminAssistantBot = () => {
                       )}
 
                       {/* Candidate Selection Card */}
-                      {msg.cardType === 'candidate_selection' && msg.candidates && (
-                        <div className="admin-assistant-list-card">
-                          <p className="admin-assistant-list-subtitle">Please select an employee:</p>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
-                            {msg.candidates.map((emp, idx) => (
-                              <button
-                                key={emp.id || idx}
-                                type="button"
-                                onClick={() => handleSelectCandidate(emp)}
-                                className="admin-assistant-emp-btn"
-                                style={{ textAlign: 'left', justifyContent: 'flex-start', padding: '8px 12px' }}
-                              >
-                                <strong>{emp.employeeCode || emp.employee_id}</strong> - {emp.name} ({emp.department || 'N/A'})
-                              </button>
-                            ))}
+                      {msg.cardType === 'candidate_selection' && msg.candidates && (() => {
+                        const selectable = isActivePrompt(msg) && pendingAction.step === 'select_candidate';
+                        return (
+                          <div className="admin-assistant-list-card">
+                            <p className="admin-assistant-list-subtitle">{selectable ? 'Please select one:' : 'Selection closed'}</p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+                              {msg.candidates.map((emp, idx) => (
+                                <button
+                                  key={emp.id || idx}
+                                  type="button"
+                                  onClick={() => handleSelectCandidate(emp)}
+                                  disabled={!selectable || processing}
+                                  className="admin-assistant-emp-btn"
+                                  style={{ textAlign: 'left', justifyContent: 'flex-start', padding: '8px 12px' }}
+                                >
+                                  <strong>{emp.employeeCode || emp.employee_id}</strong> - {emp.name} ({emp.department || 'N/A'})
+                                </button>
+                              ))}
+                            </div>
+                            {selectable && renderChips([SUGGESTION.cancel])}
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
-                      {/* 4. Today Absent List Card */}
+                      {/* 4. Today Absent Details Card */}
                       {msg.cardType === 'today_absent' && msg.data && (
                         <div className="admin-assistant-list-card">
+                          {msg.data.dayNote && <p className="admin-assistant-list-note">{msg.data.dayNote}</p>}
+
                           <p className="admin-assistant-list-subtitle">Marked Absent ({msg.data.absent.length})</p>
                           {msg.data.absent.length === 0 ? (
-                            <p className="admin-assistant-list-empty">No marked absent employees today.</p>
+                            <p className="admin-assistant-list-empty">No employee is marked absent today.</p>
                           ) : (
                             <ul className="admin-assistant-list font-medium">
                               {msg.data.absent.map((a, idx) => (
-                                <li key={idx}><strong>{a.employeeCode}</strong> - {a.name} ({a.department})</li>
+                                <li key={idx} className="admin-assistant-list-item">
+                                  {renderPersonLine(a)}
+                                  <span className="admin-assistant-detail-line">Reason: {a.reason || 'Not provided'}</span>
+                                </li>
                               ))}
                             </ul>
                           )}
 
-                          <p className="admin-assistant-list-subtitle mt-2">Not Mention ({msg.data.notMention.length})</p>
+                          <p className="admin-assistant-list-subtitle mt-2">Not Mention - Not Marked Yet ({msg.data.notMention.length})</p>
                           {msg.data.notMention.length === 0 ? (
                             <p className="admin-assistant-list-empty">All active employees have attendance entries today.</p>
                           ) : (
                             <ul className="admin-assistant-list font-medium">
-                              {msg.data.notMention.slice(0, 8).map((nm, idx) => (
-                                <li key={idx}><strong>{nm.employeeCode}</strong> - {nm.name} ({nm.department})</li>
+                              {msg.data.notMention.slice(0, 20).map((nm, idx) => (
+                                <li key={idx}>{renderPersonLine(nm)}</li>
                               ))}
-                              {msg.data.notMention.length > 8 && (
-                                <li className="text-xs opacity-75">+ {msg.data.notMention.length - 8} more</li>
+                              {msg.data.notMention.length > 20 && (
+                                <li className="text-xs opacity-75">+ {msg.data.notMention.length - 20} more</li>
                               )}
                             </ul>
+                          )}
+
+                          {(msg.data.onLeave || []).length > 0 && (
+                            <>
+                              <p className="admin-assistant-list-subtitle mt-2">On Leave ({msg.data.onLeave.length})</p>
+                              <ul className="admin-assistant-list font-medium">
+                                {msg.data.onLeave.map((l, idx) => (
+                                  <li key={idx} className="admin-assistant-list-item">
+                                    {renderPersonLine(l)}
+                                    <span className="admin-assistant-detail-line">{l.reason}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </>
                           )}
                         </div>
                       )}
 
-                      {/* 5. Today Late List Card */}
+                      {/* 5. Today Late Details Card */}
                       {msg.cardType === 'today_late' && msg.data && (
                         <div className="admin-assistant-list-card">
                           {msg.data.length === 0 ? (
-                            <p className="admin-assistant-list-empty">No late employees found today.</p>
+                            <p className="admin-assistant-list-empty">No late arrivals so far today.</p>
                           ) : (
                             <ul className="admin-assistant-list font-medium">
                               {msg.data.map((l, idx) => (
-                                <li key={idx}>
-                                  <strong>{l.employeeCode}</strong> - {l.name}
-                                  <span className="admin-assistant-tag late">Late</span>
-                                  <span className="admin-assistant-time-text">In: {l.checkInTime}</span>
+                                <li key={idx} className="admin-assistant-list-item">
+                                  {renderPersonLine(l)}
+                                  <span className="admin-assistant-detail-line">
+                                    <span className="admin-assistant-tag late">{l.lateText ? `Late by ${l.lateText}` : 'Late'}</span>
+                                    <span>In: {l.checkInTime}</span>
+                                    {l.checkOutTime && <span>Out: {l.checkOutTime}</span>}
+                                  </span>
                                 </li>
                               ))}
                             </ul>
@@ -2118,38 +2605,193 @@ const AdminAssistantBot = () => {
                         </div>
                       )}
 
-                      {/* 6. Today Attendance Summary Grid */}
+                      {/* 5b. Other Today Lists (present / working / half day / leave / permission) */}
+                      {msg.cardType === 'today_list' && msg.data && (
+                        <div className="admin-assistant-list-card">
+                          {msg.data.items.length === 0 ? (
+                            <p className="admin-assistant-list-empty">No employees in this list today.</p>
+                          ) : (
+                            <ul className="admin-assistant-list font-medium">
+                              {msg.data.items.map((it, idx) => (
+                                <li key={idx} className="admin-assistant-list-item">
+                                  {renderPersonLine(it)}
+                                  <span className="admin-assistant-detail-line">
+                                    <span className={`admin-assistant-tag ${statusTagClass(it.status)}`}>{it.status}</span>
+                                    {it.checkIn && <span>In: {it.checkIn}</span>}
+                                    {it.checkOut && <span>Out: {it.checkOut}</span>}
+                                    {it.lateMinutes > 0 && <span>Late by {formatLateTime(it.lateMinutes)}</span>}
+                                    {it.detail && <span>{it.detail}</span>}
+                                  </span>
+                                  {it.reason && <span className="admin-assistant-detail-line">Reason: {it.reason}</span>}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 6. Today Attendance Summary Grid (tap a tile for details) */}
                       {msg.cardType === 'today_summary' && msg.data && (
                         <div className="admin-assistant-summary-grid">
-                          <div className="admin-assistant-stat green">
-                            <span className="val">{msg.data.present}</span>
-                            <span className="lbl">Present</span>
-                          </div>
-                          <div className="admin-assistant-stat amber">
-                            <span className="val">{msg.data.late}</span>
-                            <span className="lbl">Late</span>
-                          </div>
-                          <div className="admin-assistant-stat red">
-                            <span className="val">{msg.data.absent}</span>
-                            <span className="lbl">Absent</span>
-                          </div>
-                          <div className="admin-assistant-stat purple">
-                            <span className="val">{msg.data.halfDay}</span>
-                            <span className="lbl">Half Day</span>
-                          </div>
-                          <div className="admin-assistant-stat blue">
-                            <span className="val">{msg.data.working}</span>
-                            <span className="lbl">Working</span>
-                          </div>
-                          <div className="admin-assistant-stat gray">
-                            <span className="val">{msg.data.notMention}</span>
-                            <span className="lbl">Not Mention</span>
-                          </div>
+                          {SUMMARY_TILES.map((tile) => (
+                            <button
+                              key={tile.key}
+                              type="button"
+                              disabled={processing}
+                              onClick={() => handleQuickAction({ label: `${tile.label} details`, command: tile.command })}
+                              className={`admin-assistant-stat ${tile.color}`}
+                              title={`Show ${tile.label} details`}
+                            >
+                              <span className="val">{msg.data[tile.key] ?? 0}</span>
+                              <span className="lbl">{tile.label}</span>
+                            </button>
+                          ))}
+                          {msg.data.onLeave > 0 && (
+                            <p className="admin-assistant-list-note" style={{ gridColumn: '1 / -1' }}>On paid leave today: {msg.data.onLeave}</p>
+                          )}
                           {msg.data.present === 0 && msg.data.late === 0 && msg.data.absent === 0 && msg.data.halfDay === 0 && msg.data.working === 0 && (
-                            <p className="admin-assistant-list-empty mt-2" style={{ gridColumn: 'span 2', textAlign: 'center' }}>
+                            <p className="admin-assistant-list-empty mt-2" style={{ gridColumn: '1 / -1', textAlign: 'center' }}>
                               Attendance is not marked yet for today.
                             </p>
                           )}
+                        </div>
+                      )}
+
+                      {/* 7. Late / Absent Pattern Ranking */}
+                      {msg.cardType === 'insights_ranking' && msg.data && (() => {
+                        const d = msg.data;
+                        // The message text already says nobody was late/absent
+                        if (d.frequent.length === 0 && d.occasional.length === 0) return null;
+                        const unit = d.metric === 'late' ? 'late' : d.metric === 'absent' ? 'absent' : 'half day';
+                        const detailWord = METRIC_WORD[d.metric] || 'late';
+                        const formatDates = (dates) => (dates || []).map((x) => {
+                          if (d.metric === 'late') return `${x.date}${x.checkIn ? ` (${x.checkIn}${x.lateText ? `, ${x.lateText}` : ''})` : ''}`;
+                          if (d.metric === 'absent') return `${x.date}${x.reason ? ` - ${x.reason}` : ''}`;
+                          return x.date;
+                        }).join(', ');
+                        return (
+                          <div className="admin-assistant-list-card">
+                            {d.frequent.length > 0 && (
+                              <>
+                                <p className="admin-assistant-list-subtitle">{d.threshold}+ times ({d.frequent.length})</p>
+                                <ul className="admin-assistant-insight-list">
+                                  {d.frequent.map((e, idx) => (
+                                    <li key={e.employeeCode} className="admin-assistant-insight-item">
+                                      <div className="admin-assistant-insight-head">
+                                        <span className="admin-assistant-insight-rank">{idx + 1}</span>
+                                        {renderPersonLine(e)}
+                                        <span className={`admin-assistant-tag ${d.metric === 'late' ? 'late' : d.metric === 'absent' ? 'absent' : 'halfday'}`}>{e.count} days {unit}</span>
+                                      </div>
+                                      {d.metric === 'late' && <span className="admin-assistant-detail-line">Total late time: {e.lateTimeText}</span>}
+                                      {e.dates && e.dates.length > 0 && <span className="admin-assistant-detail-line">Dates: {formatDates(e.dates)}</span>}
+                                      <button
+                                        type="button"
+                                        className="admin-assistant-link-btn"
+                                        disabled={processing}
+                                        onClick={() => handleQuickAction({ label: `Details: ${e.employeeCode}`, command: `${detailWord} details for ${e.employeeCode} ${d.monthName} ${d.year}` })}
+                                      >
+                                        View full details →
+                                      </button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </>
+                            )}
+
+                            {d.occasional.length > 0 && (
+                              <>
+                                <p className="admin-assistant-list-subtitle mt-2">1-{d.threshold - 1} times ({d.occasional.length})</p>
+                                <ul className="admin-assistant-list font-medium">
+                                  {d.occasional.map((e) => (
+                                    <li key={e.employeeCode} className="admin-assistant-list-item">
+                                      {renderPersonLine(e)}
+                                      <span className="admin-assistant-detail-line">
+                                        {e.count} day{e.count === 1 ? '' : 's'} {unit}{e.dates && e.dates.length > 0 ? ` - ${formatDates(e.dates)}` : ''}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </>
+                            )}
+
+                          </div>
+                        );
+                      })()}
+
+                      {/* 8. One Employee's Late / Absent Details */}
+                      {msg.cardType === 'insights_employee' && msg.data && (() => {
+                        const d = msg.data;
+                        const emp = d.employee;
+                        const lateSection = (
+                          <React.Fragment key="late">
+                            <p className="admin-assistant-list-subtitle mt-2">Late Days ({d.lateDays.length})</p>
+                            {d.lateDays.length === 0 ? (
+                              <p className="admin-assistant-list-empty">No late arrivals in {d.periodLabel}.</p>
+                            ) : (
+                              <ul className="admin-assistant-list font-medium">
+                                {d.lateDays.map((x) => (
+                                  <li key={`l-${x.day}`}>
+                                    <strong>{x.date}</strong>
+                                    {x.checkIn && <span>In {x.checkIn}</span>}
+                                    {x.lateText && <span className="admin-assistant-tag late">Late by {x.lateText}</span>}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </React.Fragment>
+                        );
+                        const absentSection = (
+                          <React.Fragment key="absent">
+                            <p className="admin-assistant-list-subtitle mt-2">Absent Days ({d.absentDays.length})</p>
+                            {d.absentDays.length === 0 ? (
+                              <p className="admin-assistant-list-empty">No absences in {d.periodLabel}.</p>
+                            ) : (
+                              <ul className="admin-assistant-list font-medium">
+                                {d.absentDays.map((x) => (
+                                  <li key={`a-${x.day}`}>
+                                    <strong>{x.date}</strong>
+                                    <span>Reason: {x.reason || 'Not provided'}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </React.Fragment>
+                        );
+                        return (
+                          <div className="admin-assistant-list-card">
+                            <div className="admin-assistant-summary-grid four">
+                              <div className="admin-assistant-stat green"><span className="val">{emp.present}</span><span className="lbl">Present</span></div>
+                              <div className="admin-assistant-stat amber"><span className="val">{emp.late}</span><span className="lbl">Late</span></div>
+                              <div className="admin-assistant-stat red"><span className="val">{emp.absent}</span><span className="lbl">Absent</span></div>
+                              <div className="admin-assistant-stat purple"><span className="val">{emp.halfDay}</span><span className="lbl">Half Day</span></div>
+                            </div>
+                            <p className="admin-assistant-list-note">
+                              Late time: {emp.lateTimeText} | Permission: {emp.permissionTimeText} | Worked: {emp.totalHours}h
+                            </p>
+                            {d.metric === 'absent' ? [absentSection, lateSection] : [lateSection, absentSection]}
+                            {d.halfDays.length > 0 && (
+                              <>
+                                <p className="admin-assistant-list-subtitle mt-2">Half Days ({d.halfDays.length})</p>
+                                <ul className="admin-assistant-list font-medium">
+                                  {d.halfDays.map((x) => (
+                                    <li key={`h-${x.day}`}>
+                                      <strong>{x.date}</strong>
+                                      {x.checkIn && <span>In {x.checkIn}</span>}
+                                      {x.checkOut && <span>Out {x.checkOut}</span>}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* 9. Related options under every bot reply */}
+                      {msg.sender === 'bot' && msg.suggestions && msg.suggestions.length > 0 && (
+                        <div className="admin-assistant-suggestions">
+                          <span className="admin-assistant-suggestions-label">💡 Related options</span>
+                          {renderChips(msg.suggestions, 'compact')}
                         </div>
                       )}
                     </>
@@ -2163,7 +2805,7 @@ const AdminAssistantBot = () => {
             {/* In-Chat Action Confirmation Prompt */}
             {pendingAction && pendingAction.step === 'confirm' && (
               <div className="admin-assistant-confirm-box">
-                <p className="admin-assistant-confirm-text">{pendingAction.prompt}</p>
+                {pendingAction.prompt && <p className="admin-assistant-confirm-text">{pendingAction.prompt}</p>}
                 <div className="admin-assistant-confirm-actions">
                   <button
                     type="button"
@@ -2194,7 +2836,7 @@ const AdminAssistantBot = () => {
               type="text"
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
-              placeholder={processing ? "Processing request..." : "Type a command..."}
+              placeholder={processing ? "Processing request..." : "Ask e.g. who is consistently late?"}
               className="admin-assistant-input"
               disabled={processing}
             />

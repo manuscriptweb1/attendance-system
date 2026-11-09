@@ -2,36 +2,37 @@
   "botInfo": {
     "name": "MTM Admin Assistant",
     "developer": "Mohamed Mushraf",
-    "description": "I can help admins navigate pages, search employees, manage attendance, calculate payroll, download payslips, and manage holidays."
+    "description": "I can help admins check today's attendance, late and absent details, monthly late/absent patterns, reports, payroll, payslips, holidays, and open admin pages."
   },
   "fallback": {
-    "unknown": "I do not know that. Please ask my developer.",
+    "unknown": "I could not find an exact match for that. Please choose one of the options below, or type \"help\" to see everything I can do.",
+    "withSuggestions": "Here are the closest options for your request. Choose one below:",
     "developerResponse": "I was developed by Mohamed Mushraf."
   },
   "conversation": {
     "greetings": {
-      "patterns": ["hi", "hello", "hey", "good morning", "good afternoon", "good evening"],
+      "patterns": ["hi", "hello", "hey", "good morning", "good afternoon", "good evening", "namaste", "namaskar", "salam", "salaam", "assalamualaikum", "assalamu alaikum"],
       "response": "Hi! I am your MTM Admin Assistant. How can I help you today?"
     },
     "wellbeing": {
-      "patterns": ["how are you", "how are you doing", "how r u", "how is it going", "are you fine"],
+      "patterns": ["how are you", "how are you doing", "how r u", "how is it going", "are you fine", "kaise ho", "kya haal hai"],
       "response": "I am doing well and ready to help you with attendance, payroll, reports, payslips, and admin tasks."
     },
     "thanks": {
-      "patterns": ["thanks", "thank you", "thank you bot"],
-      "response": "You're welcome!"
+      "patterns": ["thanks", "thank you", "thank you bot", "thx", "shukriya", "dhanyavad", "dhanyawad"],
+      "response": "You're welcome! Let me know what you would like to check next."
     },
     "acknowledgement": {
-      "patterns": ["ok", "okay", "fine", "good", "done"],
-      "response": "Okay."
+      "patterns": ["ok", "okay", "fine", "good", "done", "theek hai", "thik hai", "accha", "acha"],
+      "response": "Sure. What would you like to check next?"
     },
     "bye": {
-      "patterns": ["bye", "goodbye", "see you"],
+      "patterns": ["bye", "goodbye", "see you", "alvida"],
       "response": "Goodbye! Have a good day."
     },
     "identity": {
       "patterns": ["who are you", "what are you", "your name"],
-      "response": "I am your MTM Admin Assistant. I can help you navigate admin pages, search employees, manage attendance, generate reports, calculate payroll, and download payslips."
+      "response": "I am your MTM Admin Assistant. I can show today's attendance, late and absent details, monthly late/absent patterns, reports, payroll and payslips, and open any admin page for you."
     }
   },
   "actions": [
@@ -85,15 +86,35 @@
       "id": "today_attendance",
       "intent": "TODAY_ATTENDANCE_SUMMARY",
       "title": "Today Attendance Summary",
-      "description": "Show today's attendance summary, absent list, or late list.",
+      "description": "Show today's attendance with full details: absent (with reasons), late (with late time), present, still working, half day, on leave, and permissions.",
       "permission": "attendance:view",
-      "keywords": ["today attendance", "attendance summary", "absent today", "late today"],
+      "keywords": ["today attendance", "attendance summary", "absent today", "late today", "present today"],
       "aliases": ["today status", "today report"],
       "commands": [
-        "today attendance",
         "today attendance summary",
-        "who is absent today",
-        "who is late today"
+        "absent",
+        "late",
+        "who is present today",
+        "who is still working",
+        "who is on leave today",
+        "permissions today"
+      ],
+      "quickAction": true
+    },
+    {
+      "id": "attendance_insights",
+      "intent": "ATTENDANCE_INSIGHTS",
+      "title": "Late & Absent Patterns",
+      "description": "Find employees who were late or absent 3 or more times in a month, with dates, late time, and absent reasons.",
+      "permission": "reports:view",
+      "keywords": ["consistently late", "frequently late", "always late", "most late", "frequently absent", "most absent", "late this month", "absent this month"],
+      "aliases": ["late pattern", "absent pattern", "late analysis", "absent analysis"],
+      "commands": [
+        "who is consistently late",
+        "who is frequently absent this month",
+        "most late employees in October 2026",
+        "late details for MTM-01",
+        "absent details for Bilal this month"
       ],
       "quickAction": true
     },

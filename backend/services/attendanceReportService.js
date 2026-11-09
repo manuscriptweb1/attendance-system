@@ -385,6 +385,7 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
             ? { ...(finalRecord || dateRecords[0]), late_minutes: 0 } 
             : (finalRecord || (dateRecords ? dateRecords[0] : null)),
           permissionMinutes: dayPermissionMinutes,
+          countedLateMinutes: netDayCountedLate,
           absentReason: dayAbsentReason,
           paidLeaveReason: dayPaidLeaveReason,
           holidayInfo: dayHoliday ? {

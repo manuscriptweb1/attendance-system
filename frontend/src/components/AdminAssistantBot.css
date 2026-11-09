@@ -237,6 +237,71 @@
   transform: rotate(-45deg);
 }
 
+.admin-assistant-clear-btn {
+  background: rgba(239, 68, 68, 0.1);
+  border: none;
+  color: #EF4444;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-assistant-clear-btn:hover:not(:disabled) {
+  background: #EF4444;
+  color: #ffffff;
+}
+
+.admin-assistant-clear-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-assistant-clear-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #EF4444;
+  background: rgba(239, 68, 68, 0.08);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.admin-assistant-clear-confirm-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.admin-assistant-clear-confirm-btn {
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1px solid var(--admin-border, rgba(255, 255, 255, 0.12));
+  background: var(--admin-surface, #161D2E);
+  color: var(--admin-text, #FFFFFF);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-assistant-clear-confirm-btn.danger {
+  background: #EF4444;
+  border-color: #EF4444;
+  color: #ffffff;
+}
+
+.admin-assistant-clear-confirm-btn.danger:hover:not(:disabled) {
+  background: #DC2626;
+}
+
 .admin-assistant-header-info {
   display: flex;
   align-items: center;
@@ -587,6 +652,175 @@
   color: #F59E0B;
 }
 
+.admin-assistant-tag.absent {
+  background: rgba(239, 68, 68, 0.15);
+  color: #EF4444;
+}
+
+.admin-assistant-tag.present {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10B981;
+}
+
+.admin-assistant-tag.halfday {
+  background: rgba(168, 85, 247, 0.15);
+  color: #A855F7;
+}
+
+.admin-assistant-tag.leave {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3B82F6;
+}
+
+.admin-assistant-tag.neutral {
+  background: rgba(148, 163, 184, 0.18);
+  color: var(--admin-muted, #94A3B8);
+}
+
+/* Detail lines inside list cards */
+.admin-assistant-list li.admin-assistant-list-item {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--admin-border, rgba(255, 255, 255, 0.08));
+}
+
+.admin-assistant-list li.admin-assistant-list-item:last-child {
+  border-bottom: none;
+}
+
+.admin-assistant-person-dept {
+  color: var(--admin-muted, #94A3B8);
+  font-weight: 500;
+}
+
+.admin-assistant-detail-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--admin-muted, #94A3B8);
+  font-weight: 500;
+}
+
+.admin-assistant-list-note {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--admin-muted, #94A3B8);
+  margin-bottom: 6px;
+}
+
+/* Late / Absent pattern ranking */
+.admin-assistant-insight-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--admin-text, #FFFFFF);
+}
+
+.admin-assistant-insight-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--admin-elevated, #1C2540);
+  border: 1px solid var(--admin-border, rgba(255, 255, 255, 0.08));
+}
+
+.admin-assistant-insight-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-assistant-insight-rank {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--admin-accent, #3B82F6);
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.admin-assistant-link-btn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--admin-accent, #3B82F6);
+  cursor: pointer;
+}
+
+.admin-assistant-link-btn:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.admin-assistant-link-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Employee card: today's attendance */
+.admin-assistant-emp-today {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--admin-text, #FFFFFF);
+}
+
+.admin-assistant-emp-today-label {
+  color: var(--admin-muted, #94A3B8);
+}
+
+/* Related options under every bot reply */
+.admin-assistant-suggestions {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--admin-border, rgba(255, 255, 255, 0.12));
+  white-space: normal;
+}
+
+.admin-assistant-suggestions-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--admin-muted, #94A3B8);
+}
+
+.admin-assistant-quick-actions.compact {
+  margin-top: 6px;
+}
+
+.admin-assistant-quick-actions.compact .admin-assistant-quick-btn {
+  padding: 4px 10px;
+  font-size: 10.5px;
+}
+
+.admin-assistant-quick-btn:disabled,
+.admin-assistant-emp-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .admin-assistant-time-text {
   font-size: 10px;
   color: var(--admin-muted, #94A3B8);
@@ -608,6 +842,36 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  border: 1px solid transparent;
+  font: inherit;
+}
+
+button.admin-assistant-stat {
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+button.admin-assistant-stat:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: currentColor;
+}
+
+.admin-assistant-summary-grid.four {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.admin-assistant-summary-grid.four .admin-assistant-stat {
+  padding: 6px 2px;
+}
+
+.admin-assistant-summary-grid.four .admin-assistant-stat .lbl {
+  font-size: 8.5px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  word-break: normal;
 }
 
 .admin-assistant-stat .val {

@@ -160,6 +160,17 @@ CREATE TABLE IF NOT EXISTS offer_letter_settings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Columns used by the offer letter settings page (logo, signatory, accent colour).
+-- Kept as ALTERs so databases created with the older table above are upgraded too.
+ALTER TABLE offer_letter_settings ADD COLUMN IF NOT EXISTS logo_path VARCHAR(500);
+ALTER TABLE offer_letter_settings ADD COLUMN IF NOT EXISTS logo_width INTEGER NOT NULL DEFAULT 160;
+ALTER TABLE offer_letter_settings ADD COLUMN IF NOT EXISTS logo_height INTEGER NOT NULL DEFAULT 60;
+ALTER TABLE offer_letter_settings ADD COLUMN IF NOT EXISTS footer_accent_color VARCHAR(20) DEFAULT '#E11D48';
+ALTER TABLE offer_letter_settings ADD COLUMN IF NOT EXISTS signatory_name VARCHAR(150) NOT NULL DEFAULT 'Dr. Mueen Ahmed KK';
+ALTER TABLE offer_letter_settings ADD COLUMN IF NOT EXISTS signatory_designation VARCHAR(150) NOT NULL DEFAULT 'Designated Partner';
+ALTER TABLE offer_letter_settings ADD COLUMN IF NOT EXISTS signatory_email VARCHAR(150) NOT NULL DEFAULT 'contact@mstechnomedia.com';
+ALTER TABLE offer_letter_settings ADD COLUMN IF NOT EXISTS signature_path VARCHAR(500);
+
 -- Create Role & Responsibility Templates Table (Default/Master Templates)
 CREATE TABLE IF NOT EXISTS role_responsibility_templates (
     id SERIAL PRIMARY KEY,

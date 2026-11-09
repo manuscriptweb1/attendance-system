@@ -224,6 +224,17 @@ async function runMasterMigration() {
 
       ALTER TABLE offer_letter_settings ADD COLUMN IF NOT EXISTS footer_line_3 TEXT DEFAULT 'https://mstechnomedia.com | contact@mstechnomedia.com | +91-9686980760 | GST: 29ACBFM2283L1ZV';
 
+      -- Databases created from config/schema.sql have an older offer_letter_settings table
+      -- (CREATE TABLE IF NOT EXISTS above is then skipped), so add the columns the app uses.
+      ALTER TABLE offer_letter_settings ADD COLUMN IF NOT EXISTS logo_path VARCHAR(500);
+      ALTER TABLE offer_letter_settings ADD COLUMN IF NOT EXISTS logo_width INTEGER NOT NULL DEFAULT 160;
+      ALTER TABLE offer_letter_settings ADD COLUMN IF NOT EXISTS logo_height INTEGER NOT NULL DEFAULT 60;
+      ALTER TABLE offer_letter_settings ADD COLUMN IF NOT EXISTS footer_accent_color VARCHAR(20) DEFAULT '#E11D48';
+      ALTER TABLE offer_letter_settings ADD COLUMN IF NOT EXISTS signatory_name VARCHAR(150) NOT NULL DEFAULT 'Dr. Mueen Ahmed KK';
+      ALTER TABLE offer_letter_settings ADD COLUMN IF NOT EXISTS signatory_designation VARCHAR(150) NOT NULL DEFAULT 'Designated Partner';
+      ALTER TABLE offer_letter_settings ADD COLUMN IF NOT EXISTS signatory_email VARCHAR(150) NOT NULL DEFAULT 'contact@mstechnomedia.com';
+      ALTER TABLE offer_letter_settings ADD COLUMN IF NOT EXISTS signature_path VARCHAR(500);
+
       INSERT INTO offer_letter_settings (
         id, company_name, logo_path, header_address, header_phone, header_email, header_website,
         footer_line_1, footer_line_2, footer_line_3, signatory_name, signatory_designation, signatory_email

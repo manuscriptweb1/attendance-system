@@ -1683,7 +1683,44 @@ const handleBotCommand = async (req, res) => {
   }
 };
 
+/**
+ * Free-text question answered by Gemini, using only this project's data (read-only tools).
+ */
+const handleAiChat = async (req, res) => {
+  try {
+    const { answerAdminQuestion } = require('../services/assistantAiService');
+    const { message, history } = req.body || {};
+    const { status, body } = await answerAdminQuestion({
+      req,
+      message,
+      history,
+      helpers: { checkPermission, canViewAttendanceData, getTodayIST }
+    });
+    if (body.success) {
+      logAdminActivity({
+        adminId: req.user.id,
+        adminName: req.user.username || req.user.name || 'Admin',
+        adminEmail: req.user.email || '',
+        actionType: 'AI QUESTION',
+        moduleName: MODULE_NAMES.ADMIN_ASSISTANT,
+        description: `Asked the AI assistant: "${String(message || '').slice(0, 200)}"`,
+        ipAddress: getClientIP(req),
+        browserInfo: req.headers['user-agent'],
+        source: 'ADMIN_ASSISTANT'
+      }).catch(() => {});
+    }
+    return res.status(status).json(body);
+  } catch (error) {
+    console.error('AI chat error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'The AI assistant could not answer right now. Please try again.'
+    });
+  }
+};
+
 module.exports = {
   handleBotCommand,
-  getBotCapabilities
+  getBotCapabilities,
+  handleAiChat
 };

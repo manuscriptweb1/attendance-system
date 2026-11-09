@@ -2153,3 +2153,21 @@ WHERE NOT EXISTS (SELECT 1 FROM pdf_template_settings WHERE id = 1);
 -- Description: Adds monthly_permission_limit_minutes column to settings table
 ALTER TABLE settings 
 ADD COLUMN IF NOT EXISTS monthly_permission_limit_minutes INTEGER DEFAULT 240;
+
+-- Admin Assistant AI (Gemini) settings. Single row; the API key is stored encrypted (AES-256-GCM).
+-- The backend also creates this table automatically on first use.
+CREATE TABLE IF NOT EXISTS ai_settings (
+    id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    provider VARCHAR(30) NOT NULL DEFAULT 'gemini',
+    api_key_encrypted TEXT,
+    key_last4 VARCHAR(8),
+    model VARCHAR(80) NOT NULL DEFAULT 'gemini-2.5-flash',
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    last_tested_at TIMESTAMP,
+    last_test_ok BOOLEAN,
+    updated_by INTEGER,
+    updated_by_name VARCHAR(150),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+INSERT INTO ai_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;

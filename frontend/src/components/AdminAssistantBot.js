@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getSettings, executeBotCommand, downloadAllPayslips, downloadSinglePayslip, getBotCapabilities } from '../services/api';
+import { getSettings, executeBotCommand, askAssistantAI, downloadAllPayslips, downloadSinglePayslip, getBotCapabilities } from '../services/api';
 import { FiX, FiSend, FiCpu, FiExternalLink, FiRotateCcw, FiTrash2 } from 'react-icons/fi';
 import './AdminAssistantBot.css';
 
@@ -204,11 +204,12 @@ const removeChatHistory = (key) => {
 const CLEAR_CHAT_RE = /^(?:clear|delete|reset|remove)\s*(?:the\s+)?(?:chat|conversation|history|messages|all\s+messages|chat\s+history)?$/;
 
 // Commands that perform an action; these never go through the question/details detector
-const ACTION_VERB_RE = /^(?:mark|put|make|check|checkin|checkout|create|add|delete|remove|calculate|download|send|email|export|open|go\s+to|navigate|take\s+me|generate|payslip)\b/;
+const ACTION_VERB_RE = /^(?:mark|put|make|check(?=\s*-?\s*(?:in|out)\b)|checkin|checkout|create|add|delete|remove|calculate|download|send|email|export|open|go\s+to|navigate|take\s+me|generate|payslip)\b/;
 
 // Basic Hinglish -> English normalisation used only for understanding questions
 const HINGLISH_RULES = [
   [/\b(?:is|iss|ye|yeh)\s+(?:mahine|mahina|month)\b/g, ' this month '],
+  [/\b(?:pichle|pichhle|pichla|pichhla)\s+(\d{1,2})\s+(?:mahine|mahino|mahina|months?)\b/g, ' last $1 months '],
   [/\b(?:pichle|pichhle|pichla|pichhla)\s+(?:mahine|mahina|month)\b/g, ' last month '],
   [/\b(?:mahine|mahina)\b/g, ' month '],
   [/\b(?:aaj|aj)\b/g, ' today '],
@@ -248,7 +249,7 @@ const NOT_MARKED_WORD_RE = /\b(?:not\s+marked|not\s+mention(?:ed)?|unmarked|not\
 const PATTERN_WORD_RE = /\b(?:consistent(?:ly)?|frequent(?:ly)?|regular(?:ly)?|always|often|mostly|most|habitual(?:ly)?|repeated(?:ly)?|again\s+and\s+again|many\s+times|every\s*day|daily|top|ranking|rank|highest|maximum|max|monthly|month|weekly|week|history|times|trend|pattern|analysis|days|reports?)\b/;
 const DETAIL_WORD_RE = /\b(?:details?|records?|info|information|list|summary|data)\b/;
 const TODAY_WORD_RE = /\b(?:today|now|currently|so\s+far)\b/;
-const PERIOD_WORD_RE = /\b(?:this|last|previous|current)\s+month\b|\b20\d{2}\b/;
+const PERIOD_WORD_RE = /\b(?:this|last|previous|current)\s+month\b|\b(?:last|past|previous)\s+\d{1,2}\s+months?\b|\b20\d{2}\b|\b(?:0?[1-9]|1[0-2])[/-]20\d{2}\b/;
 
 const MONTH_SHORT = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const MONTH_TOKEN_RE = /\b(january|february|march|april|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)\b/;
@@ -265,7 +266,7 @@ const findMonthInText = (lower) => {
 const INTENT_STOP_WORDS = new Set(`
 who whom whose which what when where why how is are was were be been being am has have had do does did done
 the a an of for to in on at by from with about into than then there here this that these those it its
-last previous current next month months monthly week weeks weekly year years today now currently so far yet
+last past previous current next month months monthly week weeks weekly year years today now currently so far yet
 show me give get list tell find check see view display fetch bring provide want need know let
 please pls plz kindly sir madam maam bro bhai ji
 all any every each everyone everybody someone anyone anybody somebody employee employees staff people person persons
@@ -371,6 +372,12 @@ const getFallbackSuggestions = (text) => {
 };
 
 const METRIC_WORD = { late: 'late', absent: 'absent', half_day: 'half day' };
+const AI_HISTORY_LIMIT = 10;
+const METRIC_PATTERN_COMMAND = {
+  late: 'who is consistently late',
+  absent: 'who is frequently absent',
+  half_day: 'who has frequent half days'
+};
 
 const getEmployeeSuggestions = (code, monthName, year) => {
   const period = monthName && year ? ` ${monthName} ${year}` : '';
@@ -482,35 +489,103 @@ const parseHolidayDate = (text) => {
  * Natural Language Date / Month Parser
  */
 const parseMonthYearFromText = (text) => {
-  const lower = text.toLowerCase();
+  const lower = String(text || '').toLowerCase();
   const now = new Date();
   let month = null;
   let year = now.getFullYear();
+  let relative = false;
 
   if (lower.includes('this month') || lower.includes('current month') || lower.includes('this period')) {
     month = now.getMonth() + 1;
+    relative = true;
   } else if (lower.includes('last month') || lower.includes('previous month')) {
     const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     month = lastMonthDate.getMonth() + 1;
     year = lastMonthDate.getFullYear();
+    relative = true;
   }
 
   const yearMatch = lower.match(/\b(20\d{2})\b/);
   if (yearMatch) {
-    year = parseInt(yearMatch[1]);
+    year = parseInt(yearMatch[1], 10);
   }
 
   const numMonthMatch = lower.match(/\b(0?[1-9]|1[0-2])[/ -](20\d{2})\b/);
   if (numMonthMatch) {
-    month = parseInt(numMonthMatch[1]);
-    year = parseInt(numMonthMatch[2]);
+    month = parseInt(numMonthMatch[1], 10);
+    year = parseInt(numMonthMatch[2], 10);
   }
 
   if (!month) {
     month = findMonthInText(lower);
+    // "December" asked in November means the December that already happened (last year)
+    if (month && !yearMatch && !relative && month > now.getMonth() + 1) {
+      year = now.getFullYear() - 1;
+    }
   }
 
   return { month, year };
+};
+
+const MAX_MULTI_MONTHS = 6;
+
+/**
+ * Returns the list of months a question is about, oldest first.
+ * "last 3 months" -> the 3 completed months before this one; otherwise a single month (or none).
+ */
+const parsePeriodsFromText = (text) => {
+  const lower = String(text || '').toLowerCase();
+  const multi = lower.match(/\b(?:last|past|previous)\s+(\d{1,2})\s+months?\b/);
+  if (multi) {
+    const count = Math.min(Math.max(parseInt(multi[1], 10) || 1, 1), MAX_MULTI_MONTHS);
+    const now = new Date();
+    const periods = [];
+    for (let i = count; i >= 1; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      periods.push({ month: d.getMonth() + 1, year: d.getFullYear() });
+    }
+    return periods;
+  }
+  const { month, year } = parseMonthYearFromText(lower);
+  return month ? [{ month, year }] : [];
+};
+
+// Words that can appear in a "same question, other month" follow-up such as "check for last month also"
+const FOLLOW_UP_FILLER = new Set(`
+check for also what about and same show please pls plz then in of the again too month months last past previous this
+current how it me give see do now ok okay sir madam tell data details detail year period also bhi ka ki ke kya for
+same thing same one that one with only just
+`.trim().split(/\s+/));
+
+const hasPeriodInText = (text) => !!findMonthInText(text) || PERIOD_WORD_RE.test(text);
+
+// True when the message only names a period ("last month", "check for October also", "what about 2025")
+const isPeriodOnlyFollowUp = (text) => {
+  if (!hasPeriodInText(text)) return false;
+  const rest = String(text || '')
+    .split(/\s+/)
+    .map((token) => token.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, ''))
+    .filter((token) => token
+      && !FOLLOW_UP_FILLER.has(token)
+      && !MONTH_ONLY_TOKEN_RE.test(token)
+      && !/^20\d{2}$/.test(token)
+      && !/^\d{1,2}$/.test(token)
+      && !/^(?:0?[1-9]|1[0-2])[/-]20\d{2}$/.test(token));
+  return rest.length === 0;
+};
+
+const getRecentMonthOptions = (count = 6) => {
+  const now = new Date();
+  const items = [];
+  for (let i = 2; i < count + 2; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const name = MONTH_NAMES[d.getMonth()];
+    items.push({
+      label: `${name.charAt(0).toUpperCase()}${name.slice(1, 3)} ${d.getFullYear()}`,
+      command: `${name} ${d.getFullYear()}`
+    });
+  }
+  return items;
 };
 
 const ADMIN_PAGE_ROUTES = [
@@ -673,6 +748,8 @@ const AdminAssistantBot = () => {
   const [processing, setProcessing] = useState(false);
 
   const [pendingAction, setPendingAction] = useState(null);
+  // Last month-based question, so "check for last month also" can repeat it for another month
+  const lastQueryRef = useRef(null);
 
   const [buttonPosition, setButtonPosition] = useState(() => {
     try {
@@ -1082,7 +1159,92 @@ const AdminAssistantBot = () => {
         ]
       });
     } else {
-      addMessage('bot', body.message, { cardType: 'insights_ranking', data: body.data, topic: `insights_${metric}`, scrollToStart: true });
+      addMessage('bot', body.message, {
+        cardType: 'insights_ranking',
+        data: body.data,
+        scrollToStart: true,
+        suggestions: getMonthNavigationSuggestions(metric, body.data)
+      });
+    }
+  };
+
+  // Previous / next month, the other metric for the same month, and "pick any month"
+  const getMonthNavigationSuggestions = (metric, data) => {
+    const month = Number(data?.month);
+    const year = Number(data?.year);
+    if (!month || !year) return getTopicSuggestions(`insights_${metric}`);
+    const label = (d) => `${getMonthNameStr(d.getMonth() + 1)} ${d.getFullYear()}`;
+    const prev = new Date(year, month - 2, 1);
+    const next = new Date(year, month, 1);
+    const now = new Date();
+    const nextIsFuture = next > new Date(now.getFullYear(), now.getMonth(), 1);
+    const otherMetric = metric === 'late' ? 'absent' : 'late';
+    const items = [{ label: `⏮ ${label(prev)}`, command: `${METRIC_PATTERN_COMMAND[metric]} ${label(prev)}` }];
+    if (!nextIsFuture) items.push({ label: `⏭ ${label(next)}`, command: `${METRIC_PATTERN_COMMAND[metric]} ${label(next)}` });
+    items.push({
+      label: `${otherMetric === 'late' ? '📈 Late' : '📉 Absent'} ${getMonthNameStr(month).substring(0, 3)} ${year}`,
+      command: `${METRIC_PATTERN_COMMAND[otherMetric]} ${getMonthNameStr(month)} ${year}`
+    });
+    items.push({ label: '📅 Other Month', command: `prompt_insights_month:${metric}` });
+    return items;
+  };
+
+  // Repeats the last month-based question (patterns or report) for other month(s)
+  const runFollowUpForPeriods = async (periods) => {
+    const last = lastQueryRef.current;
+    const periodText = periods.map((p) => `${getMonthNameStr(p.month)} ${p.year}`).join(', ');
+    if (!last) {
+      const first = periods[periods.length - 1];
+      const name = `${getMonthNameStr(first.month)} ${first.year}`;
+      addMessage('bot', `What would you like to see for ${periodText}?`, {
+        suggestions: [
+          { label: '📈 Consistently Late', command: `${METRIC_PATTERN_COMMAND.late} ${name}` },
+          { label: '📉 Frequently Absent', command: `${METRIC_PATTERN_COMMAND.absent} ${name}` },
+          { label: `📊 ${name} Report`, command: `show ${name} report` }
+        ]
+      });
+      return;
+    }
+    if (last.kind === 'report') {
+      for (const p of periods) {
+        const name = `${getMonthNameStr(p.month)} ${p.year}`;
+        await processUserCommand(last.employeeQuery ? `show report for ${last.employeeQuery} ${name}` : `show ${name} report`);
+      }
+      return;
+    }
+    for (const p of periods) {
+      for (const metric of last.metrics) {
+        await runAttendanceInsights({ metric, month: p.month, year: p.year, employeeQuery: last.employeeQuery, threshold: last.threshold });
+      }
+    }
+  };
+
+  // Sends a free question to the backend AI. Returns false when AI is off or not configured.
+  const answerWithAI = async (question) => {
+    const history = messages
+      .filter((m) => m.type !== 'loading' && typeof m.text === 'string' && m.text.trim())
+      .slice(-AI_HISTORY_LIMIT)
+      .map((m) => ({ role: m.sender === 'user' ? 'user' : 'model', text: m.text.slice(0, 1500) }));
+    const loadingId = addLoadingMessage('Thinking...');
+    try {
+      const res = await askAssistantAI(question, history);
+      removeLoadingMessage(loadingId);
+      const body = res.data || {};
+      if (body.type === 'ai_not_configured') return false;
+      if (body.success && body.message) {
+        addMessage('bot', body.message, { aiReply: true, topic: 'conversation' });
+        return true;
+      }
+      if (body.message) {
+        addMessage('bot', body.message, { topic: 'error' });
+        return true;
+      }
+      return false;
+    } catch (err) {
+      removeLoadingMessage(loadingId);
+      if (err?.response?.data?.type === 'ai_not_configured') return false;
+      addMessage('bot', getApiErrorMessage(err, 'The AI assistant could not answer right now. Please try again or choose an option below.'), { topic: 'error' });
+      return true;
     }
   };
 
@@ -1130,9 +1292,13 @@ const AdminAssistantBot = () => {
     const question = detectAttendanceQuestion(text);
     if (question) {
       if (question.kind === 'insights') {
-        const { month, year } = parseMonthYearFromText(text);
-        for (const metric of question.metrics) {
-          await runAttendanceInsights({ metric, month: month || undefined, year: month ? year : undefined, employeeQuery: question.employeeQuery, threshold: question.threshold });
+        lastQueryRef.current = { kind: 'insights', metrics: question.metrics, employeeQuery: question.employeeQuery, threshold: question.threshold };
+        const periods = parsePeriodsFromText(text);
+        const runFor = periods.length > 0 ? periods : [{ month: undefined, year: undefined }];
+        for (const p of runFor) {
+          for (const metric of question.metrics) {
+            await runAttendanceInsights({ metric, month: p.month, year: p.year, employeeQuery: question.employeeQuery, threshold: question.threshold });
+          }
         }
         return true;
       }
@@ -1236,6 +1402,7 @@ const AdminAssistantBot = () => {
     if (actionType === 'attendance_insights') {
       const { metric } = pendingAction;
       setPendingAction(null);
+      lastQueryRef.current = { kind: 'insights', metrics: [metric], employeeQuery: codeStr };
       setProcessing(true);
       runAttendanceInsights({ metric, month: currentMonth, year: currentYear, employeeQuery: codeStr }).finally(() => setProcessing(false));
       return;
@@ -1269,6 +1436,17 @@ const AdminAssistantBot = () => {
     if (lowerCmd === 'prompt_search_employee') {
       setPendingAction({ type: 'search_employee', step: 'ask_query' });
       addMessage('bot', 'Which employee should I search? Type a name, employee ID, email, or mobile number.', { promptOptions: [SUGGESTION.cancel] });
+      return;
+    }
+
+    if (lowerCmd.startsWith('prompt_insights_month')) {
+      const metric = lowerCmd.split(':')[1] || 'late';
+      const last = lastQueryRef.current;
+      const employeeQuery = last && last.kind === 'insights' ? last.employeeQuery : '';
+      setPendingAction({ type: 'insights_month', step: 'ask_month', metric, employeeQuery });
+      addMessage('bot', `Which month should I check ${METRIC_WORD[metric] || metric} details for? Choose below or type one, for example "September 2026".`, {
+        showMonthPicker: true
+      });
       return;
     }
 
@@ -1338,7 +1516,16 @@ const AdminAssistantBot = () => {
           const mName = getMonthNameStr(month);
           const type = pendingAction.type;
           
-          if (type === 'calculate_payroll') {
+          if (type === 'insights_month') {
+            const { metric, employeeQuery } = pendingAction;
+            setPendingAction(null);
+            setProcessing(true);
+            try {
+              await runAttendanceInsights({ metric, month, year, employeeQuery });
+            } finally {
+              setProcessing(false);
+            }
+          } else if (type === 'calculate_payroll') {
             setPendingAction({ type: 'calculate_payroll', step: 'confirm', month, year });
             addMessage('bot', `Calculate payroll for ${mName} ${year}? Please confirm.`, { showConfirmationOptions: true });
           } else if (type === 'download_payslips') {
@@ -1530,6 +1717,14 @@ const AdminAssistantBot = () => {
       if (CLEAR_CHAT_RE.test(lowerCmd)) {
         setConfirmClear(true);
         addMessage('bot', 'Tap "Clear" in the bar at the top of this chat to delete the full conversation.', { suggestions: [] });
+        setProcessing(false);
+        return;
+      }
+
+      // 0d-1. Same question for another month: "check for last month also", "what about October", "last 3 months"
+      const followUpText = normalizeIntentText(lowerCmd);
+      if (isPeriodOnlyFollowUp(followUpText)) {
+        await runFollowUpForPeriods(parsePeriodsFromText(followUpText));
         setProcessing(false);
         return;
       }
@@ -1845,6 +2040,8 @@ const AdminAssistantBot = () => {
           }
         }
 
+        lastQueryRef.current = { kind: 'report', employeeQuery };
+
         const loadingText = employeeQuery
           ? 'Generating employee report details...'
           : 'Generating report summary...';
@@ -1891,7 +2088,19 @@ const AdminAssistantBot = () => {
                 }
               });
 
-              addMessage('bot', msgText, { scrollToStart: true, topic: 'report' });
+              const repMonth = res.data.data.month;
+              const repYear = res.data.data.year;
+              const prevRep = new Date(repYear, repMonth - 2, 1);
+              const prevRepName = `${getMonthNameStr(prevRep.getMonth() + 1)} ${prevRep.getFullYear()}`;
+              const repName = `${res.data.data.monthName} ${repYear}`;
+              addMessage('bot', msgText, {
+                scrollToStart: true,
+                suggestions: [
+                  { label: `⏮ ${prevRepName} Report`, command: `show ${prevRepName} report` },
+                  { label: `📈 Late ${repName}`, command: `${METRIC_PATTERN_COMMAND.late} ${repName}` },
+                  { label: `📉 Absent ${repName}`, command: `${METRIC_PATTERN_COMMAND.absent} ${repName}` }
+                ]
+              });
             } else if (type === 'multiple_employees_found') {
               const candidates = res.data.data || [];
               setPendingAction({
@@ -2085,6 +2294,10 @@ const AdminAssistantBot = () => {
           // fall through to suggestions
         }
       }
+
+      // Free question -> Gemini AI (answers only from this project's data). Skipped when no key is set.
+      const aiHandled = await answerWithAI(cmd);
+      if (aiHandled) return;
 
       const fallback = getFallbackSuggestions(intentText);
       const fallbackText = fallback.matched
@@ -2431,6 +2644,7 @@ const AdminAssistantBot = () => {
                     </div>
                   ) : (
                     <>
+                      {msg.aiReply && <span className="admin-assistant-ai-badge">✨ AI answer from your attendance data</span>}
                       {msg.text}
 
                       {/* 1. Initial Quick Actions for Welcome Message */}
@@ -2461,6 +2675,17 @@ const AdminAssistantBot = () => {
                           >
                             Last Month
                           </button>
+                          {getRecentMonthOptions(4).map((opt) => (
+                            <button
+                              key={opt.command}
+                              type="button"
+                              disabled={processing}
+                              onClick={() => processUserCommand(opt.command)}
+                              className={`admin-assistant-quick-btn ${processing ? 'opacity-50 pointer-events-none' : ''}`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
                           <button
                             type="button"
                             disabled={processing}

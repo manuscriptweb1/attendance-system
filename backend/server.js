@@ -37,6 +37,7 @@ const offerLetterRoutes = require('./routes/offerLetterRoutes');
 const experienceLetterRoutes = require('./routes/experienceLetterRoutes');
 const relievingLetterRoutes = require('./routes/relievingLetterRoutes');
 const paidLeaveRoutes = require('./routes/paidLeaveRoutes');
+const aiSettingsRoutes = require('./routes/aiSettingsRoutes');
 
 // Import cron jobs
 const { createDailyAbsentRecords } = require('./jobs/createDailyAbsentRecords');
@@ -138,6 +139,7 @@ app.use('/api/offer-letters', offerLetterRoutes);
 app.use('/api/experience-letters', experienceLetterRoutes);
 app.use('/api/relieving-letters', relievingLetterRoutes);
 app.use('/api/paid-leaves', paidLeaveRoutes);
+app.use('/api/ai-settings', aiSettingsRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {

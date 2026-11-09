@@ -3,8 +3,10 @@ import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
 import AdminToast from '../components/AdminToast';
 import { Spinner } from '../components/Loader';
+import AiAssistantSettings from '../components/AiAssistantSettings';
+import { useAuth } from '../context/AuthContext';
 import { getSettings, updateSettings, checkEmailHealth, sendTestEmail } from '../services/api';
-import { FiMapPin, FiClock, FiSave, FiShield, FiInfo, FiSliders, FiCheckCircle, FiCpu, FiMail, FiSend, FiActivity } from 'react-icons/fi';
+import { FiMapPin, FiClock, FiSave, FiShield, FiInfo, FiSliders, FiCheckCircle, FiCpu, FiMail, FiSend, FiActivity, FiZap } from 'react-icons/fi';
 
 /* ─── CUSTOM TOGGLE SWITCH ─── */
 const ToggleSwitch = ({ checked, onChange }) => (
@@ -38,6 +40,7 @@ const Field = ({ label, hint, children }) => (
 );
 
 const AdminSettings = () => {
+  const { isSuperAdmin } = useAuth();
   const [settings, setSettings] = useState({ 
     latitude:'', longitude:'', allowedRadius:'', gpsAccuracyThreshold:100, 
     lateAfterTime:'', officeStartTime:'09:00', officeEndTime:'18:00', autoCheckoutTime:'18:32', halfDayThreshold:4, 
@@ -330,6 +333,16 @@ const AdminSettings = () => {
                 <ToggleSwitch checked={settings.admin_assistant_enabled} onChange={() => handleToggle('admin_assistant_enabled')} />
               </div>
             </SectionCard></div>
+
+            {/* 5b. Admin Assistant AI (Gemini) - Super Admin only */}
+            {isSuperAdmin && (
+              <div className="stagger-6"><SectionCard icon={FiZap} iconBg="bg-violet-500/10" iconColor="text-violet-400" title="Admin Assistant AI (Gemini)">
+                <AiAssistantSettings
+                  onToast={(message) => setToastConfig({ message, type: 'success' })}
+                  onError={(title, message) => setAlertDialog({ isOpen: true, title, message, type: 'error' })}
+                />
+              </SectionCard></div>
+            )}
 
             {/* Email Configuration (Google SMTP) */}
             <div className="stagger-6"><SectionCard icon={FiMail} iconBg="bg-purple-500/10" iconColor="text-purple-400" title="Email Configuration (Google SMTP)">

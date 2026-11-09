@@ -467,6 +467,16 @@ export const clearDataByDate = (module, data) => api.post(`/clear-data/${module}
 export const executeBotCommand = (action, payload = {}) =>
   api.post('/admin-assistant/command', { action, payload });
 
+// Free-text question answered by Gemini using only this project's data
+export const askAssistantAI = (message, history = []) =>
+  api.post('/admin-assistant/ai-chat', { message, history }, { timeout: 90000 });
+
+// Super Admin: Gemini AI key settings (the saved key is never returned, only a masked hint)
+export const getAiSettings = () => api.get('/ai-settings');
+export const saveAiSettings = (data) => api.put('/ai-settings', data, { timeout: 60000 });
+export const testAiSettings = (data = {}) => api.post('/ai-settings/test', data, { timeout: 60000 });
+export const removeAiKey = () => api.delete('/ai-settings/key');
+
 export const getBotCapabilities = () =>
   api.get('/admin-assistant/capabilities');
 

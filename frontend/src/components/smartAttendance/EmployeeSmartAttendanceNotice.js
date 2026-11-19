@@ -13,6 +13,24 @@ const EmployeeSmartAttendanceNotice = () => {
   const [badge, setBadge] = useState(null);
   const [open, setOpen] = useState(false);
   const [loadingBadge, setLoadingBadge] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
+
+  const downloadCard = async () => {
+    setPdfBusy(true);
+    try {
+      const r = await api.get('/smart-attendance/me/id-card.pdf', { responseType: 'blob' });
+      const url = URL.createObjectURL(r.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${badge?.employee?.employee_id || 'my'}-ID-Card.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (_) { /* ignore */ } finally {
+      setPdfBusy(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -69,9 +87,14 @@ const EmployeeSmartAttendanceNotice = () => {
                 <img src={badge.qr} alt="My attendance QR code" className="mx-auto my-3 h-52 w-52" />
                 <img src={badge.barcode} alt="My attendance barcode" className="mx-auto w-full" />
                 <p className="mt-3 text-[11px] text-slate-500">Show this at the entrance scanner when you arrive and when you leave. Keep it private.</p>
-                <a href={badge.qr} download={`${badge.employee.employee_id}-attendance-qr.png`} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                  <FiDownload /> Download QR
-                </a>
+                <div className="mt-3 flex flex-wrap justify-center gap-2">
+                  <button type="button" onClick={downloadCard} disabled={pdfBusy} className="inline-flex items-center gap-2 rounded-xl bg-[#dc2626] px-4 py-2 text-xs font-semibold text-white hover:bg-[#b91c1c] disabled:opacity-60">
+                    <FiDownload /> {pdfBusy ? 'Preparing…' : 'My ID card (PDF)'}
+                  </button>
+                  <a href={badge.qr} download={`${badge.employee.employee_id}-attendance-qr.png`} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                    <FiDownload /> QR image
+                  </a>
+                </div>
               </>
             )}
           </div>

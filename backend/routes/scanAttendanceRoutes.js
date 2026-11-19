@@ -15,6 +15,7 @@ router.use(verifyToken);
 // ── Employee self-service ──
 router.get('/me/status', isEmployee, c.myStatus);
 router.get('/me/badge', isEmployee, c.myBadge);
+router.get('/me/id-card.pdf', isEmployee, c.myIdCardPdf);
 
 // ── HR Scanner mobile app (HR role only) ──
 router.get('/hr/session', isHr, c.hrSession);
@@ -36,6 +37,8 @@ router.get('/stats', requirePermission(PAGE, 'can_view'), c.getScanStats);
 router.post('/badges/generate-all', requirePermission(PAGE, 'can_edit'), c.generateAllBadges);
 router.post('/badges/email-all', requirePermission(PAGE, 'can_edit'), c.emailAllBadges);
 router.get('/badges/email-all/status', requirePermission(PAGE, 'can_view'), c.emailAllStatus);
+router.post('/badges/id-cards.pdf', requirePermission(PAGE, 'can_view'), c.downloadAllIdCardsPdf);
+router.get('/badges/:employeeId/id-card.pdf', requirePermission(PAGE, 'can_view'), c.downloadIdCardPdf);
 router.get('/badges/:employeeId', requirePermission(PAGE, 'can_view'), c.getBadge);
 router.post('/badges/:employeeId/regenerate', requirePermission(PAGE, 'can_edit'), c.regenerateBadge);
 router.post('/badges/:employeeId/email', requirePermission(PAGE, 'can_edit'), c.emailBadge);

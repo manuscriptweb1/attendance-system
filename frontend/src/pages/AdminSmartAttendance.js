@@ -158,6 +158,32 @@ const IdCardPreview = ({ badge }) => (
   </div>
 );
 
+/** Save a PDF returned by the API (responseType: 'blob') */
+const saveBlob = (blob, filename) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+};
+
+/** Error bodies of blob requests are JSON text – read the message out of them */
+const blobErrMsg = async (e, fallback) => {
+  try {
+    const text = await e?.response?.data?.text?.();
+    if (text) return JSON.parse(text).message || fallback;
+  } catch (_) { /* not JSON */ }
+  return errMsg(e, fallback);
+};
+
+const PDF_LAYOUTS = [
+  { id: 'a4', label: 'A4 sheets (9 per page, duplex)' },
+  { id: 'card', label: 'Card printer (CR80, 1 per page)' }
+];
+
 const downloadDataUrl = (dataUrl, filename) => {
   const a = document.createElement('a');
   a.href = dataUrl;
@@ -222,6 +248,19 @@ const BadgeModal = ({ employeeId, onClose, canEdit, notify, askConfirm }) => {
     }
   });
 
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const downloadPdf = async () => {
+    setPdfBusy(true);
+    try {
+      const r = await api.get(`/smart-attendance/badges/${encodeURIComponent(employeeId)}/id-card.pdf`, { responseType: 'blob' });
+      saveBlob(r.data, `${badge.employee.employee_id}-ID-Card.pdf`);
+    } catch (e) {
+      notify(await blobErrMsg(e, 'Could not download the PDF'), 'error');
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   const print = () => {
     const win = window.open('', '_blank', 'width=480,height=640');
     if (!win) { notify('Allow pop-ups to print the badge', 'error'); return; }
@@ -247,6 +286,9 @@ const BadgeModal = ({ employeeId, onClose, canEdit, notify, askConfirm }) => {
               Code <span className="font-mono text-admin-secondary">{badge.badge_code}</span>
               {badge.last_emailed_at ? ` · emailed ${badge.email_count}×` : ' · not emailed yet'}
             </p>
+            <button type="button" onClick={downloadPdf} disabled={pdfBusy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-2.5 text-xs font-bold text-white hover:bg-red-500 disabled:opacity-50">
+              <FiDownload /> {pdfBusy ? 'Creating PDF…' : 'Download ID card PDF'}
+            </button>
             <div className="grid grid-cols-3 gap-2">
               <button type="button" onClick={() => downloadDataUrl(badge.qr, `${badge.employee.employee_id}-qr.png`)} className="flex flex-col items-center gap-1 rounded-xl border border-admin-border py-2.5 text-[11px] font-bold text-admin-secondary hover:bg-admin-surface"><FiDownload /> QR PNG</button>
               <button type="button" onClick={() => downloadDataUrl(badge.barcode, `${badge.employee.employee_id}-barcode.png`)} className="flex flex-col items-center gap-1 rounded-xl border border-admin-border py-2.5 text-[11px] font-bold text-admin-secondary hover:bg-admin-surface"><FiDownload /> Barcode</button>
@@ -260,7 +302,7 @@ const BadgeModal = ({ employeeId, onClose, canEdit, notify, askConfirm }) => {
                     <option value="personal" disabled={!badge.employee.personal_email}>Personal email{badge.employee.personal_email ? ` (${badge.employee.personal_email})` : ' (none)'}</option>
                     <option value="both" disabled={!badge.employee.personal_email}>Both</option>
                   </select>
-                  <button type="button" onClick={email} disabled={busy === 'email'} className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-bold text-white hover:bg-blue-500 disabled:opacity-50"><FiMail /> {busy === 'email' ? 'Sending…' : 'Send'}</button>
+                  <button type="button" onClick={email} disabled={busy === 'email'} className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-bold text-white hover:bg-blue-500 disabled:opacity-50"><FiMail /> {busy === 'email' ? 'Sending…' : 'Email ID card'}</button>
                 </div>
                 <button type="button" onClick={regenerate} disabled={busy === 'regen'} className="w-full rounded-xl border border-amber-500/40 py-2.5 text-xs font-bold text-amber-400 hover:bg-amber-500/10 disabled:opacity-50">
                   {busy === 'regen' ? 'Generating…' : 'Lost card? Issue a new QR code'}
@@ -304,6 +346,8 @@ const BadgesTab = ({ notify, askConfirm }) => {
   const [job, setJob] = useState(null);
   const [bulkTarget, setBulkTarget] = useState('official');
   const [printing, setPrinting] = useState(false);
+  const [pdfLayout, setPdfLayout] = useState('a4');
+  const [pdfBusy, setPdfBusy] = useState(false);
   const pollRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -327,7 +371,7 @@ const BadgesTab = ({ notify, askConfirm }) => {
         setJob(r.data.job);
         if (!r.data.job.running) {
           clearInterval(pollRef.current);
-          notify(r.data.job.stoppedReason ? 'Emails stopped – Gmail login failed. See details below.' : `QR emails finished · sent ${r.data.job.sent}, failed ${r.data.job.failed}`, r.data.job.failed ? 'error' : 'success');
+          notify(r.data.job.stoppedReason ? 'Emails stopped – Gmail login failed. See details below.' : `ID card emails finished · sent ${r.data.job.sent}, failed ${r.data.job.failed}`, r.data.job.failed ? 'error' : 'success');
           load();
         }
       } catch (_) { clearInterval(pollRef.current); }
@@ -357,8 +401,8 @@ const BadgesTab = ({ notify, askConfirm }) => {
   };
 
   const emailAll = (onlyNotSent) => askConfirm({
-    title: onlyNotSent ? 'Email QR to employees not yet sent?' : 'Email QR to all active employees?',
-    message: `Each employee receives their personal attendance QR code and barcode at their ${bulkTarget === 'both' ? 'official and personal' : bulkTarget} email address.`,
+    title: onlyNotSent ? 'Email ID cards to employees not yet sent?' : 'Email ID cards to all active employees?',
+    message: `Each employee receives their ID card (PDF, front + back) and attendance QR code at their ${bulkTarget === 'both' ? 'official and personal' : bulkTarget} email address.`,
     confirmText: 'Send emails',
     type: 'info',
     onConfirm: async () => {
@@ -391,6 +435,24 @@ const BadgesTab = ({ notify, askConfirm }) => {
       notify(errMsg(e, 'Could not prepare badges'), 'error');
     } finally {
       setPrinting(false);
+    }
+  };
+
+  const downloadAllPdf = async () => {
+    if (list.length === 0) return;
+    setPdfBusy(true);
+    try {
+      const filtered = filter !== 'all' || search.trim() !== '';
+      const r = await api.post('/smart-attendance/badges/id-cards.pdf',
+        { layout: pdfLayout, employee_ids: filtered ? list.map((e) => e.employee_id) : undefined },
+        { responseType: 'blob', timeout: 180000 });
+      saveBlob(r.data, `employee-id-cards-${pdfLayout}.pdf`);
+      notify(`ID card PDF ready (${list.length} employee${list.length === 1 ? '' : 's'})`, 'success');
+      load();
+    } catch (e) {
+      notify(await blobErrMsg(e, 'Could not create the PDF'), 'error');
+    } finally {
+      setPdfBusy(false);
     }
   };
 
@@ -429,26 +491,37 @@ const BadgesTab = ({ notify, askConfirm }) => {
             <select value={filter} onChange={(e) => setFilter(e.target.value)} style={{ width: 'auto' }} className="admin-select py-2.5 text-xs text-admin-text sm:min-w-[220px]">
               <option value="all">All active employees</option>
               <option value="no_face">No face photo</option>
-              <option value="not_emailed">QR not emailed yet</option>
+              <option value="not_emailed">ID card not emailed yet</option>
             </select>
           </div>
+          <div className="flex flex-wrap items-center gap-2 border-t border-admin-border pt-3">
+            {canEdit && <button type="button" onClick={generateAll} className="flex items-center gap-1.5 rounded-xl border border-admin-border px-3 py-2 text-xs font-bold text-admin-secondary hover:bg-admin-surface"><FiPlus /> Generate all QR</button>}
+            <button type="button" onClick={printAll} disabled={printing} className="flex items-center gap-1.5 rounded-xl border border-admin-border px-3 py-2 text-xs font-bold text-admin-secondary hover:bg-admin-surface disabled:opacity-50"><FiPrinter /> {printing ? 'Preparing…' : `Print ${list.length} ID card(s)`}</button>
+            <div className="flex items-center gap-1 rounded-xl border border-red-500/30 bg-red-500/5 p-1">
+              <select value={pdfLayout} onChange={(e) => setPdfLayout(e.target.value)} style={{ width: 'auto' }} className="admin-select py-1.5 text-xs text-admin-text" aria-label="PDF layout">
+                {PDF_LAYOUTS.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+              </select>
+              <button type="button" onClick={downloadAllPdf} disabled={pdfBusy || list.length === 0} className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white hover:bg-red-500 disabled:opacity-50">
+                <FiDownload /> {pdfBusy ? 'Creating PDF…' : `Download PDF (${list.length})`}
+              </button>
+            </div>
+          </div>
           {canEdit && (
-            <div className="flex flex-wrap items-center gap-2 border-t border-admin-border pt-3">
-              <button type="button" onClick={generateAll} className="flex items-center gap-1.5 rounded-xl border border-admin-border px-3 py-2 text-xs font-bold text-admin-secondary hover:bg-admin-surface"><FiPlus /> Generate all QR</button>
-              <button type="button" onClick={printAll} disabled={printing} className="flex items-center gap-1.5 rounded-xl border border-admin-border px-3 py-2 text-xs font-bold text-admin-secondary hover:bg-admin-surface disabled:opacity-50"><FiPrinter /> {printing ? 'Preparing…' : `Print ${list.length} ID card(s)`}</button>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-admin-muted">Email ID cards</span>
               <select value={bulkTarget} onChange={(e) => setBulkTarget(e.target.value)} style={{ width: 'auto' }} className="admin-select py-2 text-xs text-admin-text" aria-label="Email to">
                 <option value="official">Official email</option>
                 <option value="personal">Personal email</option>
                 <option value="both">Both emails</option>
               </select>
               <button type="button" onClick={() => emailAll(true)} disabled={job?.running} className="flex items-center gap-1.5 rounded-xl border border-blue-500/40 px-3 py-2 text-xs font-bold text-blue-400 hover:bg-blue-500/10 disabled:opacity-50"><FiMail /> Email not-sent</button>
-              <button type="button" onClick={() => emailAll(false)} disabled={job?.running} className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-500 disabled:opacity-50"><FiMail /> Email QR to all</button>
+              <button type="button" onClick={() => emailAll(false)} disabled={job?.running} className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-500 disabled:opacity-50"><FiMail /> Email ID card to all</button>
             </div>
           )}
         </div>
         {job && (job.running || job.finishedAt) && (
           <div className="mt-3 rounded-xl bg-admin-surface p-3 text-xs text-admin-secondary">
-            {job.running ? 'Sending QR emails…' : 'Last bulk email:'} <b className="text-admin-text">{job.sent}</b> sent, <b className="text-admin-text">{job.failed}</b> failed of {job.total}
+            {job.running ? 'Sending ID card emails…' : 'Last bulk email:'} <b className="text-admin-text">{job.sent}</b> sent, <b className="text-admin-text">{job.failed}</b> failed of {job.total}
             {job.stoppedReason && (
               <div className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 p-2 font-semibold text-red-400">Stopped: {job.stoppedReason}</div>
             )}
@@ -478,7 +551,7 @@ const BadgesTab = ({ notify, askConfirm }) => {
                   </td>
                   <td className="px-4 py-3">
                     <div>{e.email || '—'}</div>
-                    {e.last_emailed_at ? <div className="text-[10px] text-emerald-400">QR emailed ({e.email_count}×)</div> : <div className="text-[10px] text-admin-muted">QR not emailed</div>}
+                    {e.last_emailed_at ? <div className="text-[10px] text-emerald-400">ID card emailed ({e.email_count}×)</div> : <div className="text-[10px] text-admin-muted">ID card not emailed</div>}
                   </td>
                   <td className="px-4 py-3">
                     <button type="button" onClick={() => setBadgeFor(e.employee_id)} className="flex items-center gap-1.5 rounded-lg border border-admin-border px-2.5 py-1.5 font-bold text-blue-400 hover:bg-admin-surface">

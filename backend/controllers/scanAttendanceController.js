@@ -8,6 +8,7 @@ const { sendEmail, verifyEmailConnection } = require('../services/emailService')
 const { logAdminActivity } = require('../services/adminActivityService');
 const { getBrandingSettings } = require('../utils/brandingSettingsHelper');
 const { isHrRole } = require('../middleware/auth');
+const { buildIdCardPdf, dataUrlToBuffer } = require('../utils/idCardPdfGenerator');
 
 const { ScanError } = svc;
 
@@ -343,6 +344,104 @@ const buildBadgeResponse = async (employee, badge) => {
   };
 };
 
+/* ---------------------------------------------------------------- */
+/* ID card PDF                                                       */
+/* ---------------------------------------------------------------- */
+
+/**
+ * Load everything needed to draw ID cards.
+ * @param {string[]|null} employeeIds null = all active employees
+ */
+const loadIdCards = async (employeeIds = null) => {
+  await svc.ensureBadgesForAllEmployees();
+  const settings = await svc.getScanSettings();
+  const params = [];
+  let where = `e.status = 'Active'`;
+  if (Array.isArray(employeeIds)) {
+    params.push(employeeIds.map(String));
+    where = 'e.employee_id = ANY($1)';
+  }
+  const r = await pool.query(
+    `SELECT e.employee_id, e.name, e.job_role, b.badge_code, COALESCE(f.card_photo, f.photo_data) AS photo
+     FROM employees e
+     JOIN employee_scan_badges b ON b.employee_id = e.employee_id
+     LEFT JOIN employee_face_profiles f ON f.employee_id = e.employee_id
+     WHERE ${where}
+     ORDER BY e.name ASC`,
+    params
+  );
+  const cards = [];
+  for (const row of r.rows) {
+    const { qrPng, barcodePng } = await svc.renderBadgeImages(row.badge_code, { scale: 8 });
+    cards.push({
+      employee: { employee_id: row.employee_id, name: row.name, job_role: row.job_role },
+      photo: dataUrlToBuffer(row.photo),
+      qrPng,
+      barcodePng,
+      website: settings.cardWebsite,
+      address: settings.cardAddress
+    });
+  }
+  return cards;
+};
+
+const safeFileName = (s) => String(s || 'id-card').replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 80);
+
+const sendPdf = (res, buffer, filename) => {
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${safeFileName(filename)}"`);
+  res.setHeader('Content-Length', buffer.length);
+  res.end(buffer);
+};
+
+const pdfLayout = (v) => (v === 'a4' ? 'a4' : 'card');
+
+const downloadIdCardPdf = async (req, res) => {
+  try {
+    const cards = await loadIdCards([req.params.employeeId]);
+    if (cards.length === 0) throw new ScanError('Employee not found', 'NOT_FOUND', 404);
+    const pdf = await buildIdCardPdf(cards, { layout: pdfLayout(req.query.layout) });
+    sendPdf(res, pdf, `${cards[0].employee.employee_id}-id-card.pdf`);
+  } catch (err) {
+    sendError(res, err, 'Could not create the ID card PDF');
+  }
+};
+
+const downloadAllIdCardsPdf = async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.employee_ids) && req.body.employee_ids.length > 0
+      ? req.body.employee_ids.slice(0, 1000)
+      : null;
+    const cards = await loadIdCards(ids);
+    if (cards.length === 0) throw new ScanError('No active employees to print', 'EMPTY');
+    const layout = pdfLayout(req.body?.layout);
+    const pdf = await buildIdCardPdf(cards, { layout });
+    const actor = actorFromReq(req);
+    await logAdminActivity({
+      adminId: actor.adminId, adminName: actor.name, adminEmail: actor.email,
+      actionType: 'ID_CARD_EXPORT', moduleName: 'Smart Attendance',
+      description: `Downloaded ${cards.length} employee ID card(s) as PDF (${layout === 'a4' ? 'A4 sheets' : 'card printer'})`
+    });
+    sendPdf(res, pdf, `employee-id-cards-${layout}-${svc.todayIST()}.pdf`);
+  } catch (err) {
+    sendError(res, err, 'Could not create the ID cards PDF');
+  }
+};
+
+const myIdCardPdf = async (req, res) => {
+  try {
+    const employeeId = req.user.employee_id || req.user.employeeId;
+    const emp = await pool.query('SELECT employee_id FROM employees WHERE employee_id = $1 OR id::text = $2', [employeeId || '', String(req.user.id || '')]);
+    const code = emp.rows[0]?.employee_id;
+    if (!code) throw new ScanError('Employee not found', 'NOT_FOUND', 404);
+    const cards = await loadIdCards([code]);
+    const pdf = await buildIdCardPdf(cards, { layout: 'card' });
+    sendPdf(res, pdf, `${code}-id-card.pdf`);
+  } catch (err) {
+    sendError(res, err, 'Could not create your ID card PDF');
+  }
+};
+
 const getBadge = async (req, res) => {
   try {
     const employee = await loadEmployee(req.params.employeeId);
@@ -415,7 +514,7 @@ const buildBadgeEmailHtml = ({ employee, badge, companyName, address, hasLogo })
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Your Attendance QR Code</title>
+<title>Your Employee ID Card</title>
 </head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your personal attendance QR code for ${e(companyName)} – scan it when you arrive and when you leave.</div>
@@ -429,7 +528,7 @@ const buildBadgeEmailHtml = ({ employee, badge, companyName, address, hasLogo })
             <td style="background:#1e293b;background-image:linear-gradient(135deg,#1e293b 0%,#312e81 100%);padding:26px 32px;" align="left">
               ${hasLogo ? `<img src="cid:company-logo" alt="${e(companyName)}" height="40" style="display:block;height:40px;max-width:200px;margin-bottom:12px;border:0;background:#ffffff;border-radius:8px;padding:4px;" />` : ''}
               <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#a5b4fc;font-weight:700;">${e(companyName)}</div>
-              <div style="font-size:24px;line-height:30px;color:#ffffff;font-weight:700;margin-top:6px;">Your Attendance QR Code</div>
+              <div style="font-size:24px;line-height:30px;color:#ffffff;font-weight:700;margin-top:6px;">Your Employee ID Card</div>
             </td>
           </tr>
 
@@ -439,6 +538,23 @@ const buildBadgeEmailHtml = ({ employee, badge, companyName, address, hasLogo })
               Dear <b style="color:#0f172a;">${e(employee.name)}</b>,<br/><br/>
               Attendance at the office is now marked automatically. Below is your <b>personal attendance QR code</b>.
               Simply show it at the entrance scanner – no need to open the app.
+            </td>
+          </tr>
+
+          <!-- ID card attachment -->
+          <tr>
+            <td style="padding:14px 32px 0 32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;">
+                <tr>
+                  <td width="44" valign="middle" style="padding:12px 0 12px 14px;">
+                    <div style="width:30px;height:38px;border-radius:4px;background:#dc2626;color:#ffffff;font-size:9px;font-weight:700;line-height:38px;text-align:center;">PDF</div>
+                  </td>
+                  <td valign="middle" style="padding:12px 14px;font-size:13px;line-height:19px;color:#3730a3;">
+                    <b>Your employee ID card is attached</b> (${e(employee.employee_id)}-ID-Card.pdf) – front with your photo and
+                    back with your attendance QR code. Save it on your phone or print it.
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
@@ -490,8 +606,7 @@ const buildBadgeEmailHtml = ({ employee, badge, companyName, address, hasLogo })
                 <tr>
                   <td style="padding:14px 16px;font-size:13px;line-height:20px;color:#9a3412;">
                     <b>Keep this code private.</b> It works only for you. If your card is lost or you think someone else has your code,
-                    contact HR immediately – a new code will be issued and this one will stop working. The QR image is also attached
-                    to this email so you can save or print it.
+                    contact HR immediately – a new code will be issued and this one will stop working.
                   </td>
                 </tr>
               </table>
@@ -540,10 +655,20 @@ const emailBadgeToEmployee = async (employee, badge, target = 'official', brandi
   ];
   if (logoPath) attachments.push({ filename: 'logo' + path.extname(logoPath), path: logoPath, cid: 'company-logo', contentDisposition: 'inline' });
 
+  // The employee's ID card (front + back) as a PDF
+  const idCards = await loadIdCards([employee.employee_id]);
+  if (idCards.length > 0) {
+    attachments.push({
+      filename: `${employee.employee_id}-ID-Card.pdf`,
+      content: await buildIdCardPdf(idCards, { layout: 'card' }),
+      contentType: 'application/pdf'
+    });
+  }
+
   const text = [
     `Dear ${employee.name},`,
     '',
-    `Your personal attendance QR code for ${companyName} is attached (${employee.employee_id}).`,
+    `Your employee ID card (PDF) and personal attendance QR code for ${companyName} are attached (${employee.employee_id}).`,
     'Show it at the entrance scanner when you arrive (check-in) and again when you leave (check-out).',
     'If your face photo is not registered yet, please contact HR to upload or scan your photo.',
     'Keep this code private. If your card is lost, contact HR for a new code.',
@@ -557,7 +682,7 @@ const emailBadgeToEmployee = async (employee, badge, target = 'official', brandi
     await sendEmail({
       toEmail: to,
       toName: employee.name,
-      subject: `Your Attendance QR Code – ${employee.name} (${employee.employee_id})`,
+      subject: `Your Employee ID Card & Attendance QR – ${employee.name} (${employee.employee_id})`,
       html,
       text,
       attachments
@@ -603,7 +728,7 @@ const emailBadge = async (req, res) => {
       moduleName: 'Smart Attendance',
       description: `Emailed attendance QR to ${employee.employee_id} (${employee.name})`
     });
-    res.json({ success: true, message: `QR code sent to ${recipients.join(', ')}`, recipients });
+    res.json({ success: true, message: `ID card sent to ${recipients.join(', ')}`, recipients });
   } catch (err) {
     if (!(err instanceof ScanError)) {
       console.error('[SmartAttendance] email badge failed:', err.message);
@@ -634,7 +759,7 @@ const emailAllBadges = async (req, res) => {
     );
     const employees = result.rows;
     if (employees.length === 0) {
-      return res.json({ success: true, message: 'Nobody to email – every active employee has already received their QR code.', job: bulkEmailJob });
+      return res.json({ success: true, message: 'Nobody to email – every active employee has already received their ID card.', job: bulkEmailJob });
     }
 
     // Check the Gmail login once before sending to everyone
@@ -647,7 +772,7 @@ const emailAllBadges = async (req, res) => {
     bulkEmailJob = { running: true, total: employees.length, sent: 0, failed: 0, errors: [], stoppedReason: null, startedAt: new Date().toISOString(), finishedAt: null };
     const actor = actorFromReq(req);
 
-    res.json({ success: true, message: `Sending QR codes to ${employees.length} employee(s)…`, job: bulkEmailJob });
+    res.json({ success: true, message: `Sending ID cards to ${employees.length} employee(s)…`, job: bulkEmailJob });
 
     (async () => {
       const branding = await loadBranding();
@@ -937,6 +1062,9 @@ const myBadge = async (req, res) => {
 };
 
 module.exports = {
+  downloadIdCardPdf,
+  downloadAllIdCardsPdf,
+  myIdCardPdf,
   listHrAccounts,
   createHrAccount,
   updateHrAccount,

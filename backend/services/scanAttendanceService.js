@@ -236,7 +236,7 @@ const renderBadgeImages = async (badgeCode, { scale = 4 } = {}) => {
     scale: 3,
     height: 12,
     includetext: true,
-    textyoffset: 2,
+    textyoffset: 4,
     textxalign: 'center',
     paddingwidth: 6,
     paddingheight: 4,

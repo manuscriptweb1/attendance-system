@@ -92,7 +92,7 @@ async function runMasterMigration() {
     `);
 
     await dbClient.query(`
-      UPDATE admins SET role = 'super_admin', is_super_admin = true WHERE is_super_admin IS NOT TRUE;
+      UPDATE admins SET role = 'super_admin', is_super_admin = true WHERE is_super_admin IS NOT TRUE AND COALESCE(role, '') <> 'hr';
     `);
 
     await dbClient.query(`
@@ -439,6 +439,14 @@ async function runMasterMigration() {
       ])]);
     }
     console.log('✅ Offer Letter setup and templates completed.');
+
+    // 2j. Smart Attendance (QR / barcode / face scan, HR Scanner role, attendance notes)
+    console.log('📌 Ensuring Smart Attendance tables...');
+    const scanSchemaPath = path.join(__dirname, '../config/scan_attendance_schema.sql');
+    if (fs.existsSync(scanSchemaPath)) {
+      await dbClient.query(fs.readFileSync(scanSchemaPath, 'utf8'));
+      console.log('✅ Smart Attendance tables checked/added.');
+    }
 
     // 2f. Verification of database tables count & names
     const tablesRes = await dbClient.query(`

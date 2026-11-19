@@ -6,6 +6,7 @@ import LocationDialog from '../components/LocationDialog';
 import AlertDialog from '../components/AlertDialog';
 import StatusBadge from '../components/ui/StatusBadge';
 import MotivationPopup from '../components/MotivationPopup';
+import EmployeeSmartAttendanceNotice from '../components/smartAttendance/EmployeeSmartAttendanceNotice';
 import { Spinner } from '../components/Loader';
 import { getTodayAttendance, checkIn, checkOut, getWFHStatus, getSettings, getEmployeeMonthlyAttendance } from '../services/api';
 import { getDailyMotivation, getEventMotivation, CATEGORIES } from '../utils/motivationUtil';
@@ -550,6 +551,9 @@ const EmployeeDashboard = () => {
               </div>
             </div>
           </header>
+
+          {/* Smart Attendance: face photo notice & my QR (additive) */}
+          <EmployeeSmartAttendanceNotice />
 
           {/* ═══════════════════════════════════════════════════════
               WFH BANNER

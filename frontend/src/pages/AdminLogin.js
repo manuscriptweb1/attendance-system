@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { adminLogin } from '../services/api';
+import { isHrScannerRole, saveHrSession } from '../services/scannerApi';
 import { FiShield, FiLock, FiEye, FiEyeOff, FiLogIn, FiUser, FiActivity, FiCpu, FiTerminal } from 'react-icons/fi';
 import { Spinner } from '../components/Loader';
 import AuthLayout from '../components/AuthLayout';
@@ -120,6 +121,12 @@ const AdminLogin = () => {
     try {
       const response = await adminLogin({ username: formData.username, password: formData.password });
       if (response.data.success) {
+        // HR Scanner accounts only use the mobile scanner app, never the admin panel
+        if (isHrScannerRole(response.data.user?.role)) {
+          saveHrSession(response.data.token, response.data.user);
+          navigate('/scanner');
+          return;
+        }
         login(response.data.user, response.data.token);
         
         const user = response.data.user;

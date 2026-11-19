@@ -94,6 +94,7 @@ export const AuthProvider = ({ children }) => {
     
     if (firstAllowed) {
        if (firstAllowed === 'manual_attendance') return '/admin/manual-attendance';
+       if (firstAllowed === 'attendance_scanner') return '/admin/smart-attendance';
        if (firstAllowed === 'admin_management') return '/admin/management';
        if (firstAllowed === 'absent_reasons') return '/admin/absent-reasons';
        if (firstAllowed === 'trusted_devices') return '/admin/trusted-devices';

@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const pool = require('../config/database');
 
 function normalizeAdminRole(role) {
   return String(role || "")
@@ -74,8 +75,6 @@ const isAdmin = (req, res, next) => {
   next();
 };
 
-const pool = require('../config/database');
-
 // Employee Authorization
 const isEmployee = (req, res, next) => {
   if (req.user.role !== 'employee') {
@@ -141,4 +140,45 @@ const requirePermission = (pageKey, action) => {
   };
 };
 
-module.exports = { verifyToken, isAdmin, isEmployee, requirePermission };
+// ─── HR Scanner role (Smart Attendance) ───────────────────────────────
+// HR Scanner accounts live in the admins table with role = 'hr'. They are
+// rejected by isAdmin/requirePermission, so they can never reach admin pages;
+// they can only use the Smart Attendance scanner endpoints below.
+function isHrRole(user) {
+  const role = normalizeAdminRole(user?.role);
+  return role === 'hr' || role === 'hr scanner';
+}
+
+async function isActiveAdminAccount(adminId) {
+  if (!Number.isInteger(Number(adminId))) return false;
+  const result = await pool.query('SELECT status FROM admins WHERE id = $1', [adminId]);
+  if (result.rows.length === 0) return false;
+  return (result.rows[0].status || 'Active') === 'Active';
+}
+
+// Only HR Scanner accounts
+const isHr = async (req, res, next) => {
+  try {
+    if (!isHrRole(req.user)) {
+      return res.status(403).json({ success: false, message: 'Access denied. HR Scanner accounts only.', code: 'HR_ONLY' });
+    }
+    if (!(await isActiveAdminAccount(req.user.id))) {
+      return res.status(403).json({ success: false, message: 'Your HR Scanner account is inactive. Contact the Super Admin.', code: 'ACCOUNT_INACTIVE' });
+    }
+    next();
+  } catch (error) {
+    console.error('HR check error:', error);
+    res.status(500).json({ success: false, message: 'Server error during permission check' });
+  }
+};
+
+// HR Scanner accounts OR admins with the given page permission (super admin always)
+const requireHrOrPermission = (pageKey, action) => {
+  const adminCheck = requirePermission(pageKey, action);
+  return (req, res, next) => {
+    if (isHrRole(req.user)) return isHr(req, res, next);
+    return adminCheck(req, res, next);
+  };
+};
+
+module.exports = { verifyToken, isAdmin, isEmployee, requirePermission, isHr, isHrRole, requireHrOrPermission };

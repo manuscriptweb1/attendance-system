@@ -57,6 +57,10 @@ const AdminReports = lazy(() => import('./pages/AdminReports'));
 const AdminDatabaseMonitor = lazy(() => import('./pages/AdminDatabaseMonitor'));
 const DeveloperTestingSandbox = lazy(() => import('./pages/DeveloperTestingSandbox'));
 const AdminOfferLetters = lazy(() => import('./pages/AdminOfferLetters'));
+const AdminSmartAttendance = lazy(() => import('./pages/AdminSmartAttendance'));
+// Smart Attendance: HR Scanner mobile app (PWA) & entrance kiosk
+const HrScannerApp = lazy(() => import('./pages/scanner/HrScannerApp'));
+const KioskPage = lazy(() => import('./pages/scanner/KioskPage'));
 
 // Employee Pages
 const EmployeeDashboard = lazy(() => import('./pages/EmployeeDashboard'));
@@ -249,6 +253,11 @@ function App() {
                 }
               />
 
+              {/* Smart Attendance – HR Scanner app (HR role only) & kiosk */}
+              <Route path="/scanner" element={<HrScannerApp />} />
+              <Route path="/scanner/*" element={<HrScannerApp />} />
+              <Route path="/kiosk" element={<KioskPage />} />
+
               {/* Admin Protected Routes */}
               <Route
                 path="/admin/access-denied"
@@ -269,6 +278,10 @@ function App() {
               <Route
                 path="/admin/employees/:id"
                 element={<ProtectedRoute requiredRole="admin" requiredPageKey="employees"><AdminEmployeeProfile /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin/smart-attendance"
+                element={<ProtectedRoute requiredRole="admin" requiredPageKey="attendance_scanner"><AdminSmartAttendance /></ProtectedRoute>}
               />
               <Route
                 path="/admin/offer-letters"

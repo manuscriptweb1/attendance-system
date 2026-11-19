@@ -79,3 +79,32 @@ Change office location and attendance rules from:
 **Admin → Settings**
 
 No need to edit files manually!
+
+## Smart Attendance (QR / Barcode / Face scan)
+
+Automatic attendance at the entrance, an HR Scanner mobile app and attendance corrections with notes.
+All of it is additive: the existing employee check-in, manual attendance and reports are unchanged.
+
+**How it works:** an employee's first successful scan of the day is the check-in, and the next scan is the check-out.
+Late, half-day, Sunday and holiday rules come from the normal attendance Settings.
+
+| Where | URL | Who |
+|---|---|---|
+| Admin page | `/admin/smart-attendance` | Super Admin, or a Limited Admin with the *Smart Attendance* permission |
+| HR Scanner app (installable PWA) | `/scanner` | **HR Scanner** accounts only |
+| Entrance kiosk (PC / tablet) | `/kiosk` | Any device paired with a kiosk key |
+
+**Setup**
+1. Run `npm install` in both `backend` and `frontend` (adds `bwip-js`, `html5-qrcode` and `@vladmandic/face-api`).
+2. Run `npm run setup-db`. The tables are also created automatically when the server starts.
+3. **Admin Management → Add Admin → HR Scanner** creates the HR login. HR accounts cannot open the admin panel.
+4. **Smart Attendance → QR Badges & Faces**: generate, print or email each employee's QR/barcode, and register faces by camera or photo upload.
+5. **Smart Attendance → Kiosks & Settings**: add a kiosk (card, face or both), open `/kiosk` on the entrance device and paste the key.
+   A USB/Bluetooth barcode scanner works out of the box because it types like a keyboard.
+6. On the HR phone, open `/scanner`, sign in and use **Add to Home Screen / Install**.
+
+**Corrections:** HR (in the app), Admin and Super Admin can change the check-in/out times or add a note for any past day.
+A reason is always required (for example "Scanner machine was not working"). The old values, new values and author are kept.
+
+**Privacy:** face recognition runs in the browser. Only a 128-number face descriptor and a small thumbnail are stored.
+Camera access needs HTTPS (or localhost).

@@ -17,7 +17,7 @@ const TABS = [
 const PAGE_SECTIONS = [
   { label: 'Overview', pages: ['dashboard'] },
   { label: 'People', pages: ['employees', 'departments', 'admin_management'] },
-  { label: 'Time & Attendance', pages: ['attendance', 'manual_attendance', 'absent_reasons', 'holidays', 'permissions'] },
+  { label: 'Time & Attendance', pages: ['attendance', 'manual_attendance', 'attendance_scanner', 'absent_reasons', 'holidays', 'permissions'] },
   { label: 'HR & Finance', pages: ['payroll', 'expenses', 'reports'] },
   { label: 'System', pages: ['settings', 'manage', 'database_monitor', 'trusted_devices', 'activity_logs', 'otp_settings', 'security_logs'] }
 ];
@@ -29,6 +29,7 @@ const PERMISSION_MAPPING = {
   admin_management: ['can_view', 'can_create', 'can_edit', 'can_delete'],
   attendance: ['can_view', 'can_edit', 'can_delete', 'can_clear'],
   manual_attendance: ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_clear'],
+  attendance_scanner: ['can_view', 'can_edit', 'can_delete'],
   absent_reasons: ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_clear'],
   holidays: ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_clear'],
   permissions: ['can_view', 'can_create', 'can_edit', 'can_delete'],
@@ -51,6 +52,7 @@ const PAGE_DESCRIPTIONS = {
   admin_management: 'Manage admin users and permissions.',
   attendance: 'View and manage daily attendance.',
   manual_attendance: 'Create and update manual attendance records.',
+  attendance_scanner: 'Smart Attendance: QR badges, face photos, kiosks, scan logs and corrections with notes.',
   absent_reasons: 'Manage employee absent reasons.',
   holidays: 'Manage office and government holidays.',
   permissions: 'Manage employee special permissions and early logouts.',
@@ -95,12 +97,12 @@ const AdminManagement = () => {
   const handleSaveAdmin = async () => {
     if (!adminForm.username || !adminForm.email) { setAlertDialog({ isOpen:true, title:'Validation Error', message:'Username and email are required', type:'error' }); return; }
     if (!editingAdmin && !adminForm.password) { setAlertDialog({ isOpen:true, title:'Validation Error', message:'Password is required for new admin', type:'error' }); return; }
-    if (adminForm.role !== 'super_admin' && Object.keys(adminForm.permissions).length === 0) { setAlertDialog({ isOpen:true, title:'Validation Error', message:'Please select at least one permission for the limited admin', type:'error' }); return; }
+    if (adminForm.role !== 'super_admin' && adminForm.role !== 'hr' && Object.keys(adminForm.permissions).length === 0) { setAlertDialog({ isOpen:true, title:'Validation Error', message:'Please select at least one permission for the limited admin', type:'error' }); return; }
     
     try { 
       setLoading(true); 
       // Transform permissions object to array for backend
-      const permissionsArray = Object.keys(adminForm.permissions).map(page_key => ({
+      const permissionsArray = adminForm.role === 'hr' ? [] : Object.keys(adminForm.permissions).map(page_key => ({
         page_key,
         ...adminForm.permissions[page_key]
       }));
@@ -297,7 +299,7 @@ const AdminManagement = () => {
                                 {a.username.substring(0, 2)}
                               </div>
                               <div>
-                                <span className="block text-sm font-bold text-admin-text">{a.username}</span>
+                                <span className="block text-sm font-bold text-admin-text">{a.username}{a.role === 'hr' && <span className="ml-2 align-middle text-[9px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded-full">HR Scanner</span>}</span>
                                 <span className="text-[10px] text-admin-secondary font-mono">ID: {a.id}</span>
                               </div>
                             </div>
@@ -398,7 +400,7 @@ const AdminManagement = () => {
                   <FiKey className="text-slate-400 dark:text-slate-500" />
                   <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">Admin Role</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <label className={`relative flex flex-col p-5 cursor-pointer rounded-2xl border-2 transition-all shadow-sm ${adminForm.role === 'admin' ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 hover:border-slate-300 dark:hover:border-slate-600'}`}>
                     <input type="radio" name="role" value="admin" checked={adminForm.role === 'admin'} onChange={(e) => setAdminForm(f => ({ ...f, role: e.target.value }))} className="sr-only" />
                     <div className="flex items-center justify-between mb-2">
@@ -420,11 +422,27 @@ const AdminManagement = () => {
                     </div>
                     <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Full access to all pages and actions.</span>
                   </label>
+
+                  <label className={`relative flex flex-col p-5 cursor-pointer rounded-2xl border-2 transition-all shadow-sm ${adminForm.role === 'hr' ? 'border-amber-500 bg-amber-50 dark:bg-amber-500/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 hover:border-slate-300 dark:hover:border-slate-600'}`}>
+                    <input type="radio" name="role" value="hr" checked={adminForm.role === 'hr'} onChange={(e) => setAdminForm(f => ({ ...f, role: e.target.value }))} className="sr-only" />
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-bold text-amber-600 dark:text-amber-400">HR Scanner</span>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${adminForm.role === 'hr' ? 'border-amber-500' : 'border-slate-300 dark:border-slate-600'}`}>
+                        {adminForm.role === 'hr' && <div className="w-2.5 h-2.5 bg-amber-500 rounded-full" />}
+                      </div>
+                    </div>
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Mobile scanner app only: scan QR / face, register faces, correct attendance with notes.</span>
+                  </label>
                 </div>
               </section>
 
               {/* Permissions Section */}
-              {adminForm.role === 'super_admin' ? (
+              {adminForm.role === 'hr' ? (
+                <div className="p-8 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-3xl flex flex-col items-center justify-center text-center animate-scale-in">
+                  <p className="text-lg font-bold text-amber-700 dark:text-amber-400">HR Scanner accounts cannot open the admin panel.</p>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">They sign in at <span className="font-mono">{window.location.origin}/scanner</span> on a phone to scan ID cards / faces, register face photos and correct attendance with a note.</p>
+                </div>
+              ) : adminForm.role === 'super_admin' ? (
                 <div className="p-8 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-3xl flex flex-col items-center justify-center text-center animate-scale-in">
                   <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-500/20 rounded-2xl flex items-center justify-center mb-4 border border-emerald-200 dark:border-emerald-500/30">
                     <FiShield size={32} className="text-emerald-600 dark:text-emerald-400" />

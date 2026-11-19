@@ -38,6 +38,7 @@ const experienceLetterRoutes = require('./routes/experienceLetterRoutes');
 const relievingLetterRoutes = require('./routes/relievingLetterRoutes');
 const paidLeaveRoutes = require('./routes/paidLeaveRoutes');
 const aiSettingsRoutes = require('./routes/aiSettingsRoutes');
+const scanAttendanceRoutes = require('./routes/scanAttendanceRoutes');
 
 // Import cron jobs
 const { createDailyAbsentRecords } = require('./jobs/createDailyAbsentRecords');
@@ -90,7 +91,8 @@ app.use(cors({
     'X-Desktop-Timestamp',
     'X-Desktop-Hostname',
     'X-Desktop-Platform',
-    'X-Electron-App-Version'
+    'X-Electron-App-Version',
+    'X-Kiosk-Key'
   ]
 }));
 
@@ -140,6 +142,7 @@ app.use('/api/experience-letters', experienceLetterRoutes);
 app.use('/api/relieving-letters', relievingLetterRoutes);
 app.use('/api/paid-leaves', paidLeaveRoutes);
 app.use('/api/ai-settings', aiSettingsRoutes);
+app.use('/api/smart-attendance', scanAttendanceRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {
@@ -200,6 +203,13 @@ app.listen(PORT, '0.0.0.0', async () => {
     console.error('Settings migration check:', migErr.message);
   }
   
+  // Ensure Smart Attendance (QR / barcode / face scan) tables exist
+  try {
+    await require('./services/scanAttendanceService').ensureScanTables();
+  } catch (scanErr) {
+    console.error('Smart attendance tables check:', scanErr.message);
+  }
+
   // Run auto-checkout check every minute
   cron.schedule('* * * * *', async () => {
     await autoCheckoutEmployees();

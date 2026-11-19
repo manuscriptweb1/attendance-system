@@ -330,7 +330,7 @@ const updateAdmin = async (req, res) => {
     if (oldData.username !== username) descriptionParts.push(`Username changed from "${oldData.username}" to "${username}"`);
     if (oldData.email !== email) descriptionParts.push(`Email changed from "${oldData.email}" to "${email}"`);
     if (oldData.role !== role) {
-      const formatRole = r => r === 'super_admin' ? 'Super Admin' : 'Limited Admin';
+      const formatRole = r => r === 'super_admin' ? 'Super Admin' : (r === 'hr' ? 'HR Scanner' : 'Limited Admin');
       descriptionParts.push(`Role changed from ${formatRole(oldData.role)} to ${formatRole(role)}`);
     }
     if (oldData.status !== status) descriptionParts.push(`Status changed from ${oldData.status} to ${status}`);

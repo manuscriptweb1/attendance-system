@@ -1,0 +1,16 @@
+{
+  "name": "HR Attendance Scanner",
+  "short_name": "HR Scanner",
+  "description": "Scan employee ID card QR codes or faces to mark attendance.",
+  "id": "/scanner",
+  "start_url": "/scanner",
+  "scope": "/scanner",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0E1320",
+  "theme_color": "#0E1320",
+  "icons": [
+    { "src": "/favicon/web-app-manifest-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/favicon/web-app-manifest-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

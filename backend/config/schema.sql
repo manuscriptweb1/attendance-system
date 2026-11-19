@@ -1411,7 +1411,7 @@ ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'admin',
 ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive'));
 
-UPDATE admins SET role = 'super_admin', is_super_admin = true;
+UPDATE admins SET role = 'super_admin', is_super_admin = true WHERE COALESCE(role, '') <> 'hr'; -- HR Scanner accounts are never promoted
 
 -- 2. Create admin_pages table
 CREATE TABLE IF NOT EXISTS admin_pages (
@@ -1848,7 +1848,7 @@ ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'admin',
 ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive'));
 
-UPDATE admins SET role = 'super_admin', is_super_admin = true;
+UPDATE admins SET role = 'super_admin', is_super_admin = true WHERE COALESCE(role, '') <> 'hr'; -- HR Scanner accounts are never promoted
 
 -- 2. Create admin_pages table
 CREATE TABLE IF NOT EXISTS admin_pages (
@@ -2182,3 +2182,9 @@ CREATE TABLE IF NOT EXISTS ai_settings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 INSERT INTO ai_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================
+-- Smart Attendance (QR / barcode / face scan, HR Scanner role)
+-- Full definition lives in config/scan_attendance_schema.sql and
+-- is applied by `npm run setup-db` and on every server start.
+-- ============================================================

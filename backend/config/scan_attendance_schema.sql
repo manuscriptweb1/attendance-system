@@ -91,3 +91,8 @@ BEGIN
     ON CONFLICT (page_key) DO NOTHING;
   END IF;
 END $$;
+
+-- Correct the office address on ID cards if the old default was saved in settings
+UPDATE scan_attendance_settings
+SET settings = jsonb_set(settings, '{cardAddress}', to_jsonb('22, (New No. 40), 3rd Cross, Vivekananda Nagar, Bengaluru, 560 033, INDIA'::text)), updated_at = CURRENT_TIMESTAMP
+WHERE settings->>'cardAddress' = '22, (New No. 48), 3rd Cross, Vivekananda Nagar, Bengaluru, 560 033, Karnataka, INDIA';

@@ -41,7 +41,7 @@ const DEFAULT_SCAN_SETTINGS = {
   allowEmployeeIdCodes: true,
   // Printed ID card
   cardWebsite: 'www.mstechnomedia.com',
-  cardAddress: '22, (New No. 48), 3rd Cross, Vivekananda Nagar, Bengaluru, 560 033, Karnataka, INDIA'
+  cardAddress: '22, (New No. 40), 3rd Cross, Vivekananda Nagar, Bengaluru, 560 033, INDIA'
 };
 
 const SCAN_METHOD_LABELS = {

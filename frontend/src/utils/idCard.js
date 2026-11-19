@@ -12,7 +12,7 @@ const asset = (path) => `${window.location.origin}${process.env.PUBLIC_URL || ''
 
 export const ID_CARD_DEFAULTS = {
   website: 'www.mstechnomedia.com',
-  address: '22, (New No. 48), 3rd Cross, Vivekananda Nagar, Bengaluru, 560 033, Karnataka, INDIA'
+  address: '22, (New No. 40), 3rd Cross, Vivekananda Nagar, Bengaluru, 560 033, INDIA'
 };
 
 /** Grey silhouette shown when no photo has been uploaded or scanned yet */

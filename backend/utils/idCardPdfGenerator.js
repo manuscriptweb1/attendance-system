@@ -108,10 +108,10 @@ const drawFront = (doc, x, y, card, { outline }) => {
   if (!MARK_PNG && !LOGO_PNG) centered(doc, COMPANY, contentX, brandY + 2 * MM, contentW, { size: 8 });
 
   // Photo frame
-  const frameW = 25 * MM;
-  const frameH = 31 * MM;
+  const frameW = 23 * MM;
+  const frameH = 28.5 * MM;
   const frameX = centerX - frameW / 2;
-  const frameY = y + 16 * MM;
+  const frameY = y + 15.6 * MM;
   doc.save().lineWidth(1).strokeColor('#9ca3af').rect(frameX, frameY, frameW, frameH).stroke().restore();
   const pad = 0.8 * MM;
   const px = frameX + pad;
@@ -133,10 +133,17 @@ const drawFront = (doc, x, y, card, { outline }) => {
   if (!drewPhoto) drawPlaceholder(doc, px, py, pw, ph);
 
   // Name, designation, employee ID
-  let ty = frameY + frameH + 2.6 * MM;
+  let ty = frameY + frameH + 2.2 * MM;
   ty += centered(doc, String(emp.name || '').toUpperCase(), contentX, ty, contentW, { size: 10.5, spacing: 0.2 }) + 1.2 * MM;
   if (emp.job_role) ty += centered(doc, String(emp.job_role).toUpperCase(), contentX, ty, contentW, { size: 7.4, spacing: 0.3 }) + 0.8 * MM;
-  centered(doc, `EMPLOYEE ID: ${String(emp.employee_id || '').toUpperCase()}`, contentX, ty, contentW, { size: 7.4, spacing: 0.3 });
+  ty += centered(doc, `EMPLOYEE ID: ${String(emp.employee_id || '').toUpperCase()}`, contentX, ty, contentW, { size: 7.4, spacing: 0.3 });
+
+  // Attendance barcode with its number (scannable at the kiosk / HR app)
+  if (card.barcodePng) {
+    const barW = 34 * MM;
+    const bs = pngSize(card.barcodePng);
+    doc.image(card.barcodePng, centerX - barW / 2, ty + 1.6 * MM, { width: barW, height: barW * (bs.h / bs.w) });
+  }
 
   // Address at the bottom
   if (card.address) {

@@ -35,13 +35,14 @@ export const ID_CARD_CSS = `
 .idc-brand { display: flex; align-items: center; justify-content: center; gap: 1.4mm; height: 9mm; }
 .idc-brand .idc-mark { height: 7.4mm; width: 7.4mm; }
 .idc-brand .idc-logo { height: 7.4mm; width: auto; }
-.idc-photo { margin-top: 3.4mm; width: 25mm; height: 31mm; padding: 0.8mm; border: 0.35mm solid #9ca3af; background: #ffffff; }
+.idc-photo { margin-top: 3mm; width: 23mm; height: 28.5mm; padding: 0.8mm; border: 0.35mm solid #9ca3af; background: #ffffff; }
 .idc-photo img, .idc-photo svg { display: block; width: 100%; height: 100%; object-fit: cover; }
-.idc-name { margin-top: 2.6mm; font-size: 10.5pt; line-height: 1.1; font-weight: 900; text-transform: uppercase; text-align: center; letter-spacing: 0.2pt;
+.idc-name { margin-top: 2.2mm; font-size: 10.5pt; line-height: 1.1; font-weight: 900; text-transform: uppercase; text-align: center; letter-spacing: 0.2pt;
   font-family: 'Arial Black', Arial, Helvetica, sans-serif; max-width: 46mm; }
 .idc-role { margin-top: 1.2mm; font-size: 7.4pt; font-weight: 800; text-transform: uppercase; text-align: center; letter-spacing: 0.3pt; max-width: 46mm; }
 .idc-id { margin-top: 0.8mm; font-size: 7.4pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3pt; }
-.idc-address { margin-top: auto; font-size: 5.1pt; line-height: 1.35; color: #4b5563; font-weight: 700; text-align: center; max-width: 46mm; }
+.idc-front-barcode { margin-top: 1.6mm; width: 34mm; height: auto; image-rendering: pixelated; }
+.idc-address { margin-top: auto; padding-top: 1mm; font-size: 5.1pt; line-height: 1.35; color: #4b5563; font-weight: 700; text-align: center; max-width: 46mm; }
 .idc-back { display: flex; flex-direction: column; align-items: center; height: 100%; padding: 0 3.4mm 2.2mm 3.4mm; text-align: center; }
 .idc-back-band { width: calc(100% + 6.8mm); background: #dc2626; color: #ffffff; font-size: 7pt; font-weight: 800; letter-spacing: 1.2pt;
   text-transform: uppercase; padding: 1.7mm 0 1.5mm 0; display: flex; align-items: center; justify-content: center; gap: 1.4mm; }
@@ -74,6 +75,7 @@ export const idCardFrontHtml = (badge) => {
       <div class="idc-name">${esc(emp.name)}</div>
       ${emp.job_role ? `<div class="idc-role">${esc(emp.job_role)}</div>` : ''}
       <div class="idc-id">Employee ID: ${esc(emp.employee_id)}</div>
+      ${badge.barcode ? `<img class="idc-front-barcode" src="${badge.barcode}" alt="Attendance barcode" />` : ''}
       ${card.address ? `<div class="idc-address">${esc(card.address)}</div>` : ''}
     </div>
   </div>`;

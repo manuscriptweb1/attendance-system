@@ -87,6 +87,29 @@ export const cropFaceThumbnail = (source, box, size = 200) => {
   return canvas.toDataURL('image/jpeg', 0.82);
 };
 
+/**
+ * Passport-style portrait (head and shoulders, 3:4) for the printed ID card.
+ * Areas outside the source image are filled with white.
+ */
+export const cropPortrait = (source, box, width = 360, height = 480) => {
+  const srcW = source.videoWidth || source.naturalWidth || source.width;
+  const srcH = source.videoHeight || source.naturalHeight || source.height;
+  const cropH = box.height * 2.6;
+  const cropW = cropH * (width / height);
+  const cx = box.x + box.width / 2;
+  const top = box.y - box.height * 0.75;
+  const sx = cx - cropW / 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+  const scale = width / cropW;
+  ctx.drawImage(source, 0, 0, srcW, srcH, -sx * scale, -top * scale, srcW * scale, srcH * scale);
+  return canvas.toDataURL('image/jpeg', 0.85);
+};
+
 /** Load a File (photo upload) into an <img> element */
 export const fileToImage = (file) => new Promise((resolve, reject) => {
   if (!file || !/^image\//.test(file.type)) {

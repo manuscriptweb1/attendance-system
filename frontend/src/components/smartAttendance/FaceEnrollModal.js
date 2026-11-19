@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { FiCamera, FiUpload, FiX, FiCheckCircle, FiRefreshCw } from 'react-icons/fi';
 import useCamera from './useCamera';
-import { loadFaceEngine, detectFace, cropFaceThumbnail, fileToImage } from '../../utils/faceEngine';
+import { loadFaceEngine, detectFace, cropFaceThumbnail, cropPortrait, fileToImage } from '../../utils/faceEngine';
 
 const SAMPLES_NEEDED = 3;
 
@@ -28,6 +28,7 @@ const CameraCapture = ({ onCaptured, facingMode, setFacingMode }) => {
     setProgress(0);
     const descriptors = [];
     let photo = null;
+    let cardPhoto = null;
     let attempts = 0;
     try {
       while (descriptors.length < SAMPLES_NEEDED && attempts < 15) {
@@ -35,7 +36,10 @@ const CameraCapture = ({ onCaptured, facingMode, setFacingMode }) => {
         const face = await detectFace(video, { inputSize: 416, scoreThreshold: 0.6 });
         if (face && face.faceCount === 1 && face.box.width / (video.videoWidth || 1) > 0.18) {
           descriptors.push(face.descriptor);
-          if (!photo) photo = cropFaceThumbnail(video, face.box);
+          if (!photo) {
+            photo = cropFaceThumbnail(video, face.box);
+            cardPhoto = cropPortrait(video, face.box);
+          }
           setProgress(descriptors.length);
           await new Promise((r) => setTimeout(r, 350));
         } else {
@@ -47,7 +51,7 @@ const CameraCapture = ({ onCaptured, facingMode, setFacingMode }) => {
         setMsg('Could not capture a clear face. Move closer, face the light and try again.');
         return;
       }
-      onCaptured({ descriptors, photo, source: 'camera' });
+      onCaptured({ descriptors, photo, cardPhoto, source: 'camera' });
     } catch (err) {
       setMsg(errorText(err, 'Capture failed'));
     } finally {
@@ -116,7 +120,7 @@ const UploadCapture = ({ onCaptured }) => {
       }
       if (!face) throw new Error('No face found in this photo. Use a clear, front-facing photo.');
       if (face.faceCount > 1) throw new Error('This photo has more than one face. Use a photo of only this employee.');
-      onCaptured({ descriptors: [face.descriptor], photo: cropFaceThumbnail(img, face.box), source: 'upload' });
+      onCaptured({ descriptors: [face.descriptor], photo: cropFaceThumbnail(img, face.box), cardPhoto: cropPortrait(img, face.box), source: 'upload' });
     } catch (err) {
       setMsg(errorText(err, 'Could not read the photo'));
     } finally {
@@ -166,6 +170,7 @@ const FaceEnrollModal = ({ client, employee, onClose, onSaved, allowUpload = tru
       const res = await client.post(`/smart-attendance/faces/${encodeURIComponent(employee.employee_id)}`, {
         descriptors: captured.descriptors,
         photo: captured.photo,
+        card_photo: captured.cardPhoto,
         source: captured.source
       });
       setDone(true);
@@ -210,7 +215,18 @@ const FaceEnrollModal = ({ client, employee, onClose, onSaved, allowUpload = tru
 
           {captured && (
             <div className="space-y-4 text-center">
-              <img src={captured.photo} alt="Captured face" className="mx-auto h-40 w-40 rounded-2xl object-cover ring-4 ring-emerald-500/40" />
+              <div className="flex items-end justify-center gap-4">
+                <div>
+                  <img src={captured.photo} alt="Face used for matching" className="h-32 w-32 rounded-2xl object-cover ring-4 ring-emerald-500/40" />
+                  <p className="mt-1 text-[10px] text-admin-muted">Face match</p>
+                </div>
+                {captured.cardPhoto && (
+                  <div>
+                    <img src={captured.cardPhoto} alt="ID card portrait" className="h-40 w-[120px] rounded-lg border border-admin-border object-cover" />
+                    <p className="mt-1 text-[10px] text-admin-muted">ID card photo</p>
+                  </div>
+                )}
+              </div>
               {done ? (
                 <p className="flex items-center justify-center gap-2 text-sm font-bold text-emerald-400"><FiCheckCircle /> Face registered</p>
               ) : (

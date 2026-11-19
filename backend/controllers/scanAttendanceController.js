@@ -242,11 +242,12 @@ const getFacePhoto = async (req, res) => {
 
 const enrollFace = async (req, res) => {
   try {
-    const { descriptors, photo, source } = req.body || {};
+    const { descriptors, photo, card_photo: cardPhoto, source } = req.body || {};
     const profile = await svc.saveFaceProfile({
       employeeId: req.params.employeeId,
       descriptors,
       photoData: photo,
+      cardPhotoData: cardPhoto,
       source,
       actor: actorFromReq(req)
     });
@@ -328,8 +329,11 @@ const listNotes = async (req, res) => {
 
 const buildBadgeResponse = async (employee, badge) => {
   const { qrPng, barcodePng } = await svc.renderBadgeImages(badge.badge_code);
+  const [photo, settings] = await Promise.all([svc.getCardPhoto(employee.employee_id), svc.getScanSettings()]);
   return {
     employee,
+    photo,
+    card: { website: settings.cardWebsite, address: settings.cardAddress },
     badge_code: badge.badge_code,
     payload: svc.badgePayload(badge.badge_code),
     last_emailed_at: badge.last_emailed_at,
@@ -925,7 +929,7 @@ const myBadge = async (req, res) => {
     if (!code) throw new ScanError('Employee not found', 'NOT_FOUND', 404);
     const employee = await loadEmployee(code);
     const badge = await svc.getOrCreateBadge(code);
-    const data = await buildBadgeResponse({ employee_id: employee.employee_id, name: employee.name, department_name: employee.department_name }, badge);
+    const data = await buildBadgeResponse({ employee_id: employee.employee_id, name: employee.name, job_role: employee.job_role, department_name: employee.department_name }, badge);
     res.json({ success: true, ...data });
   } catch (err) {
     sendError(res, err);

@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import FaceEnrollModal from '../components/smartAttendance/FaceEnrollModal';
 import CorrectionPanel, { formatNoteTime } from '../components/smartAttendance/CorrectionPanel';
+import { ID_CARD_CSS, ID_CARD_DEFAULTS, idCardFrontHtml, idCardBackHtml, printIdCards } from '../utils/idCard';
 
 const PAGE_KEY = 'attendance_scanner';
 
@@ -140,34 +141,22 @@ const LiveTab = () => {
 };
 
 /* ─────────────────────────── Badges & faces ─────────────────────────── */
-const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-
-const printBadges = (badges, win) => {
-  const cards = badges.map((b) => `
-    <div class="card">
-      <div class="name">${escapeHtml(b.employee.name)}</div>
-      <div class="meta">${escapeHtml(b.employee.employee_id)}${b.employee.department_name ? ` · ${escapeHtml(b.employee.department_name)}` : ''}</div>
-      <img class="qr" src="${b.qr}" alt="QR" />
-      <img class="bar" src="${b.barcode}" alt="Barcode" />
-    </div>`).join('');
-  const doc = win.document;
-  doc.open();
-  doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>Attendance ID badges</title>
-    <style>
-      @page { margin: 10mm; }
-      body { font-family: Arial, Helvetica, sans-serif; margin: 0; }
-      .grid { display: flex; flex-wrap: wrap; gap: 6mm; }
-      .card { width: 54mm; height: 85.6mm; border: 1px solid #cbd5e1; border-radius: 3mm; box-sizing: border-box; padding: 4mm 3mm;
-              display: flex; flex-direction: column; align-items: center; justify-content: space-between; page-break-inside: avoid; }
-      .name { font-weight: bold; font-size: 11pt; text-align: center; }
-      .meta { font-size: 8pt; color: #475569; text-align: center; }
-      .qr { width: 38mm; height: 38mm; }
-      .bar { width: 48mm; height: auto; }
-    </style></head><body><div class="grid">${cards}</div>
-    <script>window.onload = function () { setTimeout(function () { window.print(); }, 300); };</script>
-    </body></html>`);
-  doc.close();
-};
+/** Front + back ID card preview (same HTML/CSS as the printed card) */
+const IdCardPreview = ({ badge }) => (
+  <div>
+    <style>{ID_CARD_CSS}</style>
+    <div className="flex flex-wrap justify-center gap-3">
+      <div className="text-center">
+        <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-admin-muted">Front</div>
+        <div className="shadow-lg" dangerouslySetInnerHTML={{ __html: idCardFrontHtml(badge) }} />
+      </div>
+      <div className="text-center">
+        <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-admin-muted">Back · attendance</div>
+        <div className="shadow-lg" dangerouslySetInnerHTML={{ __html: idCardBackHtml(badge) }} />
+      </div>
+    </div>
+  </div>
+);
 
 const downloadDataUrl = (dataUrl, filename) => {
   const a = document.createElement('a');
@@ -236,24 +225,24 @@ const BadgeModal = ({ employeeId, onClose, canEdit, notify, askConfirm }) => {
   const print = () => {
     const win = window.open('', '_blank', 'width=480,height=640');
     if (!win) { notify('Allow pop-ups to print the badge', 'error'); return; }
-    printBadges([badge], win);
+    printIdCards([badge], win);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-admin-overlay p-4 backdrop-blur-sm">
-      <div className="max-h-[95vh] w-full max-w-md overflow-y-auto rounded-2xl border border-admin-border bg-admin-elevated shadow-2xl">
+      <div className="max-h-[95vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-admin-border bg-admin-elevated shadow-2xl">
         <div className="flex items-center justify-between border-b border-admin-border bg-admin-surface px-5 py-4">
-          <h2 className="flex items-center gap-2 text-sm font-bold text-admin-text"><FiCreditCard className="text-blue-400" /> Attendance QR badge</h2>
+          <h2 className="flex items-center gap-2 text-sm font-bold text-admin-text"><FiCreditCard className="text-blue-400" /> Employee ID card</h2>
           <button type="button" onClick={onClose} className="rounded-xl p-2 text-admin-secondary hover:bg-admin-elevated" aria-label="Close"><FiX /></button>
         </div>
         {loading || !badge ? <div className="p-10 text-center"><Spinner /></div> : (
           <div className="space-y-4 p-5">
-            <div className="mx-auto w-64 rounded-2xl bg-white p-4 text-center text-slate-900 shadow">
-              <div className="text-base font-bold">{badge.employee.name}</div>
-              <div className="text-xs text-slate-500">{badge.employee.employee_id}{badge.employee.department_name ? ` · ${badge.employee.department_name}` : ''}</div>
-              <img src={badge.qr} alt="QR code" className="mx-auto my-3 h-44 w-44" />
-              <img src={badge.barcode} alt="Barcode" className="mx-auto w-full" />
-            </div>
+            <IdCardPreview badge={badge} />
+            {!badge.photo && (
+              <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 text-center text-[11px] font-semibold text-amber-400">
+                No photo yet – a placeholder figure is printed. Use the camera or upload button in the employee list (or the HR Scanner app) to add the photo.
+              </p>
+            )}
             <p className="text-center text-[11px] text-admin-muted">
               Code <span className="font-mono text-admin-secondary">{badge.badge_code}</span>
               {badge.last_emailed_at ? ` · emailed ${badge.email_count}×` : ' · not emailed yet'}
@@ -261,7 +250,7 @@ const BadgeModal = ({ employeeId, onClose, canEdit, notify, askConfirm }) => {
             <div className="grid grid-cols-3 gap-2">
               <button type="button" onClick={() => downloadDataUrl(badge.qr, `${badge.employee.employee_id}-qr.png`)} className="flex flex-col items-center gap-1 rounded-xl border border-admin-border py-2.5 text-[11px] font-bold text-admin-secondary hover:bg-admin-surface"><FiDownload /> QR PNG</button>
               <button type="button" onClick={() => downloadDataUrl(badge.barcode, `${badge.employee.employee_id}-barcode.png`)} className="flex flex-col items-center gap-1 rounded-xl border border-admin-border py-2.5 text-[11px] font-bold text-admin-secondary hover:bg-admin-surface"><FiDownload /> Barcode</button>
-              <button type="button" onClick={print} className="flex flex-col items-center gap-1 rounded-xl border border-admin-border py-2.5 text-[11px] font-bold text-admin-secondary hover:bg-admin-surface"><FiPrinter /> Print card</button>
+              <button type="button" onClick={print} className="flex flex-col items-center gap-1 rounded-xl border border-admin-border py-2.5 text-[11px] font-bold text-admin-secondary hover:bg-admin-surface"><FiPrinter /> Print ID card</button>
             </div>
             {canEdit && (
               <>
@@ -395,7 +384,7 @@ const BadgesTab = ({ notify, askConfirm }) => {
         const r = await api.get(`/smart-attendance/badges/${encodeURIComponent(e.employee_id)}`);
         badges.push(r.data);
       }
-      printBadges(badges, win);
+      printIdCards(badges, win);
       load();
     } catch (e) {
       win.close();
@@ -446,7 +435,7 @@ const BadgesTab = ({ notify, askConfirm }) => {
           {canEdit && (
             <div className="flex flex-wrap items-center gap-2 border-t border-admin-border pt-3">
               <button type="button" onClick={generateAll} className="flex items-center gap-1.5 rounded-xl border border-admin-border px-3 py-2 text-xs font-bold text-admin-secondary hover:bg-admin-surface"><FiPlus /> Generate all QR</button>
-              <button type="button" onClick={printAll} disabled={printing} className="flex items-center gap-1.5 rounded-xl border border-admin-border px-3 py-2 text-xs font-bold text-admin-secondary hover:bg-admin-surface disabled:opacity-50"><FiPrinter /> {printing ? 'Preparing…' : `Print ${list.length} badge(s)`}</button>
+              <button type="button" onClick={printAll} disabled={printing} className="flex items-center gap-1.5 rounded-xl border border-admin-border px-3 py-2 text-xs font-bold text-admin-secondary hover:bg-admin-surface disabled:opacity-50"><FiPrinter /> {printing ? 'Preparing…' : `Print ${list.length} ID card(s)`}</button>
               <select value={bulkTarget} onChange={(e) => setBulkTarget(e.target.value)} style={{ width: 'auto' }} className="admin-select py-2 text-xs text-admin-text" aria-label="Email to">
                 <option value="official">Official email</option>
                 <option value="personal">Personal email</option>
@@ -493,7 +482,7 @@ const BadgesTab = ({ notify, askConfirm }) => {
                   </td>
                   <td className="px-4 py-3">
                     <button type="button" onClick={() => setBadgeFor(e.employee_id)} className="flex items-center gap-1.5 rounded-lg border border-admin-border px-2.5 py-1.5 font-bold text-blue-400 hover:bg-admin-surface">
-                      <FiCreditCard /> {e.badge_code ? 'View QR' : 'Create QR'}
+                      <FiCreditCard /> {e.badge_code ? 'ID card / QR' : 'Create ID card'}
                     </button>
                   </td>
                   <td className="px-4 py-3">
@@ -1016,6 +1005,19 @@ const KiosksTab = ({ notify, askConfirm }) => {
               <input type="checkbox" checked={!!settings.allowEmployeeIdCodes} disabled={!canEdit} onChange={(e) => setSettings((s) => ({ ...s, allowEmployeeIdCodes: e.target.checked }))} className="mt-0.5" />
               <span>Also accept the plain employee ID as a card code (for existing printed ID cards whose barcode is the employee ID). Turn off to accept only the secure QR codes generated here.</span>
             </label>
+            <div className="space-y-3 rounded-xl border border-admin-border p-3">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-admin-secondary">Printed ID card</div>
+              <div>
+                <label className={label}>Website (vertical text on the front)</label>
+                <input value={settings.cardWebsite ?? ID_CARD_DEFAULTS.website} disabled={!canEdit} maxLength={80}
+                  onChange={(e) => setSettings((s) => ({ ...s, cardWebsite: e.target.value }))} className="admin-input w-full py-2.5 text-xs" />
+              </div>
+              <div>
+                <label className={label}>Address (front footer and back "if found, return to")</label>
+                <textarea rows={2} value={settings.cardAddress ?? ID_CARD_DEFAULTS.address} disabled={!canEdit} maxLength={200}
+                  onChange={(e) => setSettings((s) => ({ ...s, cardAddress: e.target.value }))} className="admin-input w-full resize-none py-2.5 text-xs" />
+              </div>
+            </div>
             <div className="rounded-xl bg-admin-surface p-3 text-admin-muted">
               Late, half-day, holiday and Sunday rules come from the normal attendance <b>Settings</b>, so scanned attendance behaves exactly like the existing system.
             </div>

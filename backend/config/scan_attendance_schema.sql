@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS employee_face_profiles (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Passport-style portrait used on the printed ID card
+ALTER TABLE employee_face_profiles ADD COLUMN IF NOT EXISTS card_photo TEXT;
+
 CREATE TABLE IF NOT EXISTS scan_kiosk_devices (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL,

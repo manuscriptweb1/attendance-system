@@ -38,7 +38,10 @@ const DEFAULT_SCAN_SETTINGS = {
   // Minimum minutes between check-in and an automatic check-out scan
   minMinutesBeforeCheckout: 5,
   // Also accept a plain employee ID (e.g. existing printed ID cards)
-  allowEmployeeIdCodes: true
+  allowEmployeeIdCodes: true,
+  // Printed ID card
+  cardWebsite: 'www.mstechnomedia.com',
+  cardAddress: '22, (New No. 48), 3rd Cross, Vivekananda Nagar, Bengaluru, 560 033, Karnataka, INDIA'
 };
 
 const SCAN_METHOD_LABELS = {
@@ -142,6 +145,8 @@ const updateScanSettings = async (patch = {}) => {
     if (!Number.isFinite(v) || v < 0 || v > 600) throw new ScanError('Minimum minutes before check-out must be between 0 and 600', 'INVALID_SETTING');
     next.minMinutesBeforeCheckout = v;
   }
+  if (patch.cardWebsite !== undefined) next.cardWebsite = String(patch.cardWebsite || '').trim().slice(0, 80);
+  if (patch.cardAddress !== undefined) next.cardAddress = String(patch.cardAddress || '').trim().slice(0, 200);
   if (patch.allowEmployeeIdCodes !== undefined) {
     next.allowEmployeeIdCodes = patch.allowEmployeeIdCodes === true || patch.allowEmployeeIdCodes === 'true';
   }
@@ -231,6 +236,7 @@ const renderBadgeImages = async (badgeCode, { scale = 4 } = {}) => {
     scale: 3,
     height: 12,
     includetext: true,
+    textyoffset: 2,
     textxalign: 'center',
     paddingwidth: 6,
     paddingheight: 4,
@@ -311,13 +317,16 @@ const matchFace = async (descriptor, threshold) => {
   return { matched: true, ...best };
 };
 
-const saveFaceProfile = async ({ employeeId, descriptors, photoData, source, actor }) => {
+const saveFaceProfile = async ({ employeeId, descriptors, photoData, cardPhotoData, source, actor }) => {
   await ensureScanTables();
   const valid = normaliseDescriptors(descriptors);
   if (!valid) throw new ScanError('A valid face could not be read. Please retake the photo with the face clearly visible.', 'INVALID_FACE');
 
   if (photoData && (typeof photoData !== 'string' || !/^data:image\/(jpeg|png|webp);base64,/.test(photoData) || photoData.length > 400000)) {
     throw new ScanError('Photo must be a JPEG/PNG/WebP image under 300 KB', 'INVALID_PHOTO');
+  }
+  if (cardPhotoData && (typeof cardPhotoData !== 'string' || !/^data:image\/(jpeg|png|webp);base64,/.test(cardPhotoData) || cardPhotoData.length > 700000)) {
+    throw new ScanError('ID card photo must be a JPEG/PNG/WebP image under 500 KB', 'INVALID_PHOTO');
   }
 
   const emp = await pool.query('SELECT employee_id, name FROM employees WHERE employee_id = $1', [employeeId]);
@@ -335,17 +344,18 @@ const saveFaceProfile = async ({ employeeId, descriptors, photoData, source, act
   }
 
   const result = await pool.query(
-    `INSERT INTO employee_face_profiles (employee_id, descriptors, photo_data, source, enrolled_by_admin_id, enrolled_by_name)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO employee_face_profiles (employee_id, descriptors, photo_data, source, enrolled_by_admin_id, enrolled_by_name, card_photo)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      ON CONFLICT (employee_id) DO UPDATE SET
        descriptors = EXCLUDED.descriptors,
        photo_data = COALESCE(EXCLUDED.photo_data, employee_face_profiles.photo_data),
+       card_photo = COALESCE(EXCLUDED.card_photo, employee_face_profiles.card_photo),
        source = EXCLUDED.source,
        enrolled_by_admin_id = EXCLUDED.enrolled_by_admin_id,
        enrolled_by_name = EXCLUDED.enrolled_by_name,
        updated_at = CURRENT_TIMESTAMP
      RETURNING employee_id, source, enrolled_by_name, created_at, updated_at`,
-    [employeeId, JSON.stringify(valid), photoData || null, source === 'upload' ? 'upload' : 'camera', safeAdminId(actor?.adminId), actor?.name || null]
+    [employeeId, JSON.stringify(valid), photoData || null, source === 'upload' ? 'upload' : 'camera', safeAdminId(actor?.adminId), actor?.name || null, cardPhotoData || null]
   );
   invalidateFaceCache();
 
@@ -460,6 +470,13 @@ const writeScanLog = async (entry) => {
 const hasFaceProfile = async (employeeId) => {
   const r = await pool.query('SELECT 1 FROM employee_face_profiles WHERE employee_id = $1', [employeeId]);
   return r.rows.length > 0;
+};
+
+/** Portrait for the printed ID card (falls back to the face thumbnail) */
+const getCardPhoto = async (employeeId) => {
+  await ensureScanTables();
+  const r = await pool.query('SELECT COALESCE(card_photo, photo_data) AS photo FROM employee_face_profiles WHERE employee_id = $1', [employeeId]);
+  return r.rows[0]?.photo || null;
 };
 
 const getFacePhoto = async (employeeId) => {
@@ -905,6 +922,7 @@ module.exports = {
   saveFaceProfile,
   deleteFaceProfile,
   getFacePhoto,
+  getCardPhoto,
   createKiosk,
   findKioskByKey,
   performScan,

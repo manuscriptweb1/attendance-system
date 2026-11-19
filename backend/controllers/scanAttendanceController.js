@@ -1,7 +1,10 @@
+const fs = require('fs');
+const path = require('path');
+const bcrypt = require('bcrypt');
 const pool = require('../config/database');
 const svc = require('../services/scanAttendanceService');
 const { getClientIP } = require('../services/networkValidationService');
-const { sendEmail } = require('../services/emailService');
+const { sendEmail, verifyEmailConnection } = require('../services/emailService');
 const { logAdminActivity } = require('../services/adminActivityService');
 const { getBrandingSettings } = require('../utils/brandingSettingsHelper');
 const { isHrRole } = require('../middleware/auth');
@@ -378,53 +381,181 @@ const regenerateBadge = async (req, res) => {
 
 const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const emailBadgeToEmployee = async (employee, badge, target = 'official') => {
+/** Load company branding once per send (name, address, logo file) */
+const loadBranding = async () => {
+  const fallback = { company_name: 'Manuscript Technomedia LLP', registered_office_address: '', physical_logo_path: null };
+  try {
+    const b = await getBrandingSettings();
+    return { ...fallback, ...(b || {}) };
+  } catch (_) {
+    return fallback;
+  }
+};
+
+/** Professional, email-client-safe (table based, inline styles) QR badge email */
+const buildBadgeEmailHtml = ({ employee, badge, companyName, address, hasLogo }) => {
+  const e = escapeHtml;
+  const dept = employee.department_name ? e(employee.department_name) : '';
+  const step = (n, title, body) => `
+    <tr>
+      <td width="36" valign="top" style="padding:0 0 14px 0;">
+        <div style="width:28px;height:28px;line-height:28px;border-radius:14px;background:#eef2ff;color:#4f46e5;font-weight:700;font-size:13px;text-align:center;">${n}</div>
+      </td>
+      <td valign="top" style="padding:3px 0 14px 8px;font-size:14px;line-height:20px;color:#334155;">
+        <b style="color:#0f172a;">${title}</b><br/>${body}
+      </td>
+    </tr>`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Your Attendance QR Code</title>
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your personal attendance QR code for ${e(companyName)} – scan it when you arrive and when you leave.</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f1f5f9;">
+    <tr>
+      <td align="center" style="padding:28px 12px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:#1e293b;background-image:linear-gradient(135deg,#1e293b 0%,#312e81 100%);padding:26px 32px;" align="left">
+              ${hasLogo ? `<img src="cid:company-logo" alt="${e(companyName)}" height="40" style="display:block;height:40px;max-width:200px;margin-bottom:12px;border:0;background:#ffffff;border-radius:8px;padding:4px;" />` : ''}
+              <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#a5b4fc;font-weight:700;">${e(companyName)}</div>
+              <div style="font-size:24px;line-height:30px;color:#ffffff;font-weight:700;margin-top:6px;">Your Attendance QR Code</div>
+            </td>
+          </tr>
+
+          <!-- Greeting -->
+          <tr>
+            <td style="padding:28px 32px 8px 32px;font-size:15px;line-height:23px;color:#334155;">
+              Dear <b style="color:#0f172a;">${e(employee.name)}</b>,<br/><br/>
+              Attendance at the office is now marked automatically. Below is your <b>personal attendance QR code</b>.
+              Simply show it at the entrance scanner – no need to open the app.
+            </td>
+          </tr>
+
+          <!-- Badge card -->
+          <tr>
+            <td align="center" style="padding:20px 32px 8px 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:300px;max-width:100%;border:2px solid #e2e8f0;border-radius:18px;">
+                <tr>
+                  <td align="center" style="background:#4f46e5;border-radius:16px 16px 0 0;padding:12px 16px;color:#ffffff;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">
+                    Employee Attendance ID
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:18px 16px 4px 16px;">
+                    <div style="font-size:19px;font-weight:700;color:#0f172a;">${e(employee.name)}</div>
+                    <div style="font-size:13px;color:#64748b;margin-top:3px;">${e(employee.employee_id)}${dept ? ` &nbsp;•&nbsp; ${dept}` : ''}</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:14px 16px 6px 16px;">
+                    <img src="cid:attendance-qr" alt="Attendance QR code" width="210" height="210" style="display:block;width:210px;height:210px;border:0;" />
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:6px 20px 18px 20px;">
+                    <img src="cid:attendance-barcode" alt="Attendance barcode" width="250" style="display:block;width:250px;max-width:100%;height:auto;border:0;" />
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- How to use -->
+          <tr>
+            <td style="padding:24px 32px 6px 32px;">
+              <div style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:14px;">How to mark your attendance</div>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                ${step(1, 'When you arrive', 'Show this QR code (on your phone or printed ID card) to the entrance scanner or to HR. Your first scan of the day is your <b>check-in</b>.')}
+                ${step(2, 'When you leave', 'Scan the same code again. Your next scan is your <b>check-out</b>.')}
+                ${step(3, 'Face attendance', 'If your face photo is registered you can also just look at the face scanner. Not registered yet? Please contact HR to upload or scan your photo.')}
+              </table>
+            </td>
+          </tr>
+
+          <!-- Security note -->
+          <tr>
+            <td style="padding:8px 32px 26px 32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;">
+                <tr>
+                  <td style="padding:14px 16px;font-size:13px;line-height:20px;color:#9a3412;">
+                    <b>Keep this code private.</b> It works only for you. If your card is lost or you think someone else has your code,
+                    contact HR immediately – a new code will be issued and this one will stop working. The QR image is also attached
+                    to this email so you can save or print it.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:18px 32px;font-size:12px;line-height:18px;color:#64748b;" align="center">
+              Regards,<br/><b style="color:#334155;">HR Team, ${e(companyName)}</b>
+              ${address ? `<br/><span style="color:#94a3b8;">${e(address)}</span>` : ''}
+              <br/><br/><span style="color:#94a3b8;">This is an automated email from the attendance system. Please do not reply.</span>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+};
+
+const emailBadgeToEmployee = async (employee, badge, target = 'official', brandingCache = null) => {
   const recipients = [];
   if ((target === 'official' || target === 'both') && employee.email) recipients.push(employee.email);
   if ((target === 'personal' || target === 'both') && employee.personal_email) recipients.push(employee.personal_email);
   if (target === 'personal' && recipients.length === 0 && employee.email) recipients.push(employee.email);
   if (recipients.length === 0) throw new ScanError(`${employee.name} has no email address on file`, 'NO_EMAIL');
 
-  let companyName = process.env.MAIL_FROM_NAME || 'Attendance';
-  try {
-    const branding = await getBrandingSettings();
-    if (branding?.company_name) companyName = branding.company_name;
-  } catch (_) { /* fall back to MAIL_FROM_NAME */ }
+  const branding = brandingCache || await loadBranding();
+  const companyName = branding.company_name || process.env.MAIL_FROM_NAME || 'Attendance';
+  const logoPath = branding.physical_logo_path && fs.existsSync(branding.physical_logo_path) ? branding.physical_logo_path : null;
 
-  const { qrPng, barcodePng } = await svc.renderBadgeImages(badge.badge_code, { scale: 6 });
-  const html = `
-  <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#0f172a">
-    <h2 style="margin:0 0 8px">Your Attendance QR Code</h2>
-    <p style="margin:0 0 16px;color:#475569">Hello ${escapeHtml(employee.name)},</p>
-    <p style="margin:0 0 16px;color:#475569">
-      This is your personal attendance code for <b>${escapeHtml(companyName)}</b>. Show it at the entrance scanner
-      (or to HR) when you <b>arrive</b> and again when you <b>leave</b>. Your first scan of the day is your check-in;
-      the next scan is your check-out.
-    </p>
-    <div style="border:1px solid #e2e8f0;border-radius:16px;padding:20px;text-align:center">
-      <div style="font-size:18px;font-weight:bold">${escapeHtml(employee.name)}</div>
-      <div style="color:#64748b;margin-bottom:12px">${escapeHtml(employee.employee_id)}${employee.department_name ? ` · ${escapeHtml(employee.department_name)}` : ''}</div>
-      <img src="cid:attendance-qr" alt="QR code" width="220" height="220" style="display:block;margin:0 auto" />
-      <img src="cid:attendance-barcode" alt="Barcode" style="display:block;margin:12px auto 0;max-width:100%" />
-    </div>
-    <p style="margin:16px 0 0;color:#64748b;font-size:12px">
-      Keep this code private. If you lose your card or think someone else has your code, contact HR to issue a new one —
-      the old code stops working immediately. If your face photo is not registered yet, please contact HR to upload or scan your photo.
-    </p>
-  </div>`;
+  const { qrPng, barcodePng } = await svc.renderBadgeImages(badge.badge_code, { scale: 8 });
+  const html = buildBadgeEmailHtml({
+    employee,
+    badge,
+    companyName,
+    address: branding.registered_office_address,
+    hasLogo: !!logoPath
+  });
 
   const attachments = [
-    { filename: `${employee.employee_id}-qr.png`, content: qrPng, cid: 'attendance-qr', contentType: 'image/png' },
-    { filename: `${employee.employee_id}-barcode.png`, content: barcodePng, cid: 'attendance-barcode', contentType: 'image/png' }
+    { filename: `${employee.employee_id}-attendance-qr.png`, content: qrPng, cid: 'attendance-qr', contentType: 'image/png' },
+    { filename: `${employee.employee_id}-attendance-barcode.png`, content: barcodePng, cid: 'attendance-barcode', contentType: 'image/png' }
   ];
+  if (logoPath) attachments.push({ filename: 'logo' + path.extname(logoPath), path: logoPath, cid: 'company-logo', contentDisposition: 'inline' });
 
+  const text = [
+    `Dear ${employee.name},`,
+    '',
+    `Your personal attendance QR code for ${companyName} is attached (${employee.employee_id}).`,
+    'Show it at the entrance scanner when you arrive (check-in) and again when you leave (check-out).',
+    'If your face photo is not registered yet, please contact HR to upload or scan your photo.',
+    'Keep this code private. If your card is lost, contact HR for a new code.',
+    '',
+    `Regards,`,
+    `HR Team, ${companyName}`
+  ].join('\n');
+
+  // Uses the existing system email service (same Gmail SMTP sender as payslips and OTPs)
   for (const to of recipients) {
     await sendEmail({
       toEmail: to,
       toName: employee.name,
-      subject: `Your Attendance QR Code – ${companyName}`,
+      subject: `Your Attendance QR Code – ${employee.name} (${employee.employee_id})`,
       html,
-      text: `Hello ${employee.name}, your attendance QR code is attached. Scan it when you arrive and when you leave. Badge code: ${badge.badge_code}`,
+      text,
       attachments
     });
   }
@@ -433,6 +564,23 @@ const emailBadgeToEmployee = async (employee, badge, target = 'official') => {
     [employee.employee_id]
   );
   return recipients;
+};
+
+/** Gmail login / connection problems: stop instead of retrying every employee */
+const isSmtpAuthOrConfigError = (err) => {
+  const m = String(err?.message || '');
+  return err?.code === 'EAUTH' || /Invalid login|Username and Password not accepted|535|SMTP configuration is missing|authentication failed/i.test(m);
+};
+
+const friendlySmtpError = (err) => {
+  const m = String(err?.message || '');
+  if (/SMTP configuration is missing/i.test(m)) {
+    return 'Email is not configured on the server (SMTP_HOST / SMTP_USER / SMTP_PASSWORD are missing).';
+  }
+  if (isSmtpAuthOrConfigError(err)) {
+    return 'Gmail rejected the login (535 Username and Password not accepted). On the server, SMTP_USER must be the full Gmail address and SMTP_PASSWORD must be a valid 16-character Google App Password (2-Step Verification on). This affects all system emails, including payslips and OTPs.';
+  }
+  return `Email could not be sent: ${m}`;
 };
 
 const emailBadge = async (req, res) => {
@@ -454,8 +602,8 @@ const emailBadge = async (req, res) => {
     res.json({ success: true, message: `QR code sent to ${recipients.join(', ')}`, recipients });
   } catch (err) {
     if (!(err instanceof ScanError)) {
-      console.error('[SmartAttendance] email badge failed:', err);
-      return res.status(502).json({ success: false, message: `Email could not be sent: ${err.message}` });
+      console.error('[SmartAttendance] email badge failed:', err.message);
+      return res.status(502).json({ success: false, code: 'EMAIL_FAILED', message: friendlySmtpError(err) });
     }
     sendError(res, err);
   }
@@ -481,21 +629,42 @@ const emailAllBadges = async (req, res) => {
        ORDER BY e.name`
     );
     const employees = result.rows;
-    bulkEmailJob = { running: true, total: employees.length, sent: 0, failed: 0, errors: [], startedAt: new Date().toISOString(), finishedAt: null };
+    if (employees.length === 0) {
+      return res.json({ success: true, message: 'Nobody to email – every active employee has already received their QR code.', job: bulkEmailJob });
+    }
+
+    // Check the Gmail login once before sending to everyone
+    try {
+      await verifyEmailConnection();
+    } catch (smtpErr) {
+      return res.status(502).json({ success: false, code: 'EMAIL_NOT_READY', message: friendlySmtpError(smtpErr) });
+    }
+
+    bulkEmailJob = { running: true, total: employees.length, sent: 0, failed: 0, errors: [], stoppedReason: null, startedAt: new Date().toISOString(), finishedAt: null };
     const actor = actorFromReq(req);
 
     res.json({ success: true, message: `Sending QR codes to ${employees.length} employee(s)…`, job: bulkEmailJob });
 
     (async () => {
+      const branding = await loadBranding();
       for (const emp of employees) {
         try {
           const badge = await svc.getOrCreateBadge(emp.employee_id);
-          await emailBadgeToEmployee(emp, badge, target);
+          await emailBadgeToEmployee(emp, badge, target, branding);
           bulkEmailJob.sent += 1;
         } catch (e) {
           bulkEmailJob.failed += 1;
-          if (bulkEmailJob.errors.length < 50) bulkEmailJob.errors.push({ employee_id: emp.employee_id, name: emp.name, error: e.message });
+          if (bulkEmailJob.errors.length < 50) {
+            bulkEmailJob.errors.push({ employee_id: emp.employee_id, name: emp.name, error: e instanceof ScanError ? e.message : friendlySmtpError(e) });
+          }
+          if (isSmtpAuthOrConfigError(e)) {
+            // Repeated bad logins can get the Gmail account temporarily locked – stop now
+            bulkEmailJob.stoppedReason = friendlySmtpError(e);
+            break;
+          }
         }
+        // Gentle pacing so Gmail does not throttle the account
+        await new Promise((r) => setTimeout(r, 800));
       }
       bulkEmailJob.running = false;
       bulkEmailJob.finishedAt = new Date().toISOString();
@@ -518,6 +687,122 @@ const emailAllBadges = async (req, res) => {
 };
 
 const emailAllStatus = async (req, res) => res.json({ success: true, job: bulkEmailJob });
+
+/* ---------------------------------------------------------------- */
+/* HR Scanner accounts (admins rows with role = 'hr')                */
+/* ---------------------------------------------------------------- */
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const listHrAccounts = async (req, res) => {
+  try {
+    await svc.ensureScanTables();
+    const r = await pool.query(
+      `SELECT a.id, a.username, a.email, COALESCE(a.status, 'Active') AS status, a.created_at,
+              (SELECT to_char((MAX(l.login_time) AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD"T"HH24:MI:SS')
+                 FROM admin_login_logs l WHERE l.admin_id = a.id) AS last_login,
+              (SELECT COUNT(*) FROM attendance_scan_logs s WHERE s.scanned_by_admin_id = a.id AND s.status = 'success') AS total_scans
+       FROM admins a WHERE a.role = 'hr' ORDER BY a.created_at DESC`
+    );
+    res.json({ success: true, accounts: r.rows });
+  } catch (err) {
+    sendError(res, err);
+  }
+};
+
+const createHrAccount = async (req, res) => {
+  try {
+    const username = String(req.body?.username || '').trim();
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const password = String(req.body?.password || '');
+    if (!/^[A-Za-z0-9._@-]{3,60}$/.test(username)) throw new ScanError('Username must be 3–60 characters (letters, numbers, . _ - @)', 'INVALID_USERNAME');
+    if (!EMAIL_RE.test(email)) throw new ScanError('Enter a valid email address', 'INVALID_EMAIL');
+    if (password.length < 6) throw new ScanError('Password must be at least 6 characters', 'WEAK_PASSWORD');
+
+    const dup = await pool.query('SELECT username FROM admins WHERE LOWER(username) = LOWER($1) OR LOWER(email) = $2', [username, email]);
+    if (dup.rows.length > 0) {
+      const taken = dup.rows.some((d) => d.username.toLowerCase() === username.toLowerCase()) ? 'Username' : 'Email';
+      throw new ScanError(`${taken} already exists`, 'DUPLICATE', 409);
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+    const r = await pool.query(
+      `INSERT INTO admins (username, email, password, role, is_super_admin, status)
+       VALUES ($1, $2, $3, 'hr', false, 'Active') RETURNING id, username, email, status, created_at`,
+      [username, email, hash]
+    );
+    const actor = actorFromReq(req);
+    await logAdminActivity({
+      adminId: actor.adminId, adminName: actor.name, adminEmail: actor.email,
+      actionType: 'HR_ACCOUNT_CREATE', moduleName: 'Smart Attendance',
+      description: `Created HR Scanner account "${username}" (${email})`
+    });
+    res.json({ success: true, message: `HR Scanner account "${username}" created`, account: r.rows[0] });
+  } catch (err) {
+    sendError(res, err);
+  }
+};
+
+const updateHrAccount = async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const existing = await pool.query(`SELECT id, username FROM admins WHERE id = $1 AND role = 'hr'`, [id]);
+    if (!existing.rows[0]) throw new ScanError('HR Scanner account not found', 'NOT_FOUND', 404);
+
+    const { status, password, email } = req.body || {};
+    const sets = [];
+    const params = [];
+    const changes = [];
+    if (status !== undefined) {
+      if (!['Active', 'Inactive'].includes(status)) throw new ScanError('Status must be Active or Inactive', 'INVALID_STATUS');
+      params.push(status); sets.push(`status = $${params.length}`); changes.push(`status → ${status}`);
+    }
+    if (email !== undefined) {
+      const clean = String(email).trim().toLowerCase();
+      if (!EMAIL_RE.test(clean)) throw new ScanError('Enter a valid email address', 'INVALID_EMAIL');
+      const dup = await pool.query('SELECT 1 FROM admins WHERE LOWER(email) = $1 AND id <> $2', [clean, id]);
+      if (dup.rows.length) throw new ScanError('Email already exists', 'DUPLICATE', 409);
+      params.push(clean); sets.push(`email = $${params.length}`); changes.push('email changed');
+    }
+    if (password !== undefined && password !== '') {
+      if (String(password).length < 6) throw new ScanError('Password must be at least 6 characters', 'WEAK_PASSWORD');
+      params.push(await bcrypt.hash(String(password), 10)); sets.push(`password = $${params.length}`); changes.push('password reset');
+    }
+    if (sets.length === 0) throw new ScanError('Nothing to update', 'NO_CHANGES');
+
+    params.push(id);
+    const r = await pool.query(
+      `UPDATE admins SET ${sets.join(', ')} WHERE id = $${params.length} AND role = 'hr' RETURNING id, username, email, status, created_at`,
+      params
+    );
+    const actor = actorFromReq(req);
+    await logAdminActivity({
+      adminId: actor.adminId, adminName: actor.name, adminEmail: actor.email,
+      actionType: 'HR_ACCOUNT_UPDATE', moduleName: 'Smart Attendance',
+      description: `Updated HR Scanner account "${existing.rows[0].username}": ${changes.join(', ')}`
+    });
+    res.json({ success: true, message: 'HR Scanner account updated', account: r.rows[0] });
+  } catch (err) {
+    sendError(res, err);
+  }
+};
+
+const deleteHrAccount = async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const r = await pool.query(`DELETE FROM admins WHERE id = $1 AND role = 'hr' RETURNING username`, [id]);
+    if (!r.rows[0]) throw new ScanError('HR Scanner account not found', 'NOT_FOUND', 404);
+    const actor = actorFromReq(req);
+    await logAdminActivity({
+      adminId: actor.adminId, adminName: actor.name, adminEmail: actor.email,
+      actionType: 'HR_ACCOUNT_DELETE', moduleName: 'Smart Attendance',
+      description: `Deleted HR Scanner account "${r.rows[0].username}"`
+    });
+    res.json({ success: true, message: 'HR Scanner account deleted' });
+  } catch (err) {
+    sendError(res, err);
+  }
+};
 
 /* ---------------------------------------------------------------- */
 /* Kiosks & settings                                                 */
@@ -648,6 +933,10 @@ const myBadge = async (req, res) => {
 };
 
 module.exports = {
+  listHrAccounts,
+  createHrAccount,
+  updateHrAccount,
+  deleteHrAccount,
   hrScan,
   hrSession,
   kioskAuth,

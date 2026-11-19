@@ -40,6 +40,11 @@ router.get('/badges/:employeeId', requirePermission(PAGE, 'can_view'), c.getBadg
 router.post('/badges/:employeeId/regenerate', requirePermission(PAGE, 'can_edit'), c.regenerateBadge);
 router.post('/badges/:employeeId/email', requirePermission(PAGE, 'can_edit'), c.emailBadge);
 
+router.get('/hr-accounts', requirePermission(PAGE, 'can_view'), c.listHrAccounts);
+router.post('/hr-accounts', requirePermission(PAGE, 'can_edit'), c.createHrAccount);
+router.patch('/hr-accounts/:id', requirePermission(PAGE, 'can_edit'), c.updateHrAccount);
+router.delete('/hr-accounts/:id', requirePermission(PAGE, 'can_delete'), c.deleteHrAccount);
+
 router.get('/kiosks', requirePermission(PAGE, 'can_view'), c.listKiosks);
 router.post('/kiosks', requirePermission(PAGE, 'can_edit'), c.createKiosk);
 router.patch('/kiosks/:id', requirePermission(PAGE, 'can_edit'), c.updateKiosk);

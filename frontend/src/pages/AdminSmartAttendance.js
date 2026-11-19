@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FiActivity, FiCreditCard, FiEdit3, FiMonitor, FiRefreshCw, FiSearch, FiMail, FiPrinter, FiDownload,
-  FiCamera, FiUpload, FiTrash2, FiUserX, FiCheckCircle, FiCopy, FiPlus, FiExternalLink, FiSmartphone, FiX, FiImage
+  FiCamera, FiUpload, FiTrash2, FiUserX, FiCheckCircle, FiCopy, FiPlus, FiExternalLink, FiSmartphone, FiX, FiImage,
+  FiUsers, FiKey, FiEye, FiEyeOff, FiUserPlus
 } from 'react-icons/fi';
 import Sidebar from '../components/Sidebar';
 import AdminToast from '../components/AdminToast';
@@ -18,6 +19,7 @@ const TABS = [
   { id: 'live', label: 'Live Scans', Icon: FiActivity },
   { id: 'badges', label: 'QR Badges & Faces', Icon: FiCreditCard },
   { id: 'corrections', label: 'Corrections & Notes', Icon: FiEdit3 },
+  { id: 'hr', label: 'HR Scanner Accounts', Icon: FiUsers },
   { id: 'kiosks', label: 'Kiosks & Settings', Icon: FiMonitor }
 ];
 
@@ -336,7 +338,7 @@ const BadgesTab = ({ notify, askConfirm }) => {
         setJob(r.data.job);
         if (!r.data.job.running) {
           clearInterval(pollRef.current);
-          notify(`QR emails finished · sent ${r.data.job.sent}, failed ${r.data.job.failed}`, r.data.job.failed ? 'error' : 'success');
+          notify(r.data.job.stoppedReason ? 'Emails stopped – Gmail login failed. See details below.' : `QR emails finished · sent ${r.data.job.sent}, failed ${r.data.job.failed}`, r.data.job.failed ? 'error' : 'success');
           load();
         }
       } catch (_) { clearInterval(pollRef.current); }
@@ -458,6 +460,9 @@ const BadgesTab = ({ notify, askConfirm }) => {
         {job && (job.running || job.finishedAt) && (
           <div className="mt-3 rounded-xl bg-admin-surface p-3 text-xs text-admin-secondary">
             {job.running ? 'Sending QR emails…' : 'Last bulk email:'} <b className="text-admin-text">{job.sent}</b> sent, <b className="text-admin-text">{job.failed}</b> failed of {job.total}
+            {job.stoppedReason && (
+              <div className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 p-2 font-semibold text-red-400">Stopped: {job.stoppedReason}</div>
+            )}
             {job.errors?.length > 0 && !job.running && (
               <details className="mt-1"><summary className="cursor-pointer text-red-400">Show failures</summary>
                 <ul className="mt-1 list-disc pl-5">{job.errors.map((er) => <li key={er.employee_id}>{er.name} ({er.employee_id}): {er.error}</li>)}</ul>
@@ -617,6 +622,232 @@ const CorrectionsTab = () => {
 /* ─────────────────────────── Kiosks & settings ─────────────────────────── */
 const MODE_LABEL = { card: 'ID card / QR', face: 'Face', both: 'Card + Face' };
 
+/* ─────────────────────────── HR Scanner accounts ─────────────────────────── */
+const generatePassword = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const bytes = new Uint32Array(10);
+  window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => chars[b % chars.length]).join('');
+};
+
+// last_login arrives as an IST wall-clock string "YYYY-MM-DDTHH:mm:ss"
+const formatDateTime = (ts) => {
+  if (!ts) return 'Never';
+  const [y, mo, da] = String(ts).split('T')[0].split('-');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${da} ${months[parseInt(mo, 10) - 1] || ''} ${y}, ${timeOf(ts)}`;
+};
+
+const HrAccountsTab = ({ notify, askConfirm }) => {
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission(PAGE_KEY, 'can_edit');
+  const canDelete = hasPermission(PAGE_KEY, 'can_delete');
+  const [accounts, setAccounts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ username: '', email: '', password: '' });
+  const [showPw, setShowPw] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [created, setCreated] = useState(null);
+  const [resetFor, setResetFor] = useState(null);
+  const [resetPw, setResetPw] = useState('');
+
+  const scannerUrl = `${window.location.origin}/scanner`;
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await api.get('/smart-attendance/hr-accounts');
+      setAccounts(r.data.accounts || []);
+    } catch (_) { /* global */ } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const credentialsText = (username, password) =>
+    `HR Scanner app: ${scannerUrl}\nUsername: ${username}\nPassword: ${password}\n\nOpen the link on your phone, sign in, then tap "Add to Home Screen" / "Install".`;
+
+  const copy = (text, msg = 'Copied') => {
+    navigator.clipboard?.writeText(text).then(() => notify(msg, 'success')).catch(() => notify('Copy failed – select and copy manually', 'error'));
+  };
+
+  const create = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const r = await api.post('/smart-attendance/hr-accounts', form);
+      setCreated({ username: r.data.account.username, password: form.password });
+      setForm({ username: '', email: '', password: '' });
+      notify(r.data.message, 'success');
+      load();
+    } catch (err) {
+      notify(errMsg(err, 'Could not create the account'), 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const update = async (acc, patch, msg) => {
+    try {
+      await api.patch(`/smart-attendance/hr-accounts/${acc.id}`, patch);
+      notify(msg, 'success');
+      load();
+      return true;
+    } catch (err) {
+      notify(errMsg(err, 'Update failed'), 'error');
+      return false;
+    }
+  };
+
+  const saveReset = async (e) => {
+    e.preventDefault();
+    const ok = await update(resetFor, { password: resetPw }, `Password reset for ${resetFor.username}`);
+    if (ok) {
+      setCreated({ username: resetFor.username, password: resetPw });
+      setResetFor(null);
+      setResetPw('');
+    }
+  };
+
+  const remove = (acc) => askConfirm({
+    title: `Delete HR Scanner "${acc.username}"?`,
+    message: 'This login will stop working immediately. Attendance already marked by this account is kept.',
+    confirmText: 'Delete',
+    type: 'danger',
+    onConfirm: async () => {
+      try {
+        await api.delete(`/smart-attendance/hr-accounts/${acc.id}`);
+        notify('HR Scanner account deleted', 'success');
+        load();
+      } catch (err) { notify(errMsg(err, 'Delete failed'), 'error'); }
+    }
+  });
+
+  const label = 'mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-admin-secondary';
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[360px_1fr]">
+      <div className="space-y-5">
+        {canEdit ? (
+          <Card className="p-5">
+            <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-admin-text"><FiUserPlus className="text-blue-400" /> Create HR Scanner login</h3>
+            <p className="mb-4 text-xs text-admin-muted">This person can only use the scanner app on their phone: scan employee QR / face, register face photos and correct attendance with a note. They cannot open the admin panel.</p>
+            <form onSubmit={create} className="space-y-3">
+              <div>
+                <label className={label}>Username</label>
+                <input value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} placeholder="e.g. hr.reception" autoComplete="off" className="admin-input w-full py-2.5 text-xs" />
+              </div>
+              <div>
+                <label className={label}>Email</label>
+                <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="hr@company.com" autoComplete="off" className="admin-input w-full py-2.5 text-xs" />
+              </div>
+              <div>
+                <label className={label}>Password</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input type={showPw ? 'text' : 'password'} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="Min. 6 characters" autoComplete="new-password" className="admin-input w-full py-2.5 pr-9 text-xs" />
+                    <button type="button" onClick={() => setShowPw((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-admin-muted" aria-label={showPw ? 'Hide password' : 'Show password'}>{showPw ? <FiEyeOff /> : <FiEye />}</button>
+                  </div>
+                  <button type="button" onClick={() => { setForm((f) => ({ ...f, password: generatePassword() })); setShowPw(true); }} className="whitespace-nowrap rounded-xl border border-admin-border px-3 text-[11px] font-bold text-admin-secondary hover:bg-admin-surface">Generate</button>
+                </div>
+              </div>
+              <button type="submit" disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-500 disabled:opacity-50">
+                <FiUserPlus /> {saving ? 'Creating…' : 'Create HR Scanner account'}
+              </button>
+            </form>
+          </Card>
+        ) : (
+          <Card className="p-5 text-xs text-admin-muted">Ask a Super Admin for edit permission on Smart Attendance to create HR Scanner accounts.</Card>
+        )}
+
+        {created && (
+          <Card className="border-emerald-500/40 p-5">
+            <h3 className="mb-2 text-sm font-bold text-emerald-400">Share these login details with HR</h3>
+            <pre className="whitespace-pre-wrap rounded-xl bg-admin-surface p-3 font-mono text-[11px] text-admin-text">{credentialsText(created.username, created.password)}</pre>
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => copy(credentialsText(created.username, created.password), 'Login details copied')} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-500"><FiCopy /> Copy</button>
+              <button type="button" onClick={() => setCreated(null)} className="rounded-xl border border-admin-border px-4 py-2 text-xs font-bold text-admin-secondary hover:bg-admin-surface">Done</button>
+            </div>
+            <p className="mt-2 text-[11px] text-admin-muted">The password is not shown again after you close this.</p>
+          </Card>
+        )}
+
+        <Card className="p-5 text-xs">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-bold text-admin-text">HR Scanner app link</span>
+            <div className="flex gap-1">
+              <button type="button" onClick={() => copy(scannerUrl)} className="rounded-lg p-1.5 text-admin-secondary hover:bg-admin-surface" aria-label="Copy link"><FiCopy /></button>
+              <a href={scannerUrl} target="_blank" rel="noreferrer" className="rounded-lg p-1.5 text-admin-secondary hover:bg-admin-surface" aria-label="Open"><FiExternalLink /></a>
+            </div>
+          </div>
+          <div className="mt-1 font-mono text-blue-400">{scannerUrl}</div>
+        </Card>
+      </div>
+
+      <Card className="min-w-0">
+        <div className="flex items-center justify-between border-b border-admin-border p-4">
+          <h3 className="text-sm font-bold text-admin-text">HR Scanner accounts ({accounts.length})</h3>
+          <button type="button" onClick={load} className="rounded-xl border border-admin-border p-2 text-admin-secondary hover:bg-admin-surface" aria-label="Refresh"><FiRefreshCw /></button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[600px] text-left text-xs">
+            <thead className="bg-admin-surface text-[10px] uppercase tracking-wider text-admin-muted">
+              <tr>{['Account', 'Status', 'Last login', 'Scans', 'Actions'].map((h) => <th key={h} className="px-4 py-3 font-bold">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-admin-border">
+              {loading && <tr><td colSpan={5} className="p-8 text-center"><Spinner /></td></tr>}
+              {!loading && accounts.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-admin-muted">No HR Scanner accounts yet. Create one on the left.</td></tr>}
+              {!loading && accounts.map((a) => (
+                <tr key={a.id} className="text-admin-secondary">
+                  <td className="px-4 py-3"><div className="font-semibold text-admin-text">{a.username}</div><div className="text-[10px] text-admin-muted">{a.email}</div></td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${a.status === 'Active' ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-400' : 'border-red-500/30 bg-red-500/15 text-red-400'}`}>{a.status}</span>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">{formatDateTime(a.last_login)}</td>
+                  <td className="px-4 py-3">{a.total_scans}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5 whitespace-nowrap">
+                      {canEdit && (
+                        <>
+                          <button type="button" onClick={() => update(a, { status: a.status === 'Active' ? 'Inactive' : 'Active' }, a.status === 'Active' ? `${a.username} disabled` : `${a.username} enabled`)} className="rounded-lg border border-admin-border px-2.5 py-1.5 font-bold text-admin-secondary hover:bg-admin-surface">
+                            {a.status === 'Active' ? 'Disable' : 'Enable'}
+                          </button>
+                          <button type="button" onClick={() => { setResetFor(a); setResetPw(generatePassword()); }} className="flex items-center gap-1 rounded-lg border border-admin-border px-2.5 py-1.5 font-bold text-admin-secondary hover:bg-admin-surface"><FiKey /> Reset</button>
+                        </>
+                      )}
+                      {canDelete && <button type="button" onClick={() => remove(a)} className="rounded-lg border border-admin-border p-2 text-admin-secondary hover:bg-red-500/10 hover:text-red-400" aria-label={`Delete ${a.username}`}><FiTrash2 /></button>}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {resetFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-admin-overlay p-4 backdrop-blur-sm">
+          <form onSubmit={saveReset} className="w-full max-w-sm space-y-4 rounded-2xl border border-admin-border bg-admin-elevated p-5 shadow-2xl">
+            <h3 className="text-sm font-bold text-admin-text">Reset password – {resetFor.username}</h3>
+            <div>
+              <label className={label}>New password</label>
+              <div className="flex gap-2">
+                <input value={resetPw} onChange={(e) => setResetPw(e.target.value)} className="admin-input w-full flex-1 py-2.5 font-mono text-xs" />
+                <button type="button" onClick={() => setResetPw(generatePassword())} className="rounded-xl border border-admin-border px-3 text-[11px] font-bold text-admin-secondary hover:bg-admin-surface">Generate</button>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setResetFor(null)} className="flex-1 rounded-xl border border-admin-border py-2.5 text-xs font-bold text-admin-secondary hover:bg-admin-surface">Cancel</button>
+              <button type="submit" className="flex-1 rounded-xl bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-500">Save password</button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const KiosksTab = ({ notify, askConfirm }) => {
   const { hasPermission } = useAuth();
   const canEdit = hasPermission(PAGE_KEY, 'can_edit');
@@ -705,7 +936,7 @@ const KiosksTab = ({ notify, askConfirm }) => {
                 <p className="mt-1 text-admin-muted">{l.desc}</p>
               </div>
             ))}
-            <p className="text-admin-muted">Create HR Scanner accounts in <b>Admin Management → Add Admin → HR Scanner</b>.</p>
+            <p className="text-admin-muted">Create HR Scanner logins in the <b>HR Scanner Accounts</b> tab (or Admin Management → Add Admin → HR Scanner).</p>
           </div>
         </Card>
 
@@ -827,6 +1058,7 @@ const AdminSmartAttendance = () => {
           {tab === 'live' && <LiveTab />}
           {tab === 'badges' && <BadgesTab notify={notify} askConfirm={askConfirm} />}
           {tab === 'corrections' && <CorrectionsTab />}
+          {tab === 'hr' && <HrAccountsTab notify={notify} askConfirm={askConfirm} />}
           {tab === 'kiosks' && <KiosksTab notify={notify} askConfirm={askConfirm} />}
         </div>
       </div>

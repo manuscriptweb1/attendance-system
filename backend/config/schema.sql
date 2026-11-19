@@ -1411,7 +1411,8 @@ ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'admin',
 ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive'));
 
-UPDATE admins SET role = 'super_admin', is_super_admin = true WHERE COALESCE(role, '') <> 'hr'; -- HR Scanner accounts are never promoted
+-- Bootstrap only: promote existing admins when no Super Admin exists yet (never Limited Admins or HR Scanner accounts later)
+UPDATE admins SET role = 'super_admin', is_super_admin = true WHERE COALESCE(role, '') <> 'hr' AND NOT EXISTS (SELECT 1 FROM admins WHERE is_super_admin = true);
 
 -- 2. Create admin_pages table
 CREATE TABLE IF NOT EXISTS admin_pages (
@@ -1848,7 +1849,8 @@ ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'admin',
 ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive'));
 
-UPDATE admins SET role = 'super_admin', is_super_admin = true WHERE COALESCE(role, '') <> 'hr'; -- HR Scanner accounts are never promoted
+-- Bootstrap only: promote existing admins when no Super Admin exists yet (never Limited Admins or HR Scanner accounts later)
+UPDATE admins SET role = 'super_admin', is_super_admin = true WHERE COALESCE(role, '') <> 'hr' AND NOT EXISTS (SELECT 1 FROM admins WHERE is_super_admin = true);
 
 -- 2. Create admin_pages table
 CREATE TABLE IF NOT EXISTS admin_pages (

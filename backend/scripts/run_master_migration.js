@@ -92,7 +92,11 @@ async function runMasterMigration() {
     `);
 
     await dbClient.query(`
-      UPDATE admins SET role = 'super_admin', is_super_admin = true WHERE is_super_admin IS NOT TRUE AND COALESCE(role, '') <> 'hr';
+      -- Bootstrap only: runs when the database has no Super Admin yet.
+      -- Limited Admins and HR Scanner accounts are never promoted afterwards.
+      UPDATE admins SET role = 'super_admin', is_super_admin = true
+      WHERE is_super_admin IS NOT TRUE AND COALESCE(role, '') <> 'hr'
+        AND NOT EXISTS (SELECT 1 FROM admins WHERE is_super_admin = true);
     `);
 
     await dbClient.query(`

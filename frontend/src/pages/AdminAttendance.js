@@ -263,17 +263,23 @@ const AdminAttendance = () => {
                         <td className="px-3 py-2.5 text-[11px] font-mono text-admin-text whitespace-nowrap">{r.emp_id}</td>
                         <td className="px-3 py-2.5 text-[11px] font-bold text-admin-text whitespace-nowrap">{r.name}</td>
                         <td className="px-3 py-2.5 text-[11px] text-admin-secondary whitespace-nowrap">{r.department}</td>
-                        <td className="px-3 py-2.5 whitespace-nowrap">
+                        <td 
+                          className="px-3 py-2.5 whitespace-nowrap"
+                          title={r.login_time ? `Exact check-in: ${formatTimeWithSeconds(r.login_time)}` : undefined}
+                        >
                           <div 
-                            className="text-[11px] text-admin-secondary font-mono cursor-default"
+                            className="text-[11px] text-admin-secondary font-mono cursor-help"
                             title={r.login_time ? `Exact check-in: ${formatTimeWithSeconds(r.login_time)}` : undefined}
                           >
                             {formatTime(r.login_time) || '—'}
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap">
+                        <td 
+                          className="px-3 py-2.5 whitespace-nowrap"
+                          title={r.logout_time ? `Exact check-out: ${formatTimeWithSeconds(r.logout_time)}` : undefined}
+                        >
                           <div 
-                            className="text-[11px] text-admin-secondary font-mono cursor-default"
+                            className="text-[11px] text-admin-secondary font-mono cursor-help"
                             title={r.logout_time ? `Exact check-out: ${formatTimeWithSeconds(r.logout_time)}` : undefined}
                           >
                             {formatTime(r.logout_time) || '—'}

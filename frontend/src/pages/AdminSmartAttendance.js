@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import FaceEnrollModal from '../components/smartAttendance/FaceEnrollModal';
 import CorrectionPanel, { formatNoteTime } from '../components/smartAttendance/CorrectionPanel';
+import { SCAN_ACTION_LABELS } from '../services/scannerApi';
 import { ID_CARD_CSS, ID_CARD_DEFAULTS, idCardFrontHtml, idCardBackHtml, printIdCards } from '../utils/idCard';
 
 const PAGE_KEY = 'attendance_scanner';
@@ -84,9 +85,10 @@ const LiveTab = () => {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         <Stat label="Check-ins" value={stats?.scans?.check_ins} color="text-emerald-400" />
         <Stat label="Check-outs" value={stats?.scans?.check_outs} color="text-sky-400" />
+        <Stat label="Special leaves" value={stats?.scans?.special_leaves} color="text-violet-400" />
         <Stat label="Rejected" value={stats?.scans?.rejected} color="text-red-400" />
         <Stat label="Face / Card scans" value={stats ? `${stats.scans.face_scans} / ${stats.scans.card_scans}` : null} />
         <Stat label="Faces registered" value={stats ? `${stats.coverage.faces_registered} / ${stats.coverage.active_employees}` : null} color="text-blue-400" />
@@ -124,7 +126,7 @@ const LiveTab = () => {
                   </td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${STATUS_STYLE[l.status] || STATUS_STYLE.rejected}`}>
-                      {l.status === 'success' ? (l.action === 'check_out' ? 'Check-out' : 'Check-in') : l.status}
+                      {l.status === 'success' ? (SCAN_ACTION_LABELS[l.action] || 'Check-in') : l.status}
                     </span>
                   </td>
                   <td className="px-4 py-3 uppercase">{l.method}{l.method === 'face' && l.match_distance != null ? <span className="ml-1 normal-case text-admin-muted">({Number(l.match_distance).toFixed(2)})</span> : null}</td>
@@ -1073,6 +1075,15 @@ const KiosksTab = ({ notify, askConfirm }) => {
                 <input type="number" min="0" max="600" value={settings.minMinutesBeforeCheckout} disabled={!canEdit}
                   onChange={(e) => setSettings((s) => ({ ...s, minMinutesBeforeCheckout: e.target.value }))} className="admin-input w-full py-2.5 text-xs" />
               </div>
+            </div>
+            <div>
+              <label className={label}>Auto mode: check-out starts at</label>
+              <input type="time" value={settings.checkoutStartsAt || '14:00'} disabled={!canEdit} required
+                onChange={(e) => setSettings((s) => ({ ...s, checkoutStartsAt: e.target.value }))} className="admin-input w-full py-2.5 text-xs" />
+              <p className="mt-1.5 text-[11px] leading-relaxed text-admin-muted">
+                Before this time a scan only checks in, so a second scan by mistake shows "Already checked in" instead of checking out.
+                From this time a scan checks out. The scanners also have <b>Check-in</b>, <b>Check-out</b> and <b>Special leave</b> buttons for one-off scans.
+              </p>
             </div>
             <label className="flex items-start gap-2 text-admin-secondary">
               <input type="checkbox" checked={!!settings.allowEmployeeIdCodes} disabled={!canEdit} onChange={(e) => setSettings((s) => ({ ...s, allowEmployeeIdCodes: e.target.checked }))} className="mt-0.5" />

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FiEdit3, FiSearch, FiClock, FiFileText, FiCheckCircle } from 'react-icons/fi';
+import { FiEdit3, FiSearch, FiClock, FiFileText, FiCheckCircle, FiCoffee, FiTrash2 } from 'react-icons/fi';
 
 export const NOTE_CATEGORIES = [
   'Machine not working',
@@ -41,6 +41,8 @@ const CorrectionPanel = ({ client, initialEmployeeId = '', onSaved }) => {
   const [date, setDate] = useState(todayIST());
   const [record, setRecord] = useState(null);
   const [notes, setNotes] = useState([]);
+  const [specialLeaves, setSpecialLeaves] = useState([]);
+  const [removing, setRemoving] = useState(null); // { id, reason, busy }
   const [loadingRecord, setLoadingRecord] = useState(false);
   const [loginTime, setLoginTime] = useState('');
   const [logoutTime, setLogoutTime] = useState('');
@@ -57,17 +59,40 @@ const CorrectionPanel = ({ client, initialEmployeeId = '', onSaved }) => {
 
   useEffect(() => { if (initialEmployeeId) setEmployeeId(initialEmployeeId); }, [initialEmployeeId]);
 
+  const applyData = (data) => {
+    setRecord(data.attendance);
+    setNotes(data.notes || []);
+    setSpecialLeaves(data.special_leaves || []);
+    setLoginTime(hhmm(data.attendance?.login_time));
+    setLogoutTime(hhmm(data.attendance?.logout_time));
+    setClearLogout(false);
+    setRemoving(null);
+  };
+
+  const removeSpecialLeave = async () => {
+    if (!removing) return;
+    if (removing.reason.trim().length < 3) { setError('Write why this special leave is being removed (e.g. "Scanned by mistake").'); return; }
+    setError('');
+    setSuccess('');
+    setRemoving((r) => ({ ...r, busy: true }));
+    try {
+      const r = await client.post(`/smart-attendance/special-leaves/${removing.id}/cancel`, { note: removing.reason.trim() });
+      applyData(r.data);
+      setSuccess('Special leave removed. It no longer counts as LOP.');
+      onSaved?.(r.data);
+    } catch (err) {
+      setError(errorText(err, 'Could not remove the special leave'));
+      setRemoving((r) => (r ? { ...r, busy: false } : r));
+    }
+  };
+
   const loadRecord = async (emp = employeeId, d = date) => {
-    if (!emp || !d) { setRecord(null); setNotes([]); return; }
+    if (!emp || !d) { setRecord(null); setNotes([]); setSpecialLeaves([]); return; }
     setLoadingRecord(true);
     setError('');
     try {
       const r = await client.get(`/smart-attendance/attendance/${encodeURIComponent(emp)}`, { params: { date: d } });
-      setRecord(r.data.attendance);
-      setNotes(r.data.notes || []);
-      setLoginTime(hhmm(r.data.attendance?.login_time));
-      setLogoutTime(hhmm(r.data.attendance?.logout_time));
-      setClearLogout(false);
+      applyData(r.data);
     } catch (err) {
       setError(errorText(err, 'Could not load attendance'));
     } finally {
@@ -114,11 +139,7 @@ const CorrectionPanel = ({ client, initialEmployeeId = '', onSaved }) => {
       const r = await client.post('/smart-attendance/corrections', payload);
       setSuccess(r.data.message || 'Saved');
       setNote('');
-      setRecord(r.data.attendance);
-      setNotes(r.data.notes || []);
-      setLoginTime(hhmm(r.data.attendance?.login_time));
-      setLogoutTime(hhmm(r.data.attendance?.logout_time));
-      setClearLogout(false);
+      applyData(r.data);
       onSaved?.(r.data);
     } catch (err) {
       setError(errorText(err, 'Could not save'));
@@ -176,10 +197,63 @@ const CorrectionPanel = ({ client, initialEmployeeId = '', onSaved }) => {
               <span>Out <b className="text-admin-text">{record.logout_label || '—'}</b></span>
               <span>Status <b className="text-admin-text">{record.attendance_status || '—'}</b></span>
               {record.validation_method && <span className="text-admin-muted">via {record.validation_method}</span>}
+              {record.special_leave_minutes > 0 && <span>Special leave <b className="text-violet-400">{record.special_leave_minutes} min</b></span>}
             </div>
           ) : (
             <span className="text-admin-muted">No attendance recorded for this date yet. Enter the times below to create it.</span>
           )}
+        </div>
+      )}
+
+      {employeeId && specialLeaves.length > 0 && (
+        <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-3 text-xs">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-violet-400"><FiCoffee aria-hidden="true" /> Special leave</span>
+            {record?.special_leave_minutes > 0 && <span className="font-bold text-admin-text">{record.special_leave_minutes} min · LOP</span>}
+          </div>
+          <ul className="space-y-1.5">
+            {specialLeaves.map((l) => {
+              const active = l.status === 'open' || l.status === 'closed';
+              return (
+                <li key={l.id} className="rounded-lg bg-admin-surface px-2.5 py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={active ? 'text-admin-text' : 'text-admin-muted line-through'}>
+                      <b>{l.start_label}</b> – <b>{l.end_label || 'not back yet'}</b>
+                      {l.status === 'closed' && <span className="text-admin-muted"> · {l.minutes} min</span>}
+                    </span>
+                    {active ? (
+                      removing?.id !== l.id && (
+                        <button type="button" onClick={() => setRemoving({ id: l.id, reason: '', busy: false })} className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-red-400 hover:bg-red-500/10">
+                          <FiTrash2 aria-hidden="true" /> Remove
+                        </button>
+                      )
+                    ) : (
+                      <span className="shrink-0 rounded-full bg-admin-elevated px-2 py-0.5 text-[10px] font-bold text-admin-muted">{l.status === 'converted' ? 'Did not return' : 'Removed'}</span>
+                    )}
+                  </div>
+                  {l.status === 'open' && <p className="mt-0.5 text-[11px] text-violet-400">Out now. The next scan marks them back.</p>}
+                  {!active && l.cancel_note && <p className="mt-0.5 text-[11px] text-admin-muted">{l.cancel_note}</p>}
+                  {removing?.id === l.id && (
+                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                      <input
+                        autoFocus
+                        value={removing.reason}
+                        onChange={(e) => setRemoving((r) => ({ ...r, reason: e.target.value }))}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); removeSpecialLeave(); } }}
+                        placeholder="Reason (required), e.g. Scanned by mistake"
+                        maxLength={300}
+                        className="admin-input min-w-0 flex-1 py-2 text-xs"
+                      />
+                      <div className="flex gap-2">
+                        <button type="button" disabled={removing.busy} onClick={removeSpecialLeave} className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-[11px] font-bold text-white hover:bg-red-500 disabled:opacity-50">{removing.busy ? 'Removing…' : 'Remove'}</button>
+                        <button type="button" onClick={() => setRemoving(null)} className="flex-1 rounded-lg border border-admin-border px-3 py-2 text-[11px] font-bold text-admin-secondary hover:bg-admin-elevated">Keep</button>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
 
@@ -232,7 +306,7 @@ const CorrectionPanel = ({ client, initialEmployeeId = '', onSaved }) => {
                   <span className="text-admin-muted">{formatNoteTime(n.created_at_ist)} · {n.created_by_name} ({n.created_by_role})</span>
                 </div>
                 <p className="mt-1.5 text-admin-text">{n.note}</p>
-                {n.change_type === 'correction' && (
+                {n.change_type === 'correction' && n.new_values && (
                   <p className="mt-1 text-admin-muted">
                     In {hhmm(n.old_values?.login_time) || '—'} → <b className="text-admin-secondary">{hhmm(n.new_values?.login_time) || '—'}</b>,
                     {' '}Out {hhmm(n.old_values?.logout_time) || '—'} → <b className="text-admin-secondary">{hhmm(n.new_values?.logout_time) || '—'}</b>

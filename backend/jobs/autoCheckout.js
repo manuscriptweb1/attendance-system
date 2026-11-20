@@ -2,6 +2,7 @@ const pool = require('../config/database');
 const { getSettingsFromDB } = require('../utils/settingsHelper');
 const { parseTime, getLocalTimeMinutes, getOfficeTimes, calculateCheckOutStatus, calculateWorkedMinutes } = require('../utils/timeUtils');
 const { autoCalculatePayroll } = require('./autoPayroll');
+const { resolveOpenSpecialLeaves } = require('../services/scanAttendanceService');
 
 // Helper function to get local date in YYYY-MM-DD format (IST)
 const getLocalDateString = () => {
@@ -54,6 +55,15 @@ const autoCheckoutEmployees = async (options = {}) => {
     const now = new Date();
     const currentMins = getLocalTimeMinutes(now);
 
+    // Special leave that was never ended: the leave start becomes the check-out time.
+    // Runs before the normal auto-checkout so these employees are not checked out at the auto time.
+    try {
+      const resolved = await resolveOpenSpecialLeaves({ includeToday: force || currentMins >= autoCheckoutMins });
+      if (resolved > 0) console.log(`✅ Special leave: ${resolved} employee(s) did not return; check-out set to leave start time`);
+    } catch (leaveErr) {
+      console.error('Special leave resolve error:', leaveErr.message);
+    }
+
     // Check if current time has reached or passed auto-checkout time (unless forced)
     if (!force && currentMins < autoCheckoutMins) {
       return { 
@@ -99,14 +109,16 @@ const autoCheckoutEmployees = async (options = {}) => {
         const earlyMinutes = outStatusObj.early_minutes || 0;
 
         // Calculate worked minutes & total hours
-        const totalMinutes = calculateWorkedMinutes(attendance.login_time, autoCheckoutTimestamp, officeTimes.startTime);
+        // Special leave minutes are LOP: excluded from worked time, but not used to decide Half Day
+        const grossMinutes = calculateWorkedMinutes(attendance.login_time, autoCheckoutTimestamp, officeTimes.startTime);
+        const totalMinutes = Math.max(0, grossMinutes - Number(attendance.special_leave_minutes || 0));
         const totalHours = parseFloat((totalMinutes / 60).toFixed(2));
         const workingHours = totalHours;
 
         // Determine final attendance status
         let finalStatus = attendance.attendance_status;
         if (finalStatus !== 'Absent') {
-          if (totalHours <= halfDayThreshold) {
+          if (grossMinutes / 60 <= halfDayThreshold) {
             finalStatus = 'Half Day';
           }
         }

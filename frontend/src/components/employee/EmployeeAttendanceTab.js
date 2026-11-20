@@ -11,6 +11,7 @@ import {
   FiChevronRight,
   FiX
 } from 'react-icons/fi';
+import SpecialLeaveBadge from '../smartAttendance/SpecialLeaveBadge';
 import StatusBadge from '../ui/StatusBadge';
 import { Spinner } from '../Loader';
 import { getEmployeeAttendanceHistory } from '../../services/api';
@@ -617,7 +618,8 @@ const EmployeeAttendanceTab = ({ employeeId, employee }) => {
                               Manual
                             </span>
                           )}
-                          {!record.is_wfh && !record.is_auto_checkout && !record.is_manual_entry && (
+                          <SpecialLeaveBadge record={record} />
+                          {!record.is_wfh && !record.is_auto_checkout && !record.is_manual_entry && !record.special_leave_summary && (
                             <span className="text-admin-muted text-[11px]">—</span>
                           )}
                         </div>

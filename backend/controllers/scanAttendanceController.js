@@ -54,11 +54,12 @@ const loadEmployee = async (employeeId) => {
 
 const hrScan = async (req, res) => {
   try {
-    const { method, code, descriptor } = req.body || {};
+    const { method, code, descriptor, mode } = req.body || {};
     const result = await svc.performScan({
       method,
       code,
       descriptor,
+      mode,
       source: 'hr_mobile',
       actor: actorFromReq(req),
       ipAddress: getClientIP(req),
@@ -84,17 +85,28 @@ const kioskAuth = async (req, res, next) => {
   }
 };
 
+/** Scan rules the scanner screens need to explain the Auto mode */
+const scanRulesForClient = async () => {
+  const settings = await svc.getScanSettings();
+  return { checkoutStartsAt: settings.checkoutStartsAt || '14:00' };
+};
+
 const kioskSession = async (req, res) => {
-  res.json({ success: true, kiosk: { id: req.kiosk.id, name: req.kiosk.name, mode: req.kiosk.mode } });
+  try {
+    res.json({ success: true, kiosk: { id: req.kiosk.id, name: req.kiosk.name, mode: req.kiosk.mode }, rules: await scanRulesForClient() });
+  } catch (err) {
+    sendError(res, err);
+  }
 };
 
 const kioskScan = async (req, res) => {
   try {
-    const { method, code, descriptor } = req.body || {};
+    const { method, code, descriptor, mode } = req.body || {};
     const result = await svc.performScan({
       method,
       code,
       descriptor,
+      mode,
       source: 'kiosk',
       kiosk: req.kiosk,
       ipAddress: getClientIP(req),
@@ -114,6 +126,7 @@ const hrSession = async (req, res) => {
       `SELECT
          COUNT(*) FILTER (WHERE status = 'success' AND action = 'check_in') AS check_ins,
          COUNT(*) FILTER (WHERE status = 'success' AND action = 'check_out') AS check_outs,
+         COUNT(*) FILTER (WHERE status = 'success' AND action = 'leave_start') AS special_leaves,
          COUNT(*) FILTER (WHERE status = 'rejected') AS rejected
        FROM attendance_scan_logs WHERE attendance_date = $1 AND scanned_by_admin_id = $2`,
       [date, Number.isInteger(Number(req.user.id)) ? Number(req.user.id) : null]
@@ -122,7 +135,8 @@ const hrSession = async (req, res) => {
       success: true,
       user: { id: req.user.id, username: req.user.username, role: req.user.role },
       date,
-      stats: stats.rows[0]
+      stats: stats.rows[0],
+      rules: await scanRulesForClient()
     });
   } catch (err) {
     sendError(res, err);
@@ -167,6 +181,7 @@ const getScanStats = async (req, res) => {
       `SELECT
          COUNT(*) FILTER (WHERE status = 'success' AND action = 'check_in') AS check_ins,
          COUNT(*) FILTER (WHERE status = 'success' AND action = 'check_out') AS check_outs,
+         COUNT(*) FILTER (WHERE status = 'success' AND action = 'leave_start') AS special_leaves,
          COUNT(*) FILTER (WHERE status = 'rejected') AS rejected,
          COUNT(*) FILTER (WHERE status = 'success' AND method = 'face') AS face_scans,
          COUNT(*) FILTER (WHERE status = 'success' AND method <> 'face') AS card_scans
@@ -298,6 +313,17 @@ const createCorrection = async (req, res) => {
     res.json({ success: true, message: result.note.change_type === 'correction' ? 'Attendance corrected and note saved' : 'Note saved', ...result });
   } catch (err) {
     sendError(res, err, 'Could not save correction');
+  }
+};
+
+const removeSpecialLeave = async (req, res) => {
+  try {
+    const leaveId = parseInt(req.params.id, 10);
+    if (!Number.isInteger(leaveId) || leaveId <= 0) throw new ScanError('Invalid special leave', 'INVALID_ID');
+    const data = await svc.cancelSpecialLeave({ leaveId, note: req.body?.note, actor: actorFromReq(req) });
+    res.json({ success: true, ...data });
+  } catch (err) {
+    sendError(res, err, 'Could not remove the special leave');
   }
 };
 
@@ -1062,6 +1088,7 @@ const myBadge = async (req, res) => {
 };
 
 module.exports = {
+  removeSpecialLeave,
   downloadIdCardPdf,
   downloadAllIdCardsPdf,
   myIdCardPdf,

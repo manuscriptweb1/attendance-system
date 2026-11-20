@@ -39,6 +39,9 @@ const DEFAULT_SCAN_SETTINGS = {
   minMinutesBeforeCheckout: 5,
   // Also accept a plain employee ID (e.g. existing printed ID cards)
   allowEmployeeIdCodes: true,
+  // In "Auto" mode a scan before this time (HH:mm, IST) can only check in;
+  // from this time on, a scan of a checked-in employee checks them out.
+  checkoutStartsAt: '14:00',
   // Printed ID card
   cardWebsite: 'www.mstechnomedia.com',
   cardAddress: '22, (New No. 40), 3rd Cross, Vivekananda Nagar, Bengaluru, 560 033, INDIA'
@@ -144,6 +147,11 @@ const updateScanSettings = async (patch = {}) => {
     const v = parseInt(patch.minMinutesBeforeCheckout, 10);
     if (!Number.isFinite(v) || v < 0 || v > 600) throw new ScanError('Minimum minutes before check-out must be between 0 and 600', 'INVALID_SETTING');
     next.minMinutesBeforeCheckout = v;
+  }
+  if (patch.checkoutStartsAt !== undefined) {
+    const v = String(patch.checkoutStartsAt || '').trim().slice(0, 5);
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) throw new ScanError('Check-out start time must be HH:mm (e.g. 14:00)', 'INVALID_SETTING');
+    next.checkoutStartsAt = v;
   }
   if (patch.cardWebsite !== undefined) next.cardWebsite = String(patch.cardWebsite || '').trim().slice(0, 80);
   if (patch.cardAddress !== undefined) next.cardAddress = String(patch.cardAddress || '').trim().slice(0, 200);
@@ -485,21 +493,190 @@ const getFacePhoto = async (employeeId) => {
   return r.rows[0]?.photo_data || null;
 };
 
+/* ------------------------------------------------------------------ */
+/* Scan modes & special leave                                          */
+/* ------------------------------------------------------------------ */
+
+const SCAN_MODES = ['auto', 'check_in', 'check_out', 'special_leave'];
+
+/** "HH:mm" (or a "YYYY-MM-DDTHH:mm:ss" wall-clock string) → minutes since midnight */
+const hhmmToMinutes = (value) => {
+  const str = String(value || '');
+  const m = /(\d{1,2}):(\d{2})/.exec(str.includes('T') ? str.split('T')[1] : str);
+  return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null;
+};
+
+const formatMinutes = (mins) => {
+  const total = Math.max(0, Number(mins) || 0);
+  return `${Math.floor(total / 60)}h ${total % 60}m`;
+};
+
+/** Special leave minutes, counted only inside office hours */
+const specialLeaveMinutesBetween = (startStr, endStr, officeTimes) => {
+  let start = hhmmToMinutes(startStr);
+  let end = String(startStr).slice(0, 10) === String(endStr).slice(0, 10) ? hhmmToMinutes(endStr) : 24 * 60;
+  if (start === null || end === null) return 0;
+  if (officeTimes.startTime > 0) start = Math.max(start, officeTimes.startTime);
+  if (officeTimes.endTime > 0) end = Math.min(end, officeTimes.endTime);
+  return Math.max(0, end - start);
+};
+
+const describeSpecialLeave = (leave) => {
+  const startStr = toLocalTimestampString(leave.start_time);
+  const endStr = toLocalTimestampString(leave.end_time);
+  return {
+    id: leave.id,
+    status: leave.status,
+    start_time: startStr,
+    end_time: endStr,
+    start_label: toTimeLabel(startStr),
+    end_label: endStr ? toTimeLabel(endStr) : null,
+    minutes: Number(leave.duration_minutes || 0)
+  };
+};
+
+const getOpenSpecialLeave = async (attendanceId) => {
+  const r = await pool.query(
+    `SELECT * FROM attendance_special_leaves WHERE attendance_id = $1 AND status = 'open' LIMIT 1`,
+    [attendanceId]
+  );
+  return r.rows[0] || null;
+};
+
+/**
+ * Re-computes the special leave total + readable summary stored on the attendance row,
+ * e.g. "11:00 AM – 3:00 PM (240 min)". One statement, no round trips.
+ */
+const refreshSpecialLeaveSummary = async (db, attendanceId) => {
+  const r = await db.query(
+    `UPDATE attendance a SET
+       special_leave_minutes = s.mins,
+       special_leave_summary = s.summary,
+       updated_at = CURRENT_TIMESTAMP
+     FROM (
+       SELECT
+         COALESCE(SUM(duration_minutes) FILTER (WHERE status = 'closed'), 0)::int AS mins,
+         string_agg(
+           to_char(start_time, 'FMHH12:MI AM') || ' – ' ||
+           CASE WHEN status = 'open' THEN 'not back yet'
+                ELSE to_char(end_time, 'FMHH12:MI AM') || ' (' || duration_minutes || ' min)' END,
+           ', ' ORDER BY start_time
+         ) AS summary
+       FROM attendance_special_leaves
+       WHERE attendance_id = $1 AND status IN ('open', 'closed')
+     ) s
+     WHERE a.id = $1
+     RETURNING a.special_leave_minutes, a.special_leave_summary`,
+    [attendanceId]
+  );
+  return r.rows[0] || { special_leave_minutes: 0, special_leave_summary: null };
+};
+
+const closeSpecialLeave = async ({ leave, endStr, officeTimes, endMethod, endedBy }) => {
+  const minutes = specialLeaveMinutesBetween(toLocalTimestampString(leave.start_time), endStr, officeTimes);
+  const upd = await pool.query(
+    `UPDATE attendance_special_leaves SET
+       end_time = $1, duration_minutes = $2, status = 'closed', end_method = $3, ended_by_name = $4, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $5 AND status = 'open' RETURNING *`,
+    [endStr, minutes, endMethod || null, endedBy || null, leave.id]
+  );
+  if (!upd.rows[0]) throw new ScanError('This special leave was just ended by another scan.', 'DUPLICATE_SCAN', 409, { duplicate: true });
+  const totals = await refreshSpecialLeaveSummary(pool, leave.attendance_id);
+  return { leave: upd.rows[0], totals };
+};
+
+/**
+ * Worked time and day status at check-out.
+ * Worked minutes exclude special leave. Half Day is judged on the time between
+ * check-in and check-out (special leave included), because special leave minutes
+ * are already LOP and must not also turn the day into a Half Day.
+ */
+const computeCheckoutFields = (existing, loginStr, logoutStr, leaveMinutes, officeTimes) => {
+  const grossMinutes = calculateWorkedMinutes(loginStr, logoutStr, officeTimes.startTime);
+  const totalMinutes = Math.max(0, grossMinutes - (Number(leaveMinutes) || 0));
+  let attendanceStatus = existing.attendance_status;
+  let lateMinutes = existing.late_minutes || 0;
+  let checkinStatus = existing.checkin_status;
+  if (attendanceStatus !== 'Absent' && attendanceStatus !== 'Half Day' && grossMinutes / 60 <= officeTimes.halfDayThreshold) {
+    attendanceStatus = 'Half Day';
+  }
+  if (attendanceStatus === 'Half Day') {
+    // Half day attendance is exempt from the late arrival penalty
+    lateMinutes = 0;
+    checkinStatus = 'on_time';
+  }
+  return { totalMinutes, totalHours: parseFloat((totalMinutes / 60).toFixed(2)), attendanceStatus, lateMinutes, checkinStatus };
+};
+
+/**
+ * Decide what a scan does.
+ *  auto          → check-in; once checked in, check-out only from `checkoutStartsAt` (2 PM).
+ *                  A repeat scan before that just says "already checked in".
+ *  check_in      → check-in only
+ *  check_out     → check-out at any time (leaving early)
+ *  special_leave → 1st scan starts special leave, 2nd scan ends it
+ * Any scan while an employee is out on special leave (except Check-out) marks them back.
+ */
+const resolveScanIntent = async ({ mode, existing, employee, settings, now }) => {
+  const name = employee.name;
+  if (!existing || !existing.login_time) {
+    if (mode === 'check_out') {
+      throw new ScanError(`${name} has not checked in today, so there is nothing to check out. Use Check-in instead.`, 'NOT_CHECKED_IN', 409);
+    }
+    if (mode === 'special_leave') {
+      throw new ScanError(`${name} has not checked in today. Check in first, then start special leave.`, 'NOT_CHECKED_IN', 409);
+    }
+    return { intent: 'check_in', openLeave: null };
+  }
+
+  const inLabel = toTimeLabel(toLocalTimestampString(existing.login_time));
+  if (existing.logout_time) {
+    throw new ScanError(
+      `${name} has already completed attendance today (in ${inLabel}, out ${toTimeLabel(toLocalTimestampString(existing.logout_time))}). Ask HR/Admin to correct it if needed.`,
+      'ALREADY_COMPLETED',
+      409,
+      { duplicate: true }
+    );
+  }
+
+  const openLeave = await getOpenSpecialLeave(existing.id);
+  if (openLeave) return { intent: mode === 'check_out' ? 'check_out' : 'leave_end', openLeave };
+  if (mode === 'check_out') return { intent: 'check_out', openLeave: null };
+  if (mode === 'special_leave') return { intent: 'leave_start', openLeave: null };
+  if (mode === 'check_in') {
+    throw new ScanError(`${name} is already checked in since ${inLabel}.`, 'ALREADY_CHECKED_IN', 409, { duplicate: true });
+  }
+
+  const switchAt = hhmmToMinutes(settings.checkoutStartsAt) ?? 14 * 60;
+  if (hhmmToMinutes(now) < switchAt) {
+    throw new ScanError(
+      `${name} is already checked in since ${inLabel}. Check-out starts at ${toTimeLabel(settings.checkoutStartsAt || '14:00')}. To leave early, tap "Check-out" and scan again.`,
+      'ALREADY_CHECKED_IN',
+      409,
+      { duplicate: true }
+    );
+  }
+  return { intent: 'check_out', openLeave: null };
+};
+
 /**
  * Main entry point for every scan (HR mobile or kiosk).
  * @param {object} p
  * @param {'qr'|'barcode'|'face'} p.method
  * @param {string} [p.code]        QR / barcode text
  * @param {number[]} [p.descriptor] 128-d face descriptor
+ * @param {'auto'|'check_in'|'check_out'|'special_leave'} [p.mode]
+ *        auto (default): check-in, or check-out from `checkoutStartsAt` (2 PM)
  * @param {'hr_mobile'|'kiosk'} p.source
  * @param {object} [p.actor]       { adminId, name, email, role } for HR scans
  * @param {object} [p.kiosk]       kiosk device row for kiosk scans
  */
-const performScan = async ({ method, code, descriptor, source, actor, kiosk, ipAddress, userAgent }) => {
+const performScan = async ({ method, code, descriptor, mode, source, actor, kiosk, ipAddress, userAgent }) => {
   await ensureScanTables();
   const settings = await getScanSettings();
   const date = todayIST();
   const scanMethod = ['qr', 'barcode', 'face'].includes(method) ? method : 'qr';
+  const scanMode = SCAN_MODES.includes(mode) ? mode : 'auto';
   const logBase = { method: scanMethod, source, actor, kiosk, ipAddress, userAgent, date };
 
   let employee;
@@ -552,7 +729,7 @@ const performScan = async ({ method, code, descriptor, source, actor, kiosk, ipA
         [employee.employee_id, String(settings.duplicateScanCooldownSeconds)]
       );
       if (recent.rows[0]) {
-        const what = recent.rows[0].action === 'check_out' ? 'checked out' : 'checked in';
+        const what = { check_out: 'checked out', leave_start: 'sent on special leave', leave_end: 'marked back from special leave' }[recent.rows[0].action] || 'checked in';
         throw new ScanError(`${employee.name} was already ${what} a moment ago.`, 'DUPLICATE_SCAN', 409, { duplicate: true });
       }
     }
@@ -574,12 +751,14 @@ const performScan = async ({ method, code, descriptor, source, actor, kiosk, ipA
     const deviceInfo = kiosk ? `Kiosk: ${kiosk.name}` : `HR Scanner: ${actor?.name || 'HR'}`;
     const deviceSource = kiosk ? 'kiosk' : 'hr_mobile';
 
-    let action;
-    let record;
+    const { intent, openLeave } = await resolveScanIntent({ mode: scanMode, existing, employee, settings, now });
 
-    if (!existing || !existing.login_time) {
+    let action = intent;
+    let record;
+    let specialLeave = null;
+
+    if (intent === 'check_in') {
       // ---------- CHECK-IN ----------
-      action = 'check_in';
       const inStatus = calculateCheckInStatus(now, officeTimes.startTime, officeTimes.lateTime);
       const isLate = inStatus.checkin_status === 'Late';
       const checkinStatus = isLate ? 'late' : 'on_time';
@@ -610,7 +789,7 @@ const performScan = async ({ method, code, descriptor, source, actor, kiosk, ipA
         record = ins.rows[0];
         if (!record) throw new ScanError(`${employee.name} was just checked in by another scan.`, 'DUPLICATE_SCAN', 409, { duplicate: true });
       }
-    } else if (!existing.logout_time) {
+    } else if (intent === 'check_out') {
       // ---------- CHECK-OUT ----------
       const loginStr = toLocalTimestampString(existing.login_time);
       const minutesSinceIn = Math.floor((new Date(now) - new Date(loginStr)) / 60000);
@@ -623,24 +802,18 @@ const performScan = async ({ method, code, descriptor, source, actor, kiosk, ipA
         );
       }
 
-      action = 'check_out';
+      // Checking out while still on special leave: the leave ends now, then check-out
+      let leaveMinutes = Number(existing.special_leave_minutes || 0);
+      if (openLeave) {
+        const closed = await closeSpecialLeave({ leave: openLeave, endStr: now, officeTimes, endMethod: scanMethod, endedBy: deviceInfo });
+        specialLeave = closed.leave;
+        leaveMinutes = closed.totals.special_leave_minutes;
+      }
+
       const outStatus = calculateCheckOutStatus(now, officeTimes.endTime);
       const checkoutStatus = outStatus.checkout_status === 'Late Check-Out' ? 'late' : (outStatus.checkout_status === 'Early Check-Out' ? 'early' : 'on_time');
       const earlyMinutes = outStatus.early_minutes || 0;
-      const totalMinutes = calculateWorkedMinutes(loginStr, now, officeTimes.startTime);
-      const totalHours = parseFloat((totalMinutes / 60).toFixed(2));
-
-      let attendanceStatus = existing.attendance_status;
-      let lateMinutes = existing.late_minutes || 0;
-      let checkinStatus = existing.checkin_status;
-      if (attendanceStatus !== 'Absent' && attendanceStatus !== 'Half Day' && totalHours <= officeTimes.halfDayThreshold) {
-        attendanceStatus = 'Half Day';
-      }
-      if (attendanceStatus === 'Half Day') {
-        // Half day attendance is exempt from the late arrival penalty
-        lateMinutes = 0;
-        checkinStatus = 'on_time';
-      }
+      const fields = computeCheckoutFields(existing, loginStr, now, leaveMinutes, officeTimes);
 
       const upd = await pool.query(
         `UPDATE attendance SET
@@ -648,25 +821,46 @@ const performScan = async ({ method, code, descriptor, source, actor, kiosk, ipA
            checkout_status = $5, early_minutes = $6, attendance_status = $7,
            late_minutes = $8, checkin_status = $9, updated_at = CURRENT_TIMESTAMP
          WHERE id = $10 AND logout_time IS NULL RETURNING *`,
-        [now, totalHours, totalHours, totalMinutes, checkoutStatus, earlyMinutes, attendanceStatus, lateMinutes, checkinStatus, existing.id]
+        [now, fields.totalHours, fields.totalHours, fields.totalMinutes, checkoutStatus, earlyMinutes, fields.attendanceStatus, fields.lateMinutes, fields.checkinStatus, existing.id]
       );
       record = upd.rows[0];
       if (!record) throw new ScanError(`${employee.name} was just checked out by another scan.`, 'DUPLICATE_SCAN', 409, { duplicate: true });
-    } else {
-      throw new ScanError(
-        `${employee.name} has already completed attendance today (in ${toTimeLabel(toLocalTimestampString(existing.login_time))}, out ${toTimeLabel(toLocalTimestampString(existing.logout_time))}). Ask HR/Admin to correct it if needed.`,
-        'ALREADY_COMPLETED',
-        409,
-        { duplicate: true }
+    } else if (intent === 'leave_start') {
+      // ---------- SPECIAL LEAVE: going out ----------
+      const ins = await pool.query(
+        `INSERT INTO attendance_special_leaves (
+           attendance_id, employee_id, attendance_date, start_time, status, start_method, source, started_by_name
+         ) VALUES ($1,$2,$3,$4,'open',$5,$6,$7)
+         ON CONFLICT (employee_id, attendance_date) WHERE status = 'open' DO NOTHING
+         RETURNING *`,
+        [existing.id, employee.employee_id, date, now, scanMethod, deviceSource, deviceInfo]
       );
+      specialLeave = ins.rows[0];
+      if (!specialLeave) throw new ScanError(`${employee.name} is already out on special leave.`, 'DUPLICATE_SCAN', 409, { duplicate: true });
+      const totals = await refreshSpecialLeaveSummary(pool, existing.id);
+      record = { ...existing, ...totals };
+    } else {
+      // ---------- SPECIAL LEAVE: back ----------
+      const closed = await closeSpecialLeave({ leave: openLeave, endStr: now, officeTimes, endMethod: scanMethod, endedBy: deviceInfo });
+      specialLeave = closed.leave;
+      record = { ...existing, ...closed.totals };
     }
 
     const faceRegistered = scanMethod === 'face' ? true : await hasFaceProfile(employee.employee_id);
     const loginStr = toLocalTimestampString(record.login_time);
     const logoutStr = toLocalTimestampString(record.logout_time);
-    const message = action === 'check_in'
-      ? `${employee.name} checked in at ${toTimeLabel(loginStr)}${record.attendance_status === 'Late' ? ` (late by ${record.late_minutes} min)` : ''}`
-      : `${employee.name} checked out at ${toTimeLabel(logoutStr)} · worked ${Math.floor((record.total_minutes || 0) / 60)}h ${(record.total_minutes || 0) % 60}m`;
+    const leaveInfo = specialLeave ? describeSpecialLeave(specialLeave) : null;
+    let message;
+    if (action === 'check_in') {
+      message = `${employee.name} checked in at ${toTimeLabel(loginStr)}${record.attendance_status === 'Late' ? ` (late by ${record.late_minutes} min)` : ''}`;
+    } else if (action === 'check_out') {
+      message = `${employee.name} checked out at ${toTimeLabel(logoutStr)} · worked ${formatMinutes(record.total_minutes)}`;
+      if (leaveInfo) message += ` · special leave ${leaveInfo.start_label} – ${leaveInfo.end_label} (${leaveInfo.minutes} min)`;
+    } else if (action === 'leave_start') {
+      message = `${employee.name} is out on special leave from ${leaveInfo.start_label}. Scan again when they come back.`;
+    } else {
+      message = `${employee.name} is back from special leave · ${leaveInfo.start_label} – ${leaveInfo.end_label} (${leaveInfo.minutes} min, counted as LOP)`;
+    }
 
     await writeScanLog({
       ...logBase,
@@ -697,8 +891,11 @@ const performScan = async ({ method, code, descriptor, source, actor, kiosk, ipA
         logout_label: toTimeLabel(logoutStr),
         attendance_status: record.attendance_status,
         late_minutes: record.late_minutes,
-        total_minutes: record.total_minutes
+        total_minutes: record.total_minutes,
+        special_leave_minutes: Number(record.special_leave_minutes || 0),
+        special_leave_summary: record.special_leave_summary || null
       },
+      special_leave: leaveInfo,
       match_distance: distance
     };
   } catch (err) {
@@ -741,6 +938,10 @@ const getAttendanceWithNotes = async (employeeId, date) => {
     `SELECT *, to_char((created_at AT TIME ZONE current_setting('TimeZone')) AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD"T"HH24:MI:SS') AS created_at_ist FROM attendance_notes WHERE employee_id = $1 AND attendance_date = $2 ORDER BY created_at DESC`,
     [employeeId, date]
   );
+  const leaves = await pool.query(
+    `SELECT * FROM attendance_special_leaves WHERE employee_id = $1 AND attendance_date = $2 ORDER BY start_time`,
+    [employeeId, date]
+  );
   const a = att.rows[0];
   return {
     employee: emp.rows[0],
@@ -754,8 +955,16 @@ const getAttendanceWithNotes = async (employeeId, date) => {
       late_minutes: a.late_minutes,
       total_minutes: a.total_minutes,
       validation_method: a.validation_method,
-      absent_reason: a.absent_reason
+      absent_reason: a.absent_reason,
+      special_leave_minutes: Number(a.special_leave_minutes || 0),
+      special_leave_summary: a.special_leave_summary || null
     } : null,
+    special_leaves: leaves.rows.map((l) => ({
+      ...describeSpecialLeave(l),
+      started_by_name: l.started_by_name,
+      ended_by_name: l.ended_by_name,
+      cancel_note: l.cancel_note
+    })),
     notes: notes.rows
   };
 };
@@ -829,9 +1038,10 @@ const correctAttendance = async ({ employeeId, date, loginTime, logoutTime, clea
         const outStatus = calculateCheckOutStatus(logoutStr, officeTimes.endTime);
         checkoutStatus = outStatus.checkout_status === 'Late Check-Out' ? 'late' : (outStatus.checkout_status === 'Early Check-Out' ? 'early' : 'on_time');
         earlyMinutes = outStatus.early_minutes || 0;
-        totalMinutes = calculateWorkedMinutes(loginStr, logoutStr, officeTimes.startTime);
+        const grossMinutes = calculateWorkedMinutes(loginStr, logoutStr, officeTimes.startTime);
+        totalMinutes = Math.max(0, grossMinutes - Number(existing?.special_leave_minutes || 0));
         totalHours = parseFloat((totalMinutes / 60).toFixed(2));
-        if (attendanceStatus !== 'Work From Home' && totalHours <= officeTimes.halfDayThreshold) {
+        if (attendanceStatus !== 'Work From Home' && grossMinutes / 60 <= officeTimes.halfDayThreshold) {
           attendanceStatus = 'Half Day';
           lateMinutes = 0;
           checkinStatus = 'on_time';
@@ -853,6 +1063,15 @@ const correctAttendance = async ({ employeeId, date, loginTime, logoutTime, clea
           [loginStr, logoutStr, attendanceStatus, checkinStatus, lateMinutes, checkoutStatus, earlyMinutes, totalMinutes, totalHours, validationMethod, existing.id]
         );
         record = upd.rows[0];
+        // A check-out time set by correction ends any special leave the employee never came back from
+        if (logoutStr) {
+          const cancelled = await client.query(
+            `UPDATE attendance_special_leaves SET status = 'cancelled', cancel_note = $2, updated_at = CURRENT_TIMESTAMP
+             WHERE attendance_id = $1 AND status = 'open'`,
+            [existing.id, `Check-out set by correction (${actor?.name || 'Admin'})`]
+          );
+          if (cancelled.rowCount > 0) Object.assign(record, await refreshSpecialLeaveSummary(client, existing.id));
+        }
       } else {
         const ins = await client.query(
           `INSERT INTO attendance (
@@ -907,6 +1126,150 @@ const correctAttendance = async ({ employeeId, date, loginTime, logoutTime, clea
   }
 };
 
+/* ------------------------------------------------------------------ */
+/* Special leave maintenance                                           */
+/* ------------------------------------------------------------------ */
+
+/** Worked minutes after special leave changed on a day that is already checked out */
+const recalcWorkedMinutes = async (db, attendanceId) => {
+  const r = await db.query('SELECT * FROM attendance WHERE id = $1', [attendanceId]);
+  const a = r.rows[0];
+  if (!a || !a.login_time || !a.logout_time) return;
+  const officeTimes = getOfficeTimes(await getSettingsFromDB());
+  const gross = calculateWorkedMinutes(toLocalTimestampString(a.login_time), toLocalTimestampString(a.logout_time), officeTimes.startTime);
+  const net = Math.max(0, gross - Number(a.special_leave_minutes || 0));
+  const hours = parseFloat((net / 60).toFixed(2));
+  await db.query(
+    `UPDATE attendance SET total_minutes = $1, total_hours = $2, total_working_hours = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
+    [net, hours, attendanceId]
+  );
+};
+
+/** Remove a special leave that was scanned by mistake (HR / Admin, reason required) */
+const cancelSpecialLeave = async ({ leaveId, note, actor }) => {
+  await ensureScanTables();
+  const cleanNote = String(note || '').trim();
+  if (cleanNote.length < 3) throw new ScanError('A reason is required to remove a special leave.', 'NOTE_REQUIRED');
+  if (cleanNote.length > 1000) throw new ScanError('Note is too long (max 1000 characters)', 'NOTE_TOO_LONG');
+
+  const client = await pool.connect();
+  let leave;
+  try {
+    await client.query('BEGIN');
+    const r = await client.query('SELECT * FROM attendance_special_leaves WHERE id = $1 FOR UPDATE', [leaveId]);
+    leave = r.rows[0];
+    if (!leave) throw new ScanError('Special leave not found', 'NOT_FOUND', 404);
+    if (!['open', 'closed'].includes(leave.status)) throw new ScanError('This special leave was already removed.', 'ALREADY_CANCELLED', 409);
+
+    await client.query(
+      `UPDATE attendance_special_leaves SET status = 'cancelled', cancel_note = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      [leave.id, `${cleanNote} (${actor?.name || 'Admin'})`]
+    );
+    if (leave.attendance_id) {
+      await refreshSpecialLeaveSummary(client, leave.attendance_id);
+      await recalcWorkedMinutes(client, leave.attendance_id);
+    }
+    const info = describeSpecialLeave(leave);
+    await client.query(
+      `INSERT INTO attendance_notes (
+         attendance_id, employee_id, attendance_date, category, note, change_type, old_values, new_values,
+         created_by_admin_id, created_by_name, created_by_role
+       ) VALUES ($1,$2,$3,'Special Leave',$4,'correction',$5,NULL,$6,$7,$8)`,
+      [
+        leave.attendance_id, leave.employee_id, leave.attendance_date,
+        `Removed special leave ${info.start_label} – ${info.end_label || 'not back yet'}${info.minutes ? ` (${info.minutes} min)` : ''}. ${cleanNote}`,
+        JSON.stringify({ special_leave: info }),
+        safeAdminId(actor?.adminId), actor?.name || null, actor?.roleLabel || actor?.role || null
+      ]
+    );
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  await logAdminActivity({
+    adminId: actor?.adminId,
+    adminName: actor?.name,
+    adminEmail: actor?.email,
+    actionType: 'ATTENDANCE_CORRECTION',
+    moduleName: 'Smart Attendance',
+    description: `Removed special leave for ${leave.employee_id}: ${cleanNote}`
+  });
+
+  const date = toLocalTimestampString(leave.start_time).slice(0, 10);
+  return getAttendanceWithNotes(leave.employee_id, date);
+};
+
+/**
+ * Employees who went out on special leave and never came back:
+ * the leave start time becomes their check-out time (an early check-out) and
+ * the open leave is marked "converted". Past days are always resolved; today
+ * only once `includeToday` is true (the auto-checkout time has passed).
+ */
+const resolveOpenSpecialLeaves = async ({ includeToday = false } = {}) => {
+  await ensureScanTables();
+  const today = todayIST();
+  const open = await pool.query(
+    `SELECT l.*, a.login_time, a.logout_time, a.attendance_status, a.late_minutes, a.checkin_status, a.special_leave_minutes
+     FROM attendance_special_leaves l
+     JOIN attendance a ON a.id = l.attendance_id
+     WHERE l.status = 'open' AND (l.attendance_date < $1 OR ($2::boolean AND l.attendance_date = $1))`,
+    [today, includeToday]
+  );
+  if (open.rows.length === 0) return 0;
+
+  const officeTimes = getOfficeTimes(await getSettingsFromDB());
+  let resolved = 0;
+  for (const row of open.rows) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const startStr = toLocalTimestampString(row.start_time);
+      const startLabel = toTimeLabel(startStr);
+      if (row.logout_time) {
+        await client.query(
+          `UPDATE attendance_special_leaves SET status = 'cancelled', cancel_note = 'Checked out without ending special leave', updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND status = 'open'`,
+          [row.id]
+        );
+      } else {
+        const loginStr = toLocalTimestampString(row.login_time);
+        const outStatus = calculateCheckOutStatus(startStr, officeTimes.endTime);
+        const checkoutStatus = outStatus.checkout_status === 'Late Check-Out' ? 'late' : (outStatus.checkout_status === 'Early Check-Out' ? 'early' : 'on_time');
+        const fields = computeCheckoutFields(row, loginStr, startStr, row.special_leave_minutes, officeTimes);
+        await client.query(
+          `UPDATE attendance SET
+             logout_time = $1, total_working_hours = $2, total_hours = $2, total_minutes = $3,
+             checkout_status = $4, early_minutes = $5, attendance_status = $6, late_minutes = $7, checkin_status = $8,
+             address_logout = 'Left on special leave and did not return', updated_at = CURRENT_TIMESTAMP
+           WHERE id = $9 AND logout_time IS NULL`,
+          [startStr, fields.totalHours, fields.totalMinutes, checkoutStatus, outStatus.early_minutes || 0, fields.attendanceStatus, fields.lateMinutes, fields.checkinStatus, row.attendance_id]
+        );
+        await client.query(
+          `UPDATE attendance_special_leaves SET status = 'converted', cancel_note = 'Did not return – check-out set to leave start time', updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND status = 'open'`,
+          [row.id]
+        );
+        await client.query(
+          `INSERT INTO attendance_notes (attendance_id, employee_id, attendance_date, category, note, change_type, created_by_name, created_by_role)
+           VALUES ($1,$2,$3,'Special Leave',$4,'correction','System','System')`,
+          [row.attendance_id, row.employee_id, row.attendance_date, `Went on special leave at ${startLabel} and did not come back. Check-out set to ${startLabel}.`]
+        );
+      }
+      await refreshSpecialLeaveSummary(client, row.attendance_id);
+      await client.query('COMMIT');
+      resolved++;
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      console.error('Resolve special leave failed:', row.id, err.message);
+    } finally {
+      client.release();
+    }
+  }
+  return resolved;
+};
+
 module.exports = {
   ScanError,
   BADGE_PREFIX,
@@ -928,6 +1291,8 @@ module.exports = {
   performScan,
   getAttendanceWithNotes,
   correctAttendance,
+  cancelSpecialLeave,
+  resolveOpenSpecialLeaves,
   toLocalTimestampString,
   toTimeLabel,
   todayIST

@@ -93,11 +93,47 @@ export const playTone = (kind = 'success') => {
   } catch (_) { /* audio not available */ }
 };
 
+/** Labels for scan log actions */
+export const SCAN_ACTION_LABELS = {
+  check_in: 'Check-in',
+  check_out: 'Check-out',
+  leave_start: 'Special leave – out',
+  leave_end: 'Special leave – back'
+};
+
+const KIND_BY_ACTION = { check_in: 'in', check_out: 'out', leave_start: 'leave', leave_end: 'back' };
+export const SUCCESS_KINDS = ['in', 'out', 'leave', 'back'];
+
+/** Current IST time as minutes since midnight */
+export const istMinutesNow = () => {
+  const [h, m] = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false })
+    .format(new Date()).split(':').map((n) => parseInt(n, 10));
+  return (h % 24) * 60 + m;
+};
+
+export const hhmmToMinutes = (v) => {
+  const m = /^(\d{1,2}):(\d{2})/.exec(String(v || ''));
+  return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : 14 * 60;
+};
+
+export const hhmmLabel = (v) => {
+  const mins = hhmmToMinutes(v);
+  const h = Math.floor(mins / 60);
+  return `${h % 12 || 12}:${String(mins % 60).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+};
+
 /** Normalise a scan API response / error into one shape for the UI */
 export const toScanResult = (resOrErr) => {
   if (resOrErr?.data?.success) {
     const d = resOrErr.data;
-    return { kind: d.action === 'check_out' ? 'out' : 'in', message: d.message, employee: d.employee, attendance: d.attendance };
+    return {
+      kind: KIND_BY_ACTION[d.action] || 'in',
+      action: d.action,
+      message: d.message,
+      employee: d.employee,
+      attendance: d.attendance,
+      specialLeave: d.special_leave || null
+    };
   }
   const data = resOrErr?.response?.data;
   if (data) {

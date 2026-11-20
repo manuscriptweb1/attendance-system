@@ -201,6 +201,8 @@ const AdminReports = () => {
       formattedDate,
       record: details ? details.record : null,
       permissionMinutes: details ? details.permissionMinutes : 0,
+      specialLeaveMinutes: details ? details.specialLeaveMinutes || 0 : 0,
+      specialLeaveSummary: details ? details.specialLeaveSummary || null : null,
       absentReason,
       paidLeaveReason,
       holidayInfo,
@@ -965,6 +967,15 @@ const AdminReports = () => {
                     <div className="flex justify-between items-center">
                       <span className="text-slate-500 dark:text-slate-400">Permission Today:</span>
                       <span className="font-bold text-indigo-600 dark:text-indigo-400">{selectedCellModal.permissionMinutes} min</span>
+                    </div>
+                  )}
+                  {selectedCellModal.specialLeaveSummary && (
+                    <div className="space-y-0.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500 dark:text-slate-400">Special Leave (LOP):</span>
+                        <span className="font-bold text-violet-600 dark:text-violet-400">{selectedCellModal.specialLeaveMinutes} min</span>
+                      </div>
+                      <div className="text-right text-[10px] text-slate-500 dark:text-slate-400">{selectedCellModal.specialLeaveSummary}</div>
                     </div>
                   )}
                   {selectedCellModal.record?.is_wfh && (

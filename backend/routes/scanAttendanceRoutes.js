@@ -27,6 +27,7 @@ router.get('/faces/:employeeId/photo', requireHrOrPermission(PAGE, 'can_view'), 
 router.post('/faces/:employeeId', requireHrOrPermission(PAGE, 'can_edit'), c.enrollFace);
 router.get('/attendance/:employeeId', requireHrOrPermission(PAGE, 'can_view'), c.getAttendanceForCorrection);
 router.post('/corrections', requireHrOrPermission(PAGE, 'can_edit'), c.createCorrection);
+router.post('/special-leaves/:id/cancel', requireHrOrPermission(PAGE, 'can_edit'), c.removeSpecialLeave);
 router.get('/notes', requireHrOrPermission(PAGE, 'can_view'), c.listNotes);
 router.get('/logs', requireHrOrPermission(PAGE, 'can_view'), c.getScanLogs);
 

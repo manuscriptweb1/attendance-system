@@ -7,8 +7,10 @@ import FaceScanner from '../../components/smartAttendance/FaceScanner';
 import FaceEnrollModal from '../../components/smartAttendance/FaceEnrollModal';
 import CorrectionPanel from '../../components/smartAttendance/CorrectionPanel';
 import ScanResultCard from '../../components/smartAttendance/ScanResultCard';
+import ScanModeBar, { MODE_META } from '../../components/smartAttendance/ScanModeBar';
 import {
-  hrApi, getHrUser, saveHrSession, clearHrSession, isHrScannerRole, playTone, toScanResult, safeStorage, HR_TOKEN_KEY
+  hrApi, getHrUser, saveHrSession, clearHrSession, isHrScannerRole, playTone, toScanResult, safeStorage, HR_TOKEN_KEY,
+  SUCCESS_KINDS, SCAN_ACTION_LABELS
 } from '../../services/scannerApi';
 
 /* ─── PWA wiring: swap the manifest so "Add to Home Screen" installs the scanner ─── */
@@ -120,8 +122,10 @@ const HrLogin = ({ onLoggedIn }) => {
 };
 
 /* ─── Scan tab ─── */
-const ScanTab = ({ onEnrollFace, onScanned }) => {
+const ScanTab = ({ onEnrollFace, onScanned, checkoutStartsAt }) => {
   const [mode, setMode] = useState(() => safeStorage.get('hr_scanner_mode') || 'card');
+  // auto | check_in | check_out | special_leave (manual modes apply to one scan only)
+  const [scanMode, setScanMode] = useState('auto');
   const [faceFacing, setFaceFacing] = useState('environment');
   const [result, setResult] = useState(null);
   const [photo, setPhoto] = useState(null);
@@ -133,9 +137,11 @@ const ScanTab = ({ onEnrollFace, onScanned }) => {
   useEffect(() => () => clearTimeout(dismissTimer.current), []);
 
   const showResult = useCallback(async (r) => {
+    const ok = SUCCESS_KINDS.includes(r.kind);
     setResult(r);
     setPhoto(null);
-    playTone(r.kind === 'in' || r.kind === 'out' ? 'success' : r.kind === 'warn' ? 'warn' : 'error');
+    if (ok) setScanMode('auto');
+    playTone(ok ? 'success' : r.kind === 'warn' ? 'warn' : 'error');
     if (navigator.vibrate) navigator.vibrate(r.kind === 'error' ? [80, 60, 80] : 120);
     onScanned?.();
     // Show the registered photo so HR can confirm the card holder is the right person
@@ -144,28 +150,28 @@ const ScanTab = ({ onEnrollFace, onScanned }) => {
         .then((res) => setPhoto(res.data.photo || null)).catch(() => {});
     }
     clearTimeout(dismissTimer.current);
-    const needsAction = r.employee && r.employee.face_registered === false && (r.kind === 'in' || r.kind === 'out');
+    const needsAction = r.employee && r.employee.face_registered === false && ok;
     if (!needsAction) dismissTimer.current = setTimeout(() => setResult(null), r.kind === 'error' ? 5000 : 3500);
   }, [onScanned]);
 
   const submitCode = useCallback(async (text, format = '') => {
     const method = /qr/i.test(format) || /^ATTN:/i.test(text) ? 'qr' : 'barcode';
     try {
-      const res = await hrApi.post('/smart-attendance/hr/scan', { method, code: text });
+      const res = await hrApi.post('/smart-attendance/hr/scan', { method, code: text, mode: scanMode });
       await showResult(toScanResult(res));
     } catch (err) {
       await showResult(toScanResult(err));
     }
-  }, [showResult]);
+  }, [showResult, scanMode]);
 
   const submitFace = useCallback(async (descriptor) => {
     try {
-      const res = await hrApi.post('/smart-attendance/hr/scan', { method: 'face', descriptor });
+      const res = await hrApi.post('/smart-attendance/hr/scan', { method: 'face', descriptor, mode: scanMode });
       await showResult(toScanResult(res));
     } catch (err) {
       await showResult(toScanResult(err));
     }
-  }, [showResult]);
+  }, [showResult, scanMode]);
 
   const submitManual = async (e) => {
     e.preventDefault();
@@ -185,7 +191,14 @@ const ScanTab = ({ onEnrollFace, onScanned }) => {
         ))}
       </div>
 
-      <div className="relative">
+      <ScanModeBar mode={scanMode} onChange={(m) => { setResult(null); setScanMode(m); }} checkoutStartsAt={checkoutStartsAt} />
+
+      <div className={`relative rounded-3xl transition-shadow ${scanMode !== 'auto' ? `ring-4 ring-offset-2 ring-offset-admin-bg ${MODE_META[scanMode].frame}` : ''}`}>
+        {scanMode !== 'auto' && !result && (
+          <div className={`pointer-events-none absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider ${MODE_META[scanMode].active}`}>
+            {React.createElement(MODE_META[scanMode].Icon, { 'aria-hidden': true })} {MODE_META[scanMode].label} scan
+          </div>
+        )}
         {mode === 'card' ? (
           <QrScanner onScan={submitCode} paused={!!result} facingMode="environment" className="aspect-square" />
         ) : (
@@ -213,10 +226,6 @@ const ScanTab = ({ onEnrollFace, onScanned }) => {
           <button type="submit" className="rounded-xl bg-blue-600 px-4 text-sm font-bold text-white">Mark</button>
         </form>
       )}
-
-      <p className="text-center text-[11px] text-admin-muted">
-        First scan of the day = check-in · next scan = check-out
-      </p>
     </div>
   );
 };
@@ -324,7 +333,7 @@ const HistoryTab = ({ refreshKey }) => {
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-bold">
                 <span className={`rounded-full px-2 py-0.5 ${STATUS_STYLE[l.status] || STATUS_STYLE.rejected}`}>
-                  {l.status === 'success' ? (l.action === 'check_out' ? 'Check-out' : 'Check-in') : l.status}
+                  {l.status === 'success' ? (SCAN_ACTION_LABELS[l.action] || 'Check-in') : l.status}
                 </span>
                 <span className="rounded-full bg-admin-surface px-2 py-0.5 uppercase text-admin-secondary">{l.method}</span>
               </div>
@@ -352,6 +361,7 @@ const HrScannerApp = () => {
   const [tab, setTab] = useState('scan');
   const [enrollEmployee, setEnrollEmployee] = useState(null);
   const [stats, setStats] = useState(null);
+  const [rules, setRules] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [sessionError, setSessionError] = useState('');
 
@@ -363,7 +373,7 @@ const HrScannerApp = () => {
 
   const loadSession = useCallback(() => {
     hrApi.get('/smart-attendance/hr/session')
-      .then((r) => setStats(r.data.stats))
+      .then((r) => { setStats(r.data.stats); if (r.data.rules) setRules(r.data.rules); })
       .catch((err) => {
         if (err.response?.status === 403) {
           clearHrSession();
@@ -396,7 +406,7 @@ const HrScannerApp = () => {
           <div className="text-sm font-extrabold text-admin-heading">HR Scanner</div>
           <div className="text-[11px] text-admin-muted">
             {user.username}
-            {stats && <> · In {stats.check_ins} · Out {stats.check_outs}</>}
+            {stats && <> · In {stats.check_ins} · Out {stats.check_outs}{Number(stats.special_leaves) > 0 && <> · Leave {stats.special_leaves}</>}</>}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -408,7 +418,7 @@ const HrScannerApp = () => {
       </header>
 
       <main className="mx-auto w-full max-w-xl flex-1 px-4 pb-28 pt-4">
-        {tab === 'scan' && <ScanTab onEnrollFace={setEnrollEmployee} onScanned={() => setRefreshKey((k) => k + 1)} />}
+        {tab === 'scan' && <ScanTab onEnrollFace={setEnrollEmployee} onScanned={() => setRefreshKey((k) => k + 1)} checkoutStartsAt={rules?.checkoutStartsAt} />}
         {tab === 'faces' && <FacesTab onEnrollFace={setEnrollEmployee} refreshKey={refreshKey} />}
         {tab === 'correct' && (
           <div className="rounded-3xl border border-admin-border bg-admin-elevated p-4">

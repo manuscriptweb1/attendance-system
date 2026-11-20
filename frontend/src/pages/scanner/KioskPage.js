@@ -3,7 +3,11 @@ import { FiCreditCard, FiUser, FiCamera, FiMaximize, FiSettings, FiWifiOff } fro
 import QrScanner from '../../components/smartAttendance/QrScanner';
 import FaceScanner from '../../components/smartAttendance/FaceScanner';
 import ScanResultCard from '../../components/smartAttendance/ScanResultCard';
-import { kioskApi, safeStorage, KIOSK_KEY, playTone, toScanResult } from '../../services/scannerApi';
+import ScanModeBar, { MODE_META } from '../../components/smartAttendance/ScanModeBar';
+import { kioskApi, safeStorage, KIOSK_KEY, playTone, toScanResult, SUCCESS_KINDS, hhmmLabel } from '../../services/scannerApi';
+
+/** A manual mode (Check-in / Check-out / Special leave) falls back to Auto after this long without a scan */
+const MANUAL_MODE_SECONDS = 30;
 
 /**
  * Entrance kiosk (PC / tablet).
@@ -67,7 +71,7 @@ const KioskSetup = ({ onPaired, error }) => {
     safeStorage.set(KIOSK_KEY, key.trim());
     try {
       const r = await kioskApi.get('/smart-attendance/kiosk/session');
-      onPaired(r.data.kiosk);
+      onPaired(r.data.kiosk, r.data.rules);
     } catch (err) {
       safeStorage.remove(KIOSK_KEY);
       setMsg(err.response?.data?.message || 'Could not verify the kiosk key. Check the internet connection.');
@@ -99,9 +103,23 @@ const KioskPage = () => {
   const [result, setResult] = useState(null);
   const [cameraQr, setCameraQr] = useState(() => safeStorage.get('kiosk_camera_qr') === '1');
   const [online, setOnline] = useState(navigator.onLine);
+  const [rules, setRules] = useState(null);
+  const [scanMode, setScanMode] = useState('auto');
+  const [secondsLeft, setSecondsLeft] = useState(null);
+  const scanModeRef = useRef('auto');
+  scanModeRef.current = scanMode;
   const dismissRef = useRef(null);
   const busyRef = useRef(false);
   const now = useClock();
+
+  // Manual modes are one-shot and time out, so an unattended kiosk never stays in Check-out mode
+  useEffect(() => {
+    if (scanMode === 'auto') { setSecondsLeft(null); return undefined; }
+    setSecondsLeft(MANUAL_MODE_SECONDS);
+    const t = setInterval(() => setSecondsLeft((v) => (v > 0 ? v - 1 : 0)), 1000);
+    return () => clearInterval(t);
+  }, [scanMode]);
+  useEffect(() => { if (secondsLeft === 0) setScanMode('auto'); }, [secondsLeft]);
 
   useEffect(() => {
     const prevTitle = document.title;
@@ -120,7 +138,7 @@ const KioskPage = () => {
   useEffect(() => {
     if (!safeStorage.get(KIOSK_KEY)) { setChecking(false); return; }
     kioskApi.get('/smart-attendance/kiosk/session')
-      .then((r) => setKiosk(r.data.kiosk))
+      .then((r) => { setKiosk(r.data.kiosk); setRules(r.data.rules || null); })
       .catch((err) => {
         if (err.response?.status === 401) {
           safeStorage.remove(KIOSK_KEY);
@@ -136,8 +154,10 @@ const KioskPage = () => {
   useEffect(() => () => clearTimeout(dismissRef.current), []);
 
   const show = useCallback((r) => {
+    const ok = SUCCESS_KINDS.includes(r.kind);
     setResult(r);
-    playTone(r.kind === 'in' || r.kind === 'out' ? 'success' : r.kind === 'warn' ? 'warn' : 'error');
+    if (ok) setScanMode('auto');
+    playTone(ok ? 'success' : r.kind === 'warn' ? 'warn' : 'error');
     clearTimeout(dismissRef.current);
     dismissRef.current = setTimeout(() => setResult(null), r.kind === 'error' ? 5000 : 4000);
   }, []);
@@ -146,7 +166,7 @@ const KioskPage = () => {
     if (busyRef.current) return;
     busyRef.current = true;
     try {
-      const res = await kioskApi.post('/smart-attendance/kiosk/scan', payload);
+      const res = await kioskApi.post('/smart-attendance/kiosk/scan', { ...payload, mode: scanModeRef.current });
       show(toScanResult(res));
     } catch (err) {
       if (err.response?.status === 401) {
@@ -167,7 +187,15 @@ const KioskPage = () => {
   useBarcodeWedge((code) => scan({ method: /^ATTN:/i.test(code) ? 'qr' : 'barcode', code }), cardEnabled && !result);
 
   if (checking) return <div className="flex min-h-[100dvh] items-center justify-center bg-admin-bg text-admin-muted">Loading…</div>;
-  if (!kiosk) return <KioskSetup onPaired={(k) => { setSetupError(''); setKiosk(k); }} error={setupError} />;
+  if (!kiosk) return <KioskSetup onPaired={(k, r) => { setSetupError(''); setKiosk(k); setRules(r || null); }} error={setupError} />;
+
+  const checkoutStartsAt = rules?.checkoutStartsAt || '14:00';
+  const frame = scanMode !== 'auto' ? `rounded-3xl ring-4 ring-offset-4 ring-offset-admin-bg ${MODE_META[scanMode].frame}` : '';
+  const cardHint = scanMode === 'auto'
+    ? `Before ${hhmmLabel(checkoutStartsAt)} = check-in · from ${hhmmLabel(checkoutStartsAt)} = check-out`
+    : scanMode === 'special_leave'
+      ? 'Special leave: scan when going out, and again when you come back'
+      : `${MODE_META[scanMode].label} mode: scan your card now`;
 
   const timeStr = now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' });
   const dateStr = now.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'long', day: 'numeric', month: 'long' });
@@ -195,15 +223,30 @@ const KioskPage = () => {
         </div>
       </header>
 
+      <div className="px-6 pb-5">
+        <ScanModeBar
+          mode={scanMode}
+          onChange={(m) => {
+            // Drop focus so a USB scanner's Enter key can never press a mode button
+            if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+            setResult(null);
+            setScanMode(m);
+          }}
+          checkoutStartsAt={checkoutStartsAt}
+          large
+          secondsLeft={secondsLeft}
+        />
+      </div>
+
       <main className={`grid flex-1 gap-6 px-6 pb-6 ${cardEnabled && faceEnabled ? 'lg:grid-cols-2' : ''}`}>
         {faceEnabled && (
-          <section className="flex flex-col">
+          <section className={`flex flex-col ${frame}`}>
             <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-admin-text"><FiUser className="text-blue-400" /> Look at the camera</h2>
             <FaceScanner onFace={(descriptor) => scan({ method: 'face', descriptor })} paused={!!result} facingMode="user" large className="flex-1" minFaceRatio={0.15} />
           </section>
         )}
         {cardEnabled && (
-          <section className="flex flex-col">
+          <section className={`flex flex-col ${frame}`}>
             <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-admin-text"><FiCreditCard className="text-blue-400" /> Scan your ID card</h2>
             {cameraQr ? (
               <QrScanner onScan={(text, format) => scan({ method: /qr/i.test(format) || /^ATTN:/i.test(text) ? 'qr' : 'barcode', code: text })} paused={!!result} facingMode="user" className="flex-1" />
@@ -211,7 +254,7 @@ const KioskPage = () => {
               <div className="flex flex-1 flex-col items-center justify-center rounded-3xl border-2 border-dashed border-blue-500/40 bg-blue-500/5 p-10 text-center">
                 <FiCreditCard className="mb-4 animate-pulse text-blue-400" size={96} />
                 <p className="text-2xl font-bold text-admin-heading">Hold your ID card under the scanner</p>
-                <p className="mt-2 text-sm text-admin-muted">First scan today = check-in · next scan = check-out</p>
+                <p className="mt-2 text-sm text-admin-muted">{cardHint}</p>
               </div>
             )}
             <button type="button" onClick={() => setCameraQr((v) => !v)} className="mt-3 flex items-center justify-center gap-2 self-center rounded-xl border border-admin-border px-4 py-2 text-xs font-bold text-admin-secondary">

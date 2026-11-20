@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import StatusBadge from '../components/ui/StatusBadge';
+import SpecialLeaveBadge from '../components/smartAttendance/SpecialLeaveBadge';
 import { Spinner } from '../components/Loader';
 import { getEmployeeMonthlyAttendance } from '../services/api';
 import { formatTime, formatDate, formatWorkingHours } from '../utils/formatTime';
@@ -273,6 +274,7 @@ const EmployeeAttendance = () => {
                               {record.validation_method === 'Paid Leave' && (
                                 <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-full">Paid Leave</span>
                               )}
+                              {d.type === 'attendance' && <SpecialLeaveBadge record={record} light />}
                               {d.holiday && (
                                 <div className="relative group">
                                   <FiInfo size={13} className="text-[#4F6CE1] cursor-help" />

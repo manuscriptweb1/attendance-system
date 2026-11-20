@@ -85,8 +85,17 @@ No need to edit files manually!
 Automatic attendance at the entrance, an HR Scanner mobile app and attendance corrections with notes.
 All of it is additive: the existing employee check-in, manual attendance and reports are unchanged.
 
-**How it works:** an employee's first successful scan of the day is the check-in, and the next scan is the check-out.
+**How it works (Auto mode, the default):** before **2:00 PM** a scan only checks in. A second scan by mistake shows "Already checked in" instead of checking out.
+From 2:00 PM a scan checks out, and a first scan after 2:00 PM is still a check-in. The time can be changed in **Smart Attendance → Kiosks & Settings → Scan rules**.
 Late, half-day, Sunday and holiday rules come from the normal attendance Settings.
+
+**Manual buttons** (HR Scanner app and kiosks): **Check-in**, **Check-out** (for example, leaving early) and **Special leave**.
+A manual mode applies to one scan only and then goes back to Auto. On a kiosk it also goes back to Auto after 30 seconds.
+
+**Special leave** (for example 11 AM – 3 PM): the first scan in Special leave mode marks the employee as out, and the next scan (any mode except Check-out) marks them back.
+Attendance shows "Special leave 11:00 AM – 3:00 PM (240 min)". The minutes are unpaid: payroll adds `minutes ÷ working-day minutes` (office start to end, for example 480) to LOP days.
+Special leave does not make the day a Half Day, and worked hours exclude it. If the employee never comes back, the auto-checkout job sets their check-out to the leave start time.
+HR/Admin can remove a mistaken special leave in **Corrections** (reason required).
 
 | Where | URL | Who |
 |---|---|---|

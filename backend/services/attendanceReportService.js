@@ -1,6 +1,6 @@
 const pool = require('../config/database');
 const { getSettingsFromDB } = require('../utils/settingsHelper');
-const { parseTime, getLocalMinutesFromUTC, calculateWorkedMinutes } = require('../utils/timeUtils');
+const { parseTime, getLocalMinutesFromUTC, calculateWorkedMinutes, getOfficeTimes } = require('../utils/timeUtils');
 const { getCalculatedLoanDeductionForEmployee } = require('./loanSchedulerService');
 function isSunday(year, month, day) {
   const date = new Date(year, month - 1, day);
@@ -50,7 +50,8 @@ function getFinalAttendanceCode(record, isSun, isGovH, isOffH) {
 
 function getWorkedMinutes(att, officeStartTimeMins = null) {
   if (att.login_time && att.logout_time) {
-    const worked = calculateWorkedMinutes(att.login_time, att.logout_time, officeStartTimeMins);
+    // Special leave (unpaid time out during the day) is not worked time
+    const worked = calculateWorkedMinutes(att.login_time, att.logout_time, officeStartTimeMins) - Number(att.special_leave_minutes || 0);
     if (worked > 0) return worked;
   }
 
@@ -82,6 +83,9 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
   const settings = await getSettingsFromDB();
   const officeLateTimeInMinutes = parseTime(settings.workingHours.lateAfterTime);
   const officeStartTimeMins = parseTime(settings.workingHours.officeStartTime || settings.workingHours.start_time || '09:30 AM');
+  // A full working day in minutes (e.g. 09:30–17:30 = 480). Special leave LOP = minutes ÷ this.
+  const lopOfficeTimes = getOfficeTimes(settings);
+  const fullDayMinutes = lopOfficeTimes.endTime > lopOfficeTimes.startTime ? lopOfficeTimes.endTime - lopOfficeTimes.startTime : 480;
 
   // Shift Settings
   const shiftSettings = settings.shiftSettings || {};
@@ -227,6 +231,7 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
     let monthlyTotalMinutes = 0;
     let totalLateMinutes = 0;
     let totalCountedLateMinutes = 0;
+    let totalSpecialLeaveMinutes = 0;
 
     const days = {};
 
@@ -365,6 +370,12 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
 
       const dayHoliday = holidayMap[day] || null;
 
+      // Special leave only matters on a day the employee was paid for (not Absent / holiday)
+      const specialLeaveRecord = ['P', 'L', 'HD', 'WFH'].includes(finalCode) && dateRecords
+        ? dateRecords.find((r) => Number(r.special_leave_minutes || 0) > 0)
+        : null;
+      const daySpecialLeaveMinutes = specialLeaveRecord ? Number(specialLeaveRecord.special_leave_minutes) : 0;
+
       if (day <= maxDay) {
         days[day] = {
           code: finalCode,
@@ -372,6 +383,8 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
             ? { ...(finalRecord || dateRecords[0]), late_minutes: 0 } 
             : (finalRecord || (dateRecords ? dateRecords[0] : null)),
           permissionMinutes: dayPermissionMinutes,
+          specialLeaveMinutes: daySpecialLeaveMinutes,
+          specialLeaveSummary: specialLeaveRecord ? specialLeaveRecord.special_leave_summary : null,
           countedLateMinutes: netDayCountedLate,
           absentReason: dayAbsentReason,
           paidLeaveReason: dayPaidLeaveReason,
@@ -387,6 +400,8 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
       if (['P', 'L', 'HD', 'WFH', 'S', 'OH', 'GH', 'PL'].includes(finalCode)) {
         monthlyTotalMinutes += dailyMinutes;
       }
+
+      if (day <= maxDay) totalSpecialLeaveMinutes += daySpecialLeaveMinutes;
 
       // Exact count
       if (finalCode === 'A') absent++;
@@ -435,6 +450,8 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
       totalPermissionMinutes,
       totalLateAndPermissionMinutes,
       countedLateAndPermissionMinutes,
+      totalSpecialLeaveMinutes,
+      specialLeaveLopDays: parseFloat((totalSpecialLeaveMinutes / fullDayMinutes).toFixed(2)),
       totalHours: parseFloat(totalHours.toFixed(1))
     });
   }
@@ -467,11 +484,11 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmploye
     return a.employeeName.localeCompare(b.employeeName);
   });
 
-  return { matrixRows, summaryRows, holidaysResult, maxDay, attendanceData, employees, holidayTable, absentTable };
+  return { matrixRows, summaryRows, holidaysResult, maxDay, attendanceData, employees, holidayTable, absentTable, fullDayMinutes };
 }
 
 async function buildMonthlyPayroll(month, year, targetEmployeeId = null) {
-  const { matrixRows, employees, maxDay } = await buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmployeeId);
+  const { matrixRows, employees, maxDay, fullDayMinutes } = await buildMonthlyAttendanceMatrixAndSummary(month, year, targetEmployeeId);
   
   let existingRecordsQuery = `SELECT * FROM payroll_records WHERE payroll_month = $1 AND payroll_year = $2`;
   const existingParams = [month, year];
@@ -504,6 +521,7 @@ async function buildMonthlyPayroll(month, year, targetEmployeeId = null) {
     let absentDays = 0;
     let holidayDays = 0;
     let blankUnmarkedDays = 0;
+    let specialLeaveMinutes = 0;
 
     const numMonth = parseInt(month, 10);
     const numYear = parseInt(year, 10);
@@ -517,8 +535,10 @@ async function buildMonthlyPayroll(month, year, targetEmployeeId = null) {
         fullPaidDays++;
       } else if (code === 'P' || code === 'L' || code === 'Late') {
         fullPaidDays++;
+        specialLeaveMinutes += Number(codeData?.specialLeaveMinutes || 0);
       } else if (code === 'HD') {
         halfDays++;
+        specialLeaveMinutes += Number(codeData?.specialLeaveMinutes || 0);
       } else if (code === 'A') {
         absentDays++;
       } else {
@@ -531,8 +551,10 @@ async function buildMonthlyPayroll(month, year, targetEmployeeId = null) {
       }
     }
 
-    let paidDays = fullPaidDays + (halfDays * 0.5);
-    let lopDays = absentDays + blankUnmarkedDays + (halfDays * 0.5);
+    // Special leave: exact share of a working day (e.g. 240 of 480 min = 0.5 LOP day)
+    const specialLeaveLopDays = fullDayMinutes > 0 ? specialLeaveMinutes / fullDayMinutes : 0;
+    let paidDays = fullPaidDays + (halfDays * 0.5) - specialLeaveLopDays;
+    let lopDays = absentDays + blankUnmarkedDays + (halfDays * 0.5) + specialLeaveLopDays;
     let workingDays = totalDays;
 
     let monthlyEarning = parseFloat(emp.monthly_salary) || 0;
@@ -596,6 +618,8 @@ async function buildMonthlyPayroll(month, year, targetEmployeeId = null) {
       halfDays,
       holidayDays,
       blankUnmarkedDays,
+      specialLeaveMinutes,
+      specialLeaveLopDays: parseFloat(specialLeaveLopDays.toFixed(2)),
       paidDays: parseFloat(paidDays.toFixed(2)),
       halfDayLossAmount: parseFloat(halfDayLossAmount.toFixed(2)),
       lopDays: parseFloat(lopDays.toFixed(2)),

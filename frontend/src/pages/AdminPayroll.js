@@ -1337,15 +1337,15 @@ const AdminPayroll = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-admin-secondary mb-1">Working Days</label>
-                      <input type="number" step="0.5" name="workingDays" value={editingRow.workingDays} onChange={handleEditChange} className="admin-input text-xs font-mono" />
+                      <input type="number" step="0.01" name="workingDays" value={editingRow.workingDays} onChange={handleEditChange} className="admin-input text-xs font-mono" />
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-admin-secondary mb-1">Paid Days</label>
-                      <input type="number" step="0.5" name="paidDays" value={editingRow.paidDays} onChange={handleEditChange} className="admin-input text-xs font-mono text-emerald-400 font-bold" />
+                      <input type="number" step="0.01" name="paidDays" value={editingRow.paidDays} onChange={handleEditChange} className="admin-input text-xs font-mono text-emerald-400 font-bold" />
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-admin-secondary mb-1">LOP Days</label>
-                      <input type="number" step="0.5" name="lopDays" value={editingRow.lopDays} onChange={handleEditChange} className="admin-input text-xs font-mono text-red-400 font-bold" />
+                      <input type="number" step="0.01" name="lopDays" value={editingRow.lopDays} onChange={handleEditChange} className="admin-input text-xs font-mono text-red-400 font-bold" />
                     </div>
                   </div>
                 </div>

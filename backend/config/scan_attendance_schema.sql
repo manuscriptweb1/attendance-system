@@ -96,3 +96,34 @@ END $$;
 UPDATE scan_attendance_settings
 SET settings = jsonb_set(settings, '{cardAddress}', to_jsonb('22, (New No. 40), 3rd Cross, Vivekananda Nagar, Bengaluru, 560 033, INDIA'::text)), updated_at = CURRENT_TIMESTAMP
 WHERE settings->>'cardAddress' = '22, (New No. 48), 3rd Cross, Vivekananda Nagar, Bengaluru, 560 033, Karnataka, INDIA';
+
+-- Special leave (short unpaid leave during the day, e.g. 11 AM – 3 PM).
+-- Started and ended by a scan in "Special Leave" mode. Closed minutes are LOP.
+CREATE TABLE IF NOT EXISTS attendance_special_leaves (
+  id SERIAL PRIMARY KEY,
+  attendance_id INTEGER REFERENCES attendance(id) ON DELETE CASCADE,
+  employee_id VARCHAR(50) NOT NULL REFERENCES employees(employee_id) ON DELETE CASCADE,
+  attendance_date DATE NOT NULL,
+  start_time TIMESTAMP NOT NULL,
+  end_time TIMESTAMP,
+  duration_minutes INTEGER NOT NULL DEFAULT 0,
+  -- open: employee is out · closed: came back (minutes count as LOP)
+  -- converted: never came back, start time became the check-out · cancelled: removed by HR/Admin
+  status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed', 'converted', 'cancelled')),
+  start_method VARCHAR(20),
+  end_method VARCHAR(20),
+  source VARCHAR(20),
+  started_by_name VARCHAR(150),
+  ended_by_name VARCHAR(150),
+  cancel_note TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_special_leaves_emp_date ON attendance_special_leaves(employee_id, attendance_date);
+CREATE INDEX IF NOT EXISTS idx_special_leaves_attendance ON attendance_special_leaves(attendance_id);
+-- Only one open special leave per employee per day
+CREATE UNIQUE INDEX IF NOT EXISTS uq_special_leaves_open ON attendance_special_leaves(employee_id, attendance_date) WHERE status = 'open';
+
+-- Denormalised on attendance so every existing attendance screen/report gets it without extra joins
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS special_leave_minutes INTEGER DEFAULT 0;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS special_leave_summary TEXT;

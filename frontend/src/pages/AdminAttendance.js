@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
 import ClearDataModal from '../components/ClearDataModal';
+import SpecialLeaveBadge from '../components/smartAttendance/SpecialLeaveBadge';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
 import { getAllAttendance, resetAttendance, deleteAttendance, clearDataByDate } from '../services/api';
@@ -308,6 +309,7 @@ const AdminAttendance = () => {
                             <StatusBadge status={r.attendance_status || 'Not Mention'} dark />
                             {r.validation_method === 'Manual' && <span className="text-[10px] font-bold text-purple-500 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">Manual</span>}
                             {r.validation_method === 'Paid Leave' && <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">Paid Leave</span>}
+                            <SpecialLeaveBadge record={r} />
                           </div>
                         </td>
                         <td className="px-3 py-2.5 text-[11px] font-semibold text-admin-secondary whitespace-nowrap">

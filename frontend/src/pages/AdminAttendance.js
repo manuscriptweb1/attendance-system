@@ -7,7 +7,7 @@ import ClearDataModal from '../components/ClearDataModal';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
 import { getAllAttendance, resetAttendance, deleteAttendance, clearDataByDate } from '../services/api';
-import { formatTime, formatDate, formatWorkingHours } from '../utils/formatTime';
+import { formatTime, formatDate, formatWorkingHours, formatTimeWithSeconds } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateDateString } from '../utils/dateValidation';
 import { FiFilter, FiRefreshCw, FiTrash2, FiRotateCcw, FiCalendar, FiCheckCircle, FiClock, FiHome, FiTrendingUp, FiX } from 'react-icons/fi';
@@ -264,10 +264,18 @@ const AdminAttendance = () => {
                         <td className="px-3 py-2.5 text-[11px] font-bold text-admin-text whitespace-nowrap">{r.name}</td>
                         <td className="px-3 py-2.5 text-[11px] text-admin-secondary whitespace-nowrap">{r.department}</td>
                         <td className="px-3 py-2.5 whitespace-nowrap">
-                          <div className="text-[11px] text-admin-secondary font-mono">{formatTime(r.login_time) || '—'}</div>
+                          <div 
+                            className="text-[11px] text-admin-secondary font-mono cursor-default"
+                            title={r.login_time ? `Exact check-in: ${formatTimeWithSeconds(r.login_time)}` : undefined}
+                          >
+                            {formatTime(r.login_time) || '—'}
+                          </div>
                         </td>
                         <td className="px-3 py-2.5 whitespace-nowrap">
-                          <div className="text-[11px] text-admin-secondary font-mono">
+                          <div 
+                            className="text-[11px] text-admin-secondary font-mono cursor-default"
+                            title={r.logout_time ? `Exact check-out: ${formatTimeWithSeconds(r.logout_time)}` : undefined}
+                          >
                             {formatTime(r.logout_time) || '—'}
                             {r.is_auto_checkout && r.logout_time && <span className="ml-1 text-[9px] text-amber-500/80 font-bold">(Auto)</span>}
                           </div>

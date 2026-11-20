@@ -1,6 +1,6 @@
 const pool = require('../config/database');
 const { getSettingsFromDB } = require('../utils/settingsHelper');
-const { parseTime, getLocalMinutesFromUTC } = require('../utils/timeUtils');
+const { parseTime, getLocalMinutesFromUTC, calculateWorkedMinutes } = require('../utils/timeUtils');
 const { getCalculatedLoanDeductionForEmployee } = require('./loanSchedulerService');
 function isSunday(year, month, day) {
   const date = new Date(year, month - 1, day);
@@ -50,21 +50,8 @@ function getFinalAttendanceCode(record, isSun, isGovH, isOffH) {
 
 function getWorkedMinutes(att, officeStartTimeMins = null) {
   if (att.login_time && att.logout_time) {
-    const login = new Date(att.login_time);
-    const logout = new Date(att.logout_time);
-    
-    let effectiveLogin = login;
-    if (officeStartTimeMins !== null) {
-      const loginMins = getLocalMinutesFromUTC(att.login_time);
-      if (loginMins < officeStartTimeMins) {
-        effectiveLogin = new Date(effectiveLogin.getTime() + (officeStartTimeMins - loginMins) * 60000);
-      }
-    }
-    
-    const diff = (logout - effectiveLogin) / 60000;
-    if (Number.isFinite(diff) && diff > 0) {
-      return Math.round(diff);
-    }
+    const worked = calculateWorkedMinutes(att.login_time, att.logout_time, officeStartTimeMins);
+    if (worked > 0) return worked;
   }
 
   // Fallback to saved hours if raw time isn't calculable

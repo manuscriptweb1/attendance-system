@@ -8,7 +8,7 @@ import AdminToast from '../components/AdminToast';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
 import { getAllDepartments, getEmployeesForManualAttendance, createManualAttendance, updateManualAttendance, deleteManualAttendance, checkInRowManualAttendance, checkOutRowManualAttendance, clearDataByDate } from '../services/api';
-import { formatTime, format24To12Hour } from '../utils/formatTime';
+import { formatTime, format24To12Hour, formatTimeWithSeconds } from '../utils/formatTime';
 import { getErrorMessage } from '../utils/errorHandler';
 import { validateDateString } from '../utils/dateValidation';
 import { FiCheckSquare, FiSquare, FiEdit, FiSearch, FiCalendar, FiFilter, FiSave, FiX, FiLayers, FiTrash2 } from 'react-icons/fi';
@@ -463,7 +463,7 @@ const AdminManualAttendance = () => {
                       
                       <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">
                         {emp.login_time ? (
-                          <div>
+                          <div title={`Exact check-in: ${formatTimeWithSeconds(emp.login_time)}`} className="cursor-default">
                             <span className="block font-medium text-admin-text">{formatTime(emp.login_time)}</span>
                             {emp.checkin_status && (
                               <span className={`block text-[10px] font-bold mt-0.5 ${emp.checkin_status === 'late' ? 'text-amber-500' : emp.checkin_status === 'early' ? 'text-emerald-400' : 'text-emerald-400'}`}>
@@ -475,7 +475,7 @@ const AdminManualAttendance = () => {
                       </td>
                       <td className="px-4 py-3.5 text-sm text-slate-400 whitespace-nowrap">
                         {emp.logout_time ? (
-                          <div>
+                          <div title={`Exact check-out: ${formatTimeWithSeconds(emp.logout_time)}`} className="cursor-default">
                             <span className="block font-medium text-admin-text">{formatTime(emp.logout_time)}</span>
                             {emp.checkout_status && (
                               <span className={`block text-[10px] font-bold mt-0.5 ${emp.checkout_status === 'late' ? 'text-amber-500' : emp.checkout_status === 'early' ? 'text-purple-400' : 'text-emerald-400'}`}>

@@ -2,8 +2,12 @@
 export const formatWorkingHours = (decimalHours) => {
   if (!decimalHours || decimalHours === 0) return '-';
   
-  const hours = Math.floor(decimalHours);
-  const minutes = Math.round((decimalHours - hours) * 60);
+  let hours = Math.floor(decimalHours);
+  let minutes = Math.round((decimalHours - hours) * 60);
+  if (minutes === 60) {
+    hours += 1;
+    minutes = 0;
+  }
   
   if (hours === 0) {
     return `${minutes} min${minutes !== 1 ? 's' : ''}`;
@@ -12,6 +16,53 @@ export const formatWorkingHours = (decimalHours) => {
   } else {
     return `${hours} hour${hours !== 1 ? 's' : ''} ${minutes} min${minutes !== 1 ? 's' : ''}`;
   }
+};
+
+// Format time with seconds safely in Asia/Kolkata timezone (e.g. for audit hover tooltips)
+export const formatTimeWithSeconds = (timestamp) => {
+  if (!timestamp) return '';
+
+  if (typeof timestamp === 'string') {
+    const trimmed = timestamp.trim();
+    if (/^\d{1,2}:\d{2}:\d{2}$/.test(trimmed)) {
+      const [hStr, mStr, sStr] = trimmed.split(':');
+      let h = parseInt(hStr, 10);
+      const ampm = h >= 12 ? 'pm' : 'am';
+      h = h % 12 || 12;
+      return `${String(h).padStart(2, '0')}:${mStr}:${sStr} ${ampm}`;
+    }
+
+    if (trimmed.endsWith('Z') || /[+-]\d{2}(?::?\d{2})?$/.test(trimmed)) {
+      const d = new Date(trimmed);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true
+        });
+      }
+    }
+
+    const timeMatch = trimmed.match(/[T ](\d{1,2}):(\d{2}):(\d{2})/);
+    if (timeMatch) {
+      let h = parseInt(timeMatch[1], 10);
+      const ampm = h >= 12 ? 'pm' : 'am';
+      h = h % 12 || 12;
+      return `${String(h).padStart(2, '0')}:${timeMatch[2]}:${timeMatch[3]} ${ampm}`;
+    }
+  }
+
+  const d = new Date(timestamp);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
 };
 
 // Format time from timestamp safely in Asia/Kolkata timezone

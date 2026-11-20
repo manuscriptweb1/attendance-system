@@ -1,6 +1,57 @@
 const TIMEZONE = 'Asia/Kolkata';
 
 /**
+ * Helper to safely parse any date/time input (Date, ISO string, SQL timestamp string)
+ * into a Date object representing the correct instant in Asia/Kolkata.
+ */
+const parseToDate = (input) => {
+  if (!input) return null;
+  if (input instanceof Date) return isNaN(input.getTime()) ? null : input;
+
+  if (typeof input === 'string') {
+    const trimmed = input.trim();
+    // If it's a date-time string without timezone, like "2026-11-17 18:00:00" or "2026-11-17T18:00:00"
+    // Postgres and the application store IST timestamps literally; appending '+05:30' ensures correct parsing
+    if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) {
+      const isoStr = trimmed.replace(' ', 'T');
+      const withSeconds = isoStr.length === 16 ? `${isoStr}:00` : isoStr;
+      return new Date(`${withSeconds}+05:30`);
+    }
+    return new Date(trimmed);
+  }
+
+  return new Date(input);
+};
+
+const istFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false
+});
+
+const getISTMinuteData = (dateInput) => {
+  const d = parseToDate(dateInput);
+  if (!d || isNaN(d.getTime())) return null;
+
+  const parts = istFormatter.formatToParts(d);
+  const p = {};
+  parts.forEach(({ type, value }) => { p[type] = value; });
+
+  const hour = parseInt(p.hour, 10);
+  const minute = parseInt(p.minute, 10);
+
+  return {
+    dateStr: `${p.year}-${p.month}-${p.day}`,
+    minuteOfDay: hour * 60 + minute,
+    epochMinute: Math.floor(d.getTime() / 60000)
+  };
+};
+
+/**
  * Returns current India date-time safely for database insertion
  * Formatted as "YYYY-MM-DDTHH:mm:ss" so Postgres stores it literally
  */
@@ -53,8 +104,9 @@ const getLocalTimeMinutes = (dateOrTimeStr) => {
     return parseOfficeTimeToMinutes(dateOrTimeStr);
   }
 
-  // It's a full ISO date string. Parse it in IST.
-  const d = new Date(dateOrTimeStr);
+  // It's a full ISO or date string. Parse it safely in IST.
+  const d = parseToDate(dateOrTimeStr);
+  if (!d || isNaN(d.getTime())) return 0;
   const options = { timeZone: TIMEZONE, hour: '2-digit', minute: '2-digit', hour12: false };
   const timeString = new Intl.DateTimeFormat('en-GB', options).format(d); // "HH:mm"
   return parseOfficeTimeToMinutes(timeString);
@@ -122,23 +174,30 @@ const calculateCheckOutStatus = (logoutTimeStr, officeEndTimeMins) => {
 
 const calculateWorkedMinutes = (loginTimeStr, logoutTimeStr, officeStartTimeMins = null) => {
   if (!loginTimeStr || !logoutTimeStr) return 0;
-  
-  let d1 = new Date(loginTimeStr);
-  const d2 = new Date(logoutTimeStr);
-  
-  // If officeStartTimeMins is provided, calculate effective login time
-  if (officeStartTimeMins !== null) {
-    const loginMins = getLocalTimeMinutes(loginTimeStr);
-    if (loginMins < officeStartTimeMins) {
-      const earlyMs = (officeStartTimeMins - loginMins) * 60 * 1000;
-      d1 = new Date(d1.getTime() + earlyMs);
-    }
+
+  const loginIST = getISTMinuteData(loginTimeStr);
+  const logoutIST = getISTMinuteData(logoutTimeStr);
+  if (!loginIST || !logoutIST) return 0;
+
+  // If officeStartTimeMins is provided and employee checked in early, effective start is office start time
+  let effectiveLoginMinute = loginIST.minuteOfDay;
+  if (officeStartTimeMins !== null && effectiveLoginMinute < officeStartTimeMins) {
+    effectiveLoginMinute = officeStartTimeMins;
   }
-  
-  const ms = d2.getTime() - d1.getTime();
-  if (ms <= 0) return 0;
-  
-  return Math.floor(ms / (1000 * 60));
+
+  // Same calendar day in IST
+  if (loginIST.dateStr === logoutIST.dateStr) {
+    const worked = logoutIST.minuteOfDay - effectiveLoginMinute;
+    return worked > 0 ? worked : 0;
+  }
+
+  // Cross-date calculation using epoch minutes
+  let adjustedLoginEpoch = loginIST.epochMinute;
+  if (officeStartTimeMins !== null && loginIST.minuteOfDay < officeStartTimeMins) {
+    adjustedLoginEpoch += (officeStartTimeMins - loginIST.minuteOfDay);
+  }
+  const worked = logoutIST.epochMinute - adjustedLoginEpoch;
+  return worked > 0 ? worked : 0;
 };
 
 const formatTime12Hour = (dateOrTimeStr) => {
